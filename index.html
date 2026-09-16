@@ -341,41 +341,35 @@ function displayTotal(t){
   return isNaN(n) ? String(t) : money(n);
 }
 
-function submitViaHiddenForm(payloadObj){
-  return new Promise((resolve)=>{
-    let frame = document.getElementById('hidden_submit_frame');
-    if(!frame){
-      frame = document.createElement('iframe');
-      frame.name = 'hidden_submit_frame';
-      frame.id = 'hidden_submit_frame';
-      frame.style.display = 'none';
-      document.body.appendChild(frame);
+function submitViaGet(action, payloadObj){
+  return new Promise((resolve, reject)=>{
+    const encoded = encodeURIComponent(JSON.stringify(payloadObj));
+    const url = `${CONFIG.apiUrl}?action=${action}&payload=${encoded}`;
+    if(url.length > 7500){
+      reject(new Error('payload too large for URL'));
+      return;
     }
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = CONFIG.apiUrl;
-    form.target = 'hidden_submit_frame';
-    form.style.display = 'none';
-
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'payload';
-    input.value = JSON.stringify(payloadObj);
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    // a real hidden-iframe form POST — reliably reaches Apps Script even
-    // when fetch() gets tripped up by its internal redirect. We can't read
-    // a response back (iframe content is opaque cross-origin), so we just
-    // give it a moment to land before resolving.
-    setTimeout(resolve, 600);
+    fetch(url).then(()=>resolve(true)).catch(reject);
   });
 }
 
 async function saveBooking(data){
-  await submitViaHiddenForm(Object.assign({ action:"create" }, data));
+  const full = Object.assign({}, data);
+  try{
+    await submitViaGet('create', full);
+  }catch(err){
+    // most likely the reference photos pushed the URL over a safe length —
+    // retry without them so the booking itself still goes through
+    if(full.photos && full.photos.length){
+      const withoutPhotos = Object.assign({}, full, {
+        photos: [],
+        notes: (full.notes ? full.notes + ' ' : '') + '(client attached reference photos that were too large to send automatically — ask them to DM the photos on IG)'
+      });
+      await submitViaGet('create', withoutPhotos);
+    } else {
+      throw err;
+    }
+  }
   return true;
 }
 async function listBookings(){
@@ -386,7 +380,7 @@ async function listBookings(){
   return bookings;
 }
 async function updateStatus(key, status){
-  await submitViaHiddenForm({ action:"updateStatus", key, status });
+  await submitViaGet('updateStatus', { key, status });
 }
 
 function fileToCompressedDataURL(file, maxW=700, quality=0.65){
