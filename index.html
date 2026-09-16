@@ -341,16 +341,41 @@ function displayTotal(t){
   return isNaN(n) ? String(t) : money(n);
 }
 
-async function saveBooking(data){
-  // no-cors: we don't need to read Google's response back, just confirm the
-  // request went out. Trying to read a cross-origin response from Apps Script
-  // is what was throwing "something went wrong" even when the save succeeded.
-  await fetch(CONFIG.apiUrl, {
-    method:"POST",
-    mode:"no-cors",
-    headers:{ "Content-Type":"text/plain;charset=utf-8" },
-    body: JSON.stringify(Object.assign({ action:"create" }, data))
+function submitViaHiddenForm(payloadObj){
+  return new Promise((resolve)=>{
+    let frame = document.getElementById('hidden_submit_frame');
+    if(!frame){
+      frame = document.createElement('iframe');
+      frame.name = 'hidden_submit_frame';
+      frame.id = 'hidden_submit_frame';
+      frame.style.display = 'none';
+      document.body.appendChild(frame);
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = CONFIG.apiUrl;
+    form.target = 'hidden_submit_frame';
+    form.style.display = 'none';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify(payloadObj);
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    // a real hidden-iframe form POST — reliably reaches Apps Script even
+    // when fetch() gets tripped up by its internal redirect. We can't read
+    // a response back (iframe content is opaque cross-origin), so we just
+    // give it a moment to land before resolving.
+    setTimeout(resolve, 600);
   });
+}
+
+async function saveBooking(data){
+  await submitViaHiddenForm(Object.assign({ action:"create" }, data));
   return true;
 }
 async function listBookings(){
@@ -361,12 +386,7 @@ async function listBookings(){
   return bookings;
 }
 async function updateStatus(key, status){
-  await fetch(CONFIG.apiUrl, {
-    method:"POST",
-    mode:"no-cors",
-    headers:{ "Content-Type":"text/plain;charset=utf-8" },
-    body: JSON.stringify({ action:"updateStatus", key, status })
-  });
+  await submitViaHiddenForm({ action:"updateStatus", key, status });
 }
 
 function fileToCompressedDataURL(file, maxW=700, quality=0.65){
