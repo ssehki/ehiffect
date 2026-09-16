@@ -342,12 +342,16 @@ function displayTotal(t){
 }
 
 async function saveBooking(data){
-  const res = await fetch(CONFIG.apiUrl, {
+  // no-cors: we don't need to read Google's response back, just confirm the
+  // request went out. Trying to read a cross-origin response from Apps Script
+  // is what was throwing "something went wrong" even when the save succeeded.
+  await fetch(CONFIG.apiUrl, {
     method:"POST",
+    mode:"no-cors",
     headers:{ "Content-Type":"text/plain;charset=utf-8" },
     body: JSON.stringify(Object.assign({ action:"create" }, data))
   });
-  return res.json();
+  return true;
 }
 async function listBookings(){
   const res = await fetch(CONFIG.apiUrl + "?action=list");
@@ -359,6 +363,7 @@ async function listBookings(){
 async function updateStatus(key, status){
   await fetch(CONFIG.apiUrl, {
     method:"POST",
+    mode:"no-cors",
     headers:{ "Content-Type":"text/plain;charset=utf-8" },
     body: JSON.stringify({ action:"updateStatus", key, status })
   });
