@@ -176,6 +176,7 @@
   .status-denied{ background:#5c2f2f; color:#e9c9c9; }
   .status-no-show{ background:#3d2f5c; color:#d6c9f0; }
   .repeat-flag{ display:inline-block; background:#7a2f2f; color:#fff; font-size:10px; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+  .returning-flag{ display:inline-block; background:#2f4a5c; color:#c9e0e9; font-size:10px; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
   .booking-detail{ font-size:13.5px; margin-top:10px; line-height:1.7; color:var(--cream); }
   .booking-detail .k{ color:var(--muted); }
   .booking-photos{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
@@ -235,10 +236,11 @@ const INSTALLS = {
 const FULANI_SURCHARGE = { qw: 70, si: 70 };
 
 const INSTALL_ADDONS = [
-  { key:"trim", name:"Trim", price:10 },
-  { key:"curls", name:"Curls / wand styling", price:15 },
+  { key:"trim", name:"Trim", price:10, note:"Different from face framing" },
+  { key:"curls", name:"Curls / wand styling", price:10 },
   { key:"closure", name:"Closure install", price:20 },
-  { key:"extraBundle", name:"Extra bundle (syn/human only)", price:25 },
+  { key:"extraBundleSynthetic", name:"Extra bundle (synthetic)", price:25 },
+  { key:"extraBundleHuman", name:"Extra bundle (human)", price:40 },
   { key:"color", name:"Color (per bundle)", price:30 },
 ];
 
@@ -270,7 +272,7 @@ const DEALS = [
   { key:"hallohair", name:"Hallohair", desc:"Free curls/crimps with any Quick Weave or Sew-In", type:"freeAddon" },
   { key:"campuscutie", name:"Campus Cutie", desc:"$15 off — Wednesdays & Sundays only (ID required)", type:"flat", value:15, dayGated:true },
   { key:"bestie", name:"Bestie Bonus", desc:"Book with a bestie — each of you gets $20 off", type:"flat", value:20 },
-  { key:"loyalty", name:"Loyalty Love", desc:"Your 5th install is 50% off", type:"percent", value:50 },
+  { key:"loyalty", name:"Loyalty Love", desc:"Your 5th install or more is 50% off", type:"percent", value:50 },
   { key:"flash", name:"Flash Deal", desc:"A random discount announced on my IG stories — mention it and I'll confirm", type:"custom" },
 ];
 const MAX_DEALS = 2;
@@ -433,7 +435,7 @@ let state = {
   cornrowKey: null,
   treatmentKeys: {},
   crochetHairSource: null, crochetConfirmed: false, crochetDetails: "",
-  bundleQty: 1, bundleDetails: "", bundleTexture: "",
+  bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "",
   installTexture: "",
   dealsSelected: [],
   bestieInfo: "", loyaltyVisit: "", btcFirstConfirmed: false,
@@ -452,7 +454,7 @@ function resetSelection(){
   state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false;
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
-  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture="";
+  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource="";
   state.installTexture="";
   state.dealsSelected=[];
   state.bestieInfo=""; state.loyaltyVisit=""; state.btcFirstConfirmed=false;
@@ -524,7 +526,7 @@ function calcTotal(){
         if(!deal) return;
         if(deal.key==='btc' && !state.btcFirstConfirmed) return; // not confirmed yet, no discount
         if(deal.key==='campuscutie' && !isCampusCutieDay(state.date)) return; // wrong day, no discount
-        if(deal.key==='loyalty' && state.loyaltyVisit !== '5th') return; // only the 5th install qualifies
+        if(deal.key==='loyalty' && state.loyaltyVisit !== '5th+') return; // only the 5th install or later qualifies
         if(deal.type==='flat') total -= deal.value;
         else if(deal.type==='percent') total -= total * (deal.value/100);
         else if(deal.type==='freeAddon' && (state.category==='qw'||state.category==='si') && state.addons.curls){
@@ -572,7 +574,7 @@ function serviceLabelText(){
     if(state.treatmentGroupSize > 1) s += ` [group of ${state.treatmentGroupSize}: ${state.treatmentGroupNames||'names not given'}]`;
     return s;
   }
-  if(state.category==='bundles') return `Bundle purchase only — qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
+  if(state.category==='bundles') return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
   return '';
 }
 
@@ -704,7 +706,12 @@ function renderBook(){
 
       ${state.category==='bundles' ? `
         <div style="margin-top:14px;">
-          <div class="field">
+          <div class="opt-sub" style="margin-bottom:6px;">Virgin or raw hair?</div>
+          <div class="length-row">
+            <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
+            <div class="length-btn ${state.bundleHairSource==='raw'?'selected':''}" data-action="pick-bundle-source" data-key="raw">Raw hair</div>
+          </div>
+          <div class="field" style="margin-top:14px;">
             <label>Hair type</label>
             <select id="f-bundle-texture" data-action="pick-bundle-texture">
               <option value="">choose a texture</option>
@@ -732,7 +739,7 @@ function renderBook(){
     ${(state.category==='qw'||state.category==='si') && state.tierKey ? `
     <div class="card">
       <div class="step-label"><span class="step-num">2</span><span class="step-title">Add-ons</span></div>
-      ${INSTALL_ADDONS.map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>`).join('')}
+      ${INSTALL_ADDONS.map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>${a.note ? `<div class="addon-note">${a.note}</div>` : ''}`).join('')}
       <div class="total-bar"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
@@ -794,9 +801,9 @@ function renderBook(){
               <label>Which install is this for you?</label>
               <select id="f-loyalty-visit" data-action="pick-loyalty-visit">
                 <option value="">choose one</option>
-                ${['1st','2nd','3rd','4th','5th'].map(v=>`<option value="${v}" ${state.loyaltyVisit===v?'selected':''}>${v} install</option>`).join('')}
+                ${['1st','2nd','3rd','4th','5th+'].map(v=>`<option value="${v}" ${state.loyaltyVisit===v?'selected':''}>${v} install</option>`).join('')}
               </select>
-              ${state.loyaltyVisit && state.loyaltyVisit!=='5th' ? `<div class="opt-sub" style="margin-top:5px;">This deal is for your 5th install — I'll double check before applying any discount.</div>` : ''}
+              ${state.loyaltyVisit && state.loyaltyVisit!=='5th+' ? `<div class="opt-sub" style="margin-top:5px;">This deal is for your 5th install or later — I'll double check before applying any discount.</div>` : ''}
             </div>` : ''}
           ${(d.key==='btc' && state.dealsSelected.includes('btc')) ? `
             <div class="agree-row" style="margin-top:-2px;">
@@ -853,9 +860,21 @@ function renderBook(){
 }
 
 function renderConfirm(){
+  const svcLabel = serviceLabelText();
+  const whenLine = state.category==='bundles'
+    ? (state.date ? `Pickup: ${state.date}` : '')
+    : [state.date, state.time].filter(Boolean).join(' at ');
   return `<div class="wrap"><div class="confirm">${checkSVG}<h2>Request sent!</h2>
-  <p>I've got your details. Send your <b>${money(CONFIG.depositAmount)}</b> deposit to <span class="cashtag">${CONFIG.cashtag}</span> to hold your spot — I'll text you to confirm your exact time within 24 hours.</p>
-  <button data-action="book-again">Book another</button></div></div>`;
+  <div class="policy-box" style="text-align:left;">
+    ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
+    ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
+    <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
+  </div>
+  <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get a text within <b>24 hours</b> letting you know if it's approved or not.</p>
+  <p>Once approved, send your <b>${money(CONFIG.depositAmount)}</b> deposit to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to hold your spot.</p>
+  <button data-action="book-again">Book another</button>
+  <button data-action="go-landing" style="margin-top:10px;">Back to homepage</button>
+  </div></div>`;
 }
 
 function renderGate(){
@@ -875,6 +894,8 @@ function renderAdmin(){
   const filtered = state.filter === 'all' ? state.bookings : state.bookings.filter(b=>b.status===state.filter);
   const noShowCounts = {};
   state.bookings.forEach(b=>{ if(b.status==='no-show' && b.phone){ noShowCounts[b.phone] = (noShowCounts[b.phone]||0)+1; } });
+  const approvedCounts = {};
+  state.bookings.forEach(b=>{ if(b.status==='approved' && b.phone){ approvedCounts[b.phone] = (approvedCounts[b.phone]||0)+1; } });
   return `<div class="wrap admin-wrap">
     <div class="admin-header">
       <img class="logo-img small" src="data:image/png;base64,${LOGO_B64}" alt="The Ehiffect"/>
@@ -886,7 +907,7 @@ function renderAdmin(){
     ${filtered.length===0 ? `<div class="empty">No bookings here yet.</div>` : filtered.map(b=>`
       <div class="booking-card">
         <div class="booking-top">
-          <div><div class="booking-name">${b.name || 'no name'}${(noShowCounts[b.phone]||0) >= 2 ? `<span class="repeat-flag">repeat no-show</span>` : ''}</div><div class="booking-meta">${b.phone || ''} ${b.ig ? '· ' + b.ig : ''}</div></div>
+          <div><div class="booking-name">${b.name || 'no name'}${(noShowCounts[b.phone]||0) >= 2 ? `<span class="repeat-flag">repeat no-show</span>` : ''}${(approvedCounts[b.phone]||0) >= 2 ? `<span class="returning-flag">returning ×${approvedCounts[b.phone]}</span>` : ''}</div><div class="booking-meta">${b.phone || ''} ${b.ig ? '· ' + b.ig : ''}</div></div>
           <span class="status-pill status-${b.status}">${b.status}</span>
         </div>
         <div class="booking-detail">
@@ -949,6 +970,7 @@ function attachHandlers(){
       else if(action==='toggle-crochet-confirm'){ state.crochetConfirmed = !state.crochetConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
       else if(action==='qty-minus'){ state.bundleQty = Math.max(1, state.bundleQty-1); }
+      else if(action==='pick-bundle-source'){ state.bundleHairSource = key; }
       else if(action==='pick-bundle-texture'){ state.bundleTexture = el.value; }
       else if(action==='toggle-agree'){ state.agreedPolicy = !state.agreedPolicy; }
       else if(action==='remove-photo'){ state.photos.splice(parseInt(key),1); }
@@ -999,7 +1021,7 @@ function attachHandlers(){
       }
       else if(action==='book-again'){
         const bookings = state.bookings;
-        state = { view:"landing", category:null, hideCategoryGrid:false, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", installTexture:"", dealsSelected:[], bestieInfo:"", loyaltyVisit:"", btcFirstConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view:"book", category:null, hideCategoryGrid:false, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", installTexture:"", dealsSelected:[], bestieInfo:"", loyaltyVisit:"", btcFirstConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
