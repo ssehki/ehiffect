@@ -544,7 +544,7 @@ function calcTotal(){
   }
   return total;
 }
-function serviceLabelText(clientFacing){
+function dealsLabelText(clientFacing){
   const dealDetails = [];
   state.dealsSelected.forEach(dk=>{
     const deal = DEALS.find(d=>d.key===dk);
@@ -558,19 +558,20 @@ function serviceLabelText(clientFacing){
     dealDetails.push(line);
   });
   if(isThanksgivingWeek(state.date)) dealDetails.push(clientFacing ? 'Thanksgiving Week (15% off)' : 'Thanksgiving week (auto 15% off)');
-  const dealSuffix = dealDetails.length ? ` — Deals: ${dealDetails.join(', ')}` : '';
-
+  return dealDetails.join(', ');
+}
+function serviceLabelText(){
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier(); if(!tier) return '';
     let s = `${INSTALLS[state.category].label} — ${tier.name}`;
     if(state.installTexture) s += `, texture: ${state.installTexture}`;
     if(state.style === 'fulani') s += ` (Fulani styling)`;
     if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${state.length}`;
-    return s + dealSuffix;
+    return s;
   }
-  if(state.category==='braids') return `${BRAID_STYLES[state.braidStyle]||''} — ${state.braidSize||''} (${state.ownHair==='own'?'client has own hair':'needs hair provided'})${state.braidBoho ? ' + boho pieces' : ''}` + dealSuffix;
-  if(state.category==='cornrows'){ const c = CORNROW_OPTIONS.find(c=>c.key===state.cornrowKey); return (c ? `Cornrows — ${c.name}` : '') + dealSuffix; }
-  if(state.category==='crochet') return `Crochet (no leave-out) — ${state.crochetHairSource==='own'?'client has own hair':'stylist providing hair'} — details: ${state.crochetDetails}` + dealSuffix;
+  if(state.category==='braids') return `${BRAID_STYLES[state.braidStyle]||''} — ${state.braidSize||''} (${state.ownHair==='own'?'client has own hair':'needs hair provided'})${state.braidBoho ? ' + boho pieces' : ''}`;
+  if(state.category==='cornrows'){ const c = CORNROW_OPTIONS.find(c=>c.key===state.cornrowKey); return (c ? `Cornrows — ${c.name}` : ''); }
+  if(state.category==='crochet') return `Crochet (no leave-out) — ${state.crochetHairSource==='own'?'client has own hair':'stylist providing hair'} — details: ${state.crochetDetails}`;
   if(state.category==='treatments'){
     let s = TREATMENTS.filter(t=>state.treatmentKeys[t.key]).map(t=>t.name).join(' + ');
     if(state.treatmentGroupSize > 1) s += ` [group of ${state.treatmentGroupSize}: ${state.treatmentGroupNames||'names not given'}]`;
@@ -863,7 +864,8 @@ function renderBook(){
 }
 
 function renderConfirm(){
-  const svcLabel = serviceLabelText(true);
+  const svcLabel = serviceLabelText();
+  const dealsLabel = dealsLabelText(true);
   const whenLine = state.category==='bundles'
     ? (state.date ? `Pickup: ${state.date}` : '')
     : [state.date, state.time].filter(Boolean).join(' at ');
@@ -871,6 +873,7 @@ function renderConfirm(){
   <div class="policy-box" style="text-align:left;">
     ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
+    ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
     <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
   </div>
   <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get a text within <b>24 hours</b> letting you know if it's approved or not.</p>
@@ -943,10 +946,11 @@ function renderAdmin(){
         </div>
         <div class="booking-detail">
           <div><span class="k">Service:</span> ${b.serviceLabel}</div>
+          ${b.dealsUsed ? `<div><span class="k">Deals:</span> ${b.dealsUsed}</div>` : ''}
           <div><span class="k">Preferred:</span> ${b.date || '—'} ${b.time || ''}</div>
           <div><span class="k">Total:</span> ${displayTotal(b.total)}</div>
           ${b.notes ? `<div><span class="k">Notes:</span> ${b.notes}</div>` : ''}
-          <div><span class="k">Submitted:</span> ${b.submittedAt ? new Date(Number(b.submittedAt)).toLocaleString() : ''}</div>
+          <div><span class="k">Submitted:</span> ${b.submittedAt || ''}</div>
         </div>
         ${b.photos && b.photos.length ? `<div class="booking-photos">${b.photos.map(p=>`<img src="${p}" data-action="view-photo" data-src="${p}"/>`).join('')}</div>` : ''}
         <div class="booking-actions">
@@ -1045,7 +1049,7 @@ function attachHandlers(){
         const rawTotal = calcTotal();
         const booking = {
           name: state.name, phone: state.phone, ig: state.ig, date: state.date, time: state.time, notes: state.notes,
-          photos: state.photos, serviceLabel: serviceLabelText(), total: (rawTotal===null ? "Quote pending" : rawTotal)
+          photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(), total: (rawTotal===null ? "Quote pending" : rawTotal)
         };
         el.disabled = true; el.textContent = "Sending...";
         try{ await saveBooking(booking); state.view = 'confirm'; }
