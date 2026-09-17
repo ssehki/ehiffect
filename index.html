@@ -472,6 +472,7 @@ function render(){
   else if(state.view === "confirm") app.innerHTML = renderConfirm();
   else if(state.view === "admin-gate") app.innerHTML = renderGate();
   else if(state.view === "admin") app.innerHTML = renderAdmin();
+  else if(state.view === "questions") app.innerHTML = renderQuestions();
   attachHandlers();
 }
 
@@ -543,11 +544,12 @@ function calcTotal(){
   }
   return total;
 }
-function serviceLabelText(){
+function serviceLabelText(clientFacing){
   const dealDetails = [];
   state.dealsSelected.forEach(dk=>{
     const deal = DEALS.find(d=>d.key===dk);
     if(!deal) return;
+    if(clientFacing){ dealDetails.push(deal.name); return; }
     let line = deal.name;
     if(dk==='bestie') line += ` (bestie: ${state.bestieInfo||'not given'})`;
     if(dk==='loyalty') line += ` (client says: ${state.loyaltyVisit||'not specified'} install)`;
@@ -555,8 +557,8 @@ function serviceLabelText(){
     if(dk==='campuscutie') line += isCampusCutieDay(state.date) ? ' (date matches Wed/Sun)' : ' (date does NOT match Wed/Sun — verify)';
     dealDetails.push(line);
   });
-  if(isThanksgivingWeek(state.date)) dealDetails.push('Thanksgiving week (auto 15% off)');
-  const dealSuffix = dealDetails.length ? ` [deals: ${dealDetails.join('; ')}]` : '';
+  if(isThanksgivingWeek(state.date)) dealDetails.push(clientFacing ? 'Thanksgiving Week (15% off)' : 'Thanksgiving week (auto 15% off)');
+  const dealSuffix = dealDetails.length ? ` — Deals: ${dealDetails.join(', ')}` : '';
 
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier(); if(!tier) return '';
@@ -601,6 +603,7 @@ function renderLanding(){
       <button class="cta-btn secondary" data-action="landing-pick" data-key="bundles">Bundles</button>
     </div>
 
+    <div class="back-link" data-action="go-questions" style="display:block; text-align:center; margin-top:8px;">Questions about your appointment? ›</div>
     <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
@@ -860,7 +863,7 @@ function renderBook(){
 }
 
 function renderConfirm(){
-  const svcLabel = serviceLabelText();
+  const svcLabel = serviceLabelText(true);
   const whenLine = state.category==='bundles'
     ? (state.date ? `Pickup: ${state.date}` : '')
     : [state.date, state.time].filter(Boolean).join(' at ');
@@ -873,8 +876,36 @@ function renderConfirm(){
   <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get a text within <b>24 hours</b> letting you know if it's approved or not.</p>
   <p>Once approved, send your <b>${money(CONFIG.depositAmount)}</b> deposit to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to hold your spot.</p>
   <button data-action="book-again">Book another</button>
-  <button data-action="go-landing" style="margin-top:10px;">Back to homepage</button>
+  <button data-action="go-landing" style="margin-top:10px;">Homepage</button>
+  <div class="back-link" data-action="go-questions" style="margin-top:16px;">Questions about your appointment? ›</div>
   </div></div>`;
+}
+
+function renderQuestions(){
+  return `<div class="wrap">
+    <div class="hero">
+      <h1 class="title" style="margin-top:0;">Questions About Your Appointment</h1>
+      <p class="tagline">uncomplicated &amp; at your service</p>
+    </div>
+    <div class="card">
+      <span class="back-link" data-action="go-landing">&lsaquo; back</span>
+      <div class="step-label"><span class="step-title">Haven't heard back yet?</span></div>
+      <p class="opt-sub">I confirm every request by text within 24 hours. If it's been longer than that, DM me on Instagram and I'll take a look.</p>
+    </div>
+    <div class="card">
+      <div class="step-label"><span class="step-title">Need to reschedule or cancel?</span></div>
+      <p class="opt-sub">${CONFIG.policyText}</p>
+    </div>
+    <div class="card">
+      <div class="step-label"><span class="step-title">Wondering about your deposit?</span></div>
+      <p class="opt-sub">Deposits go to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App and come off your total at your appointment. DM me if you're not sure yours went through.</p>
+    </div>
+    <div class="card">
+      <div class="step-label"><span class="step-title">Anything else?</span></div>
+      <p class="opt-sub">DM @ehiffect on Instagram — that's the fastest way to reach me.</p>
+    </div>
+    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
+  </div>`;
 }
 
 function renderGate(){
@@ -943,6 +974,7 @@ function attachHandlers(){
         else { state.category = null; state.hideCategoryGrid = false; }
       }
       else if(action==='go-landing'){ state.view = 'landing'; }
+      else if(action==='go-questions'){ state.view = 'questions'; }
       else if(action==='switch-to-service'){ resetSelection(); state.category = null; state.hideCategoryGrid = false; }
       else if(action==='pick-category'){ state.category = key; resetSelection(); }
       else if(action==='toggle-deal'){
