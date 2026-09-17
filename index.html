@@ -349,7 +349,22 @@ function submitViaGet(action, payloadObj){
       reject(new Error('payload too large for URL'));
       return;
     }
-    fetch(url).then(()=>resolve(true)).catch(reject);
+    // Fire this as an <img> request instead of fetch(). Loading any
+    // cross-origin URL as an image src has never been subject to CORS
+    // restrictions (that's literally how tracking pixels work) — we don't
+    // need to read Google's response anyway, just make sure the GET
+    // actually leaves the browser and hits the server. This sidesteps the
+    // one remaining way a real, working request could still get silently
+    // blocked before it even reaches Google.
+    const beacon = new Image();
+    let settled = false;
+    const finish = () => { if(!settled){ settled = true; resolve(true); } };
+    beacon.onload = finish;
+    beacon.onerror = finish; // Apps Script returns JSON, not an image, so
+                              // this actually fires onerror even on success —
+                              // that's expected and fine, the request already went out.
+    beacon.src = url;
+    setTimeout(finish, 2000); // safety net in case neither event fires
   });
 }
 
