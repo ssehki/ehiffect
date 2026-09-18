@@ -205,7 +205,10 @@ const CONFIG = {
   cashtag: "$ehiixs",
   depositAmount: 20,
   adminPasscode: "ehiffect26",
-  policyText: "Please arrive on time — appointments running more than 15 minutes late may need to be rescheduled or shortened. Cancellations or reschedules need at least 24 hours notice, or your deposit is forfeited.",
+  lateFeeAmount: 10,
+  lateFeeMinutes: 10,
+  lateCancelMinutes: 20,
+  washFee: 20,
   // PASTE your deployed Google Apps Script Web App URL here (see Code.gs instructions):
   apiUrl: "https://script.google.com/macros/s/AKfycbwBeEDZZDNOq_pkL5eW422wCTWIOe0xPfxuVJ0w8hrsbIrl1IV6Ar1a1KWddFR_Du8a/exec",
 };
@@ -281,8 +284,9 @@ const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
 
 const GIFT_THRESHOLD = 200;
 const GIFT_UPGRADE_PRICE = 50;
-const BUNDLE_CARE_KIT_BASIC = 20;
-const BUNDLE_CARE_KIT_LUXURY = 50;
+const BUNDLE_CARE_KIT_PRICE = 18;
+const BUNDLE_CARE_KIT_ORIGINAL = 25;
+const BRAID_HAIR_PACK_PRICE = 20;
 const BOOKING_TYPE_DISCOUNT = { couple: 0.15, bestie: 0.15, bestieSewIn: 0.30 };
 
 function getThanksgivingDate(year){
@@ -445,17 +449,29 @@ function fileToCompressedDataURL(file, maxW=700, quality=0.65){
 
 const checkSVG = `<svg viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="25" stroke="#B85C82" stroke-width="2"/><path d="M15 27l7 7 15-15" stroke="#B85C82" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
+function fullPolicyHTML(){
+  return `
+    <div><b>Deposit:</b> $${CONFIG.depositAmount} required — refunded only if the appointment is cancelled at least 24 hours ahead.</div>
+    <div style="margin-top:8px;"><b>No call / no show:</b> no rebooking.</div>
+    <div style="margin-top:8px;"><b>Late fee:</b> $${CONFIG.lateFeeAmount} after ${CONFIG.lateFeeMinutes} minutes late, appointment cancelled after ${CONFIG.lateCancelMinutes} minutes (exception if communicated at least 2 hours prior).</div>
+    <div style="margin-top:8px;"><b>Hair prep:</b> come with your hair ready to go — an extra $${CONFIG.washFee} applies for washing/drying.</div>
+    <div style="margin-top:8px;"><b>Cancellations/rescheduling:</b> must be done at least 24 hours beforehand (special exceptions considered — if you're sick, please reschedule!).</div>
+    <div style="margin-top:8px;"><b>Add-ons:</b> please mention add-ons (bundles, color, closures) at booking so I can schedule enough time.</div>
+    <div style="margin-top:10px; color:var(--pink);">I'm a student too 💕 — I expect we'll respect each other's time. Thank you for understanding!</div>
+  `;
+}
+
 /* ============== state ============== */
 let state = {
   view: "landing",
   category: null,
   style: "traditional", // traditional | fulani (qw/si only)
   tierKey: null, length: null, addBundleCount: 0, addons: {},
-  braidStyle: null, braidSize: null, ownHair: null, braidBoho: false,
+  braidStyle: null, braidSize: null, ownHair: null, braidBoho: false, braidHairPacks: 1, twistHairType: "",
   cornrowKey: null,
   treatmentKeys: {},
   crochetHairSource: null, crochetConfirmed: false, crochetDetails: "",
-  bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "", bundleCareKit: "basic",
+  bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "",
   customDetails: "",
   installTexture: "",
   dealsSelected: [],
@@ -474,10 +490,10 @@ let state = {
 function resetSelection(){
   state.style="traditional";
   state.tierKey=null; state.length=null; state.addBundleCount=0; state.addons={};
-  state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false;
+  state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1; state.twistHairType="";
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
-  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleCareKit="basic";
+  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource="";
   state.customDetails="";
   state.installTexture="";
   state.dealsSelected=[];
@@ -532,6 +548,7 @@ function computeBaseTotal(){
     const size = BRAID_SIZES.find(s=>s.key===state.braidSize);
     if(size) total += size.price;
     if(state.braidBoho) total += BOHO_PRICE;
+    if(state.ownHair==='provide') total += state.braidHairPacks * BRAID_HAIR_PACK_PRICE;
   } else if(state.category==='cornrows'){
     const c = CORNROW_OPTIONS.find(c=>c.key===state.cornrowKey);
     if(c) total += c.price;
@@ -594,6 +611,11 @@ function giftEligible(){
   if(state.category==='si' && state.tierKey && state.tierKey!=='service' && state.isFirstTimeSewin===true) return true;
   return false;
 }
+function bookingTypeNoteText(){
+  if(state.bookingType==='couple') return "Couple's Deal: please book your appointment on a different day than your partner — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
+  if(state.bookingType==='bestie') return "Bestie Deal: please book your appointment on a different day than your bestie — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
+  return '';
+}
 function giftNoteText(){
   if(state.bookingType==='couple') return "Your Couple's Deal booking includes a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
   if(state.bookingType==='bestie') return "Your Bestie Deal booking includes a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
@@ -612,7 +634,7 @@ function giftLabelText(){
   return `${kit} — ${reasons.join(', ')}`;
 }
 function bundleCareKitCost(){
-  return state.bundleQty * (state.bundleCareKit==='luxury' ? BUNDLE_CARE_KIT_LUXURY : BUNDLE_CARE_KIT_BASIC);
+  return BUNDLE_CARE_KIT_PRICE; // flat, once per order — not per bundle
 }
 function calcTotal(){
   const base = computeBaseTotal();
@@ -646,7 +668,13 @@ function serviceLabelText(){
     if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${state.length}`;
     return s;
   }
-  if(state.category==='braids') return `${BRAID_STYLES[state.braidStyle]||''} — ${state.braidSize||''} (${state.ownHair==='own'?'client has own hair':'needs hair provided'})${state.braidBoho ? ' + boho pieces' : ''}`;
+  if(state.category==='braids'){
+    let s = `${BRAID_STYLES[state.braidStyle]||''} — ${state.braidSize||''} (${state.ownHair==='own'?'client has own hair':'needs hair provided'})`;
+    if(state.ownHair==='provide') s += `, ${state.braidHairPacks} pack(s) of hair`;
+    if(state.braidStyle==='twist' && state.twistHairType) s += `, ${state.twistHairType==='marley'?'Marley hair':'normal braiding hair'}`;
+    if(state.braidBoho) s += ' + boho pieces';
+    return s;
+  }
   if(state.category==='cornrows'){ const c = CORNROW_OPTIONS.find(c=>c.key===state.cornrowKey); return (c ? `Cornrows — ${c.name}` : ''); }
   if(state.category==='crochet') return `Crochet (no leave-out) — ${state.crochetHairSource==='own'?'client has own hair':'stylist providing hair'} — details: ${state.crochetDetails}`;
   if(state.category==='treatments'){
@@ -726,7 +754,6 @@ function renderBook(){
           <label>Partner's Instagram handle or phone number</label>
           <input type="text" id="f-partner-contact" value="${state.partnerContact}" placeholder="@theirhandle or their number"/>
         </div>
-        <div class="avail-note">Please book your appointment on a different day than your partner/bestie — we can't do both in one session. I'll confirm both bookings match before applying your deal.</div>
         ` : ''}
       </div>` : ''}
 
@@ -776,6 +803,18 @@ function renderBook(){
           <div class="cat-grid">${Object.entries(BRAID_STYLES).map(([k,name])=>`<div class="cat ${state.braidStyle===k?'selected':''}" data-action="pick-braid-style" data-key="${k}"><div class="cat-name">${name}</div></div>`).join('')}</div>
           ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${BRAID_SIZES.map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><span class="opt-name">${s.name}</span><span class="opt-price">${money(s.price)}</span></div>`).join('')}` : ''}
           ${state.braidSize ? `<div class="opt-sub" style="margin:12px 0 2px;">Hair</div><div class="length-row"><div class="length-btn ${state.ownHair==='own'?'selected':''}" data-action="pick-own-hair" data-key="own">I have my own hair</div><div class="length-btn ${state.ownHair==='provide'?'selected':''}" data-action="pick-own-hair" data-key="provide">Please provide hair</div></div>` : ''}
+          ${state.braidStyle==='twist' && state.braidSize ? `
+            <div class="opt-sub" style="margin:12px 0 2px;">Twist hair type</div>
+            <div class="length-row">
+              <div class="length-btn ${state.twistHairType==='normal'?'selected':''}" data-action="pick-twist-hair-type" data-key="normal">Normal braiding hair</div>
+              <div class="length-btn ${state.twistHairType==='marley'?'selected':''}" data-action="pick-twist-hair-type" data-key="marley">Marley hair</div>
+            </div>` : ''}
+          ${state.ownHair==='provide' ? `
+            <div class="bundle-row" style="margin-top:10px;">
+              <span class="opt-sub">Hair packs needed (${money(BRAID_HAIR_PACK_PRICE)}/pack)</span>
+              <div class="stepper"><button data-action="braid-packs-minus" ${state.braidHairPacks<=1?'disabled':''}>−</button><span>${state.braidHairPacks}</span><button data-action="braid-packs-plus">+</button></div>
+            </div>
+            <div class="opt-sub">Pick as many packs as you'll need — ${money(state.braidHairPacks*BRAID_HAIR_PACK_PRICE)} total.</div>` : ''}
           ${state.ownHair ? `
             <div class="addon-row" style="margin-top:6px;">
               <label><input type="checkbox" data-action="toggle-boho" ${state.braidBoho?'checked':''}/>Add boho pieces</label>
@@ -851,6 +890,7 @@ function renderBook(){
       <div class="field"><label>Preferred time</label><input type="time" id="f-time" value="${state.time}" step="900" ${(()=>{ const b=getDayBounds(state.date); return b ? `min="${b.min}" max="${b.max}"` : ''; })()}/><div class="opt-sub" style="margin-top:5px;">Times snap to :00 / :15 / :30 / :45</div>
         ${state.time && state.date ? (isTimeAllowed(state.date, state.time) ? `<div class="avail-note" style="margin-top:6px;">✓ that time works</div>` : `<div class="avail-note" style="margin-top:6px; color:var(--pink);">That time isn't available on this date. ${AVAILABILITY[new Date(state.date + 'T12:00:00').getDay()]}</div>`) : ''}
       </div>
+      ${state.bookingType!=='solo' ? `<div class="avail-note">${bookingTypeNoteText()}</div>` : ''}
     </div>` : ''}
 
     ${showDetails && state.category==='treatments' ? `
@@ -929,8 +969,7 @@ function renderBook(){
         <input type="file" id="photo-input" accept="image/*" multiple style="display:none;"/>
       </div>
 
-      <div class="psa"><b>Please come with hair freshly washed and blow-dried.</b> Appointments with hair that isn't washed/stretched may be turned away or take longer, and may be charged extra.</div>
-      <div class="policy-box"><b>Policy:</b> ${CONFIG.policyText}</div>
+      <div class="policy-box">${fullPolicyHTML()}</div>
 
       <div class="deposit-note">
         Your appointment isn't confirmed until a <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. Deposit comes off your total at your appointment.
@@ -938,7 +977,7 @@ function renderBook(){
 
       <div class="agree-row">
         <input type="checkbox" id="agree-policy" ${state.agreedPolicy?'checked':''} data-action="toggle-agree"/>
-        <label for="agree-policy">I understand the wash/blow-dry requirement and the cancellation policy above.</label>
+        <label for="agree-policy">I understand and agree to the policies above.</label>
       </div>
 
       ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
@@ -987,12 +1026,10 @@ function renderBundles(){
         <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
       </div>
 
-      <div class="opt-sub" style="margin:16px 0 6px;">Care kit (per bundle)</div>
-      <div class="length-row">
-        <div class="length-btn ${state.bundleCareKit==='basic'?'selected':''}" data-action="pick-care-kit" data-key="basic">Basic — ${money(BUNDLE_CARE_KIT_BASIC)}/bundle</div>
-        <div class="length-btn ${state.bundleCareKit==='luxury'?'selected':''}" data-action="pick-care-kit" data-key="luxury">Luxury — ${money(BUNDLE_CARE_KIT_LUXURY)}/bundle</div>
+      <div class="addon-row" style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
+        <span class="opt-name">Every order comes with a hair care kit 💕</span>
+        <span class="opt-price"><span style="text-decoration:line-through; color:var(--muted); margin-right:6px; font-weight:400;">${money(BUNDLE_CARE_KIT_ORIGINAL)}</span>${money(BUNDLE_CARE_KIT_PRICE)}</span>
       </div>
-      <div class="opt-sub" style="margin-top:6px;">Care kit total: ${money(bundleCareKitCost())} (${state.bundleQty} × ${money(state.bundleCareKit==='luxury'?BUNDLE_CARE_KIT_LUXURY:BUNDLE_CARE_KIT_BASIC)})</div>
     </div>
 
     <div class="card">
@@ -1007,6 +1044,7 @@ function renderBundles(){
       <div class="field">
         <label>Preferred pickup date</label>
         <input type="date" id="f-date" value="${state.date}"/>
+        <div class="opt-sub" style="margin-top:5px;">This is just your preferred date — vendor shipping rates/time factor into it, and I'll confirm your actual pickup date with you once I place the order.</div>
       </div>
       <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
 
@@ -1045,7 +1083,7 @@ function renderConfirm(){
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
     ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
     ${giftLabel ? `<div style="margin-top:4px;"><b>Gift:</b> ${giftLabel}</div>` : ''}
-    ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleCareKit==='luxury'?'Luxury':'Basic'} (${money(bundleCareKitCost())} total)</div>` : ''}
+    ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit included:</b> ${money(bundleCareKitCost())}</div>` : ''}
     <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
   </div>
   ${state.category==='bundles' ? `
@@ -1072,8 +1110,8 @@ function renderQuestions(){
       <p class="opt-sub">I confirm every request by text within 24 hours. If it's been longer than that, DM me on Instagram and I'll take a look.</p>
     </div>
     <div class="card">
-      <div class="step-label"><span class="step-title">Need to reschedule or cancel?</span></div>
-      <p class="opt-sub">${CONFIG.policyText}</p>
+      <div class="step-label"><span class="step-title">Policies</span></div>
+      <div class="policy-box" style="margin-top:4px;">${fullPolicyHTML()}</div>
     </div>
     <div class="card">
       <div class="step-label"><span class="step-title">Wondering about your deposit?</span></div>
@@ -1171,10 +1209,13 @@ function attachHandlers(){
       else if(action==='bundle-plus'){ state.addBundleCount++; }
       else if(action==='bundle-minus'){ state.addBundleCount = Math.max(0,state.addBundleCount-1); }
       else if(action==='toggle-addon'){ state.addons[key] = !state.addons[key]; }
-      else if(action==='pick-braid-style'){ state.braidStyle = key; state.braidSize=null; state.ownHair=null; state.braidBoho=false; }
+      else if(action==='pick-braid-style'){ state.braidStyle = key; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.twistHairType=""; state.braidHairPacks=1; }
       else if(action==='pick-braid-size'){ state.braidSize = key; }
       else if(action==='pick-own-hair'){ state.ownHair = key; }
       else if(action==='toggle-boho'){ state.braidBoho = !state.braidBoho; }
+      else if(action==='pick-twist-hair-type'){ state.twistHairType = key; }
+      else if(action==='braid-packs-plus'){ state.braidHairPacks++; }
+      else if(action==='braid-packs-minus'){ state.braidHairPacks = Math.max(1, state.braidHairPacks-1); }
       else if(action==='pick-cornrow'){ state.cornrowKey = key; }
       else if(action==='toggle-treatment'){ state.treatmentKeys[key] = !state.treatmentKeys[key]; }
       else if(action==='pick-crochet-source'){ state.crochetHairSource = key; }
@@ -1183,7 +1224,6 @@ function attachHandlers(){
       else if(action==='toggle-btc-confirm'){ state.btcFirstConfirmed = !state.btcFirstConfirmed; }
       else if(action==='toggle-hallohair-confirm'){ state.hallohairCostumeConfirmed = !state.hallohairCostumeConfirmed; }
       else if(action==='pick-booking-type'){ state.bookingType = key; }
-      else if(action==='pick-care-kit'){ state.bundleCareKit = key; }
       else if(action==='toggle-gift-upgrade'){ state.giftUpgrade = !state.giftUpgrade; }
       else if(action==='toggle-crochet-confirm'){ state.crochetConfirmed = !state.crochetConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
@@ -1219,7 +1259,7 @@ function attachHandlers(){
         if(!state.agreedPolicy){
           state.error = state.category==='bundles'
             ? "Please check the box confirming your price will be confirmed after review."
-            : "Please check the box confirming you've read the wash/blow-dry and cancellation policy.";
+            : "Please check the box confirming you've read and agree to the policies.";
           render(); return;
         }
         if(state.category==='crochet'){
@@ -1258,7 +1298,7 @@ function attachHandlers(){
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleCareKit:"basic", customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1, twistHairType:"", cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
