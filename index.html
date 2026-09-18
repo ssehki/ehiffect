@@ -253,11 +253,17 @@ const INSTALL_ADDONS = [
 ];
 
 const BRAID_STYLES = { box:"Box Braids", twist:"Twists" };
-const BRAID_SIZES = [
+const BOX_BRAID_SIZES = [
   { key:"large", name:"Large", price:180 },
   { key:"medium", name:"Medium", price:200 },
   { key:"small", name:"Small", price:220 },
 ];
+const TWIST_SIZES = [
+  { key:"large", name:"Large", price:150 },
+  { key:"medium", name:"Medium", price:180 },
+  { key:"small", name:"Small", price:200 },
+];
+function currentBraidSizes(){ return state.braidStyle==='twist' ? TWIST_SIZES : BOX_BRAID_SIZES; }
 const BOHO_PRICE = 40;
 
 const CORNROW_OPTIONS = [
@@ -549,7 +555,7 @@ function computeBaseTotal(){
       for(const a of INSTALL_ADDONS){ if(state.addons[a.key]) total += a.price; }
     }
   } else if(state.category==='braids'){
-    const size = BRAID_SIZES.find(s=>s.key===state.braidSize);
+    const size = currentBraidSizes().find(s=>s.key===state.braidSize);
     if(size) total += size.price;
     if(state.braidBoho) total += BOHO_PRICE;
     if(state.ownHair==='provide') total += state.braidHairPacks * BRAID_HAIR_PACK_PRICE;
@@ -805,7 +811,7 @@ function renderBook(){
         <div class="opt-group" style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:2px;">Style</div>
           <div class="cat-grid">${Object.entries(BRAID_STYLES).map(([k,name])=>`<div class="cat ${state.braidStyle===k?'selected':''}" data-action="pick-braid-style" data-key="${k}"><div class="cat-name">${name}</div></div>`).join('')}</div>
-          ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${BRAID_SIZES.map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><span class="opt-name">${s.name}</span><span class="opt-price">${money(s.price)}</span></div>`).join('')}` : ''}
+          ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${currentBraidSizes().map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><span class="opt-name">${s.name}</span><span class="opt-price">${money(s.price)}</span></div>`).join('')}` : ''}
           ${state.braidSize ? `<div class="opt-sub" style="margin:12px 0 2px;">Hair</div><div class="length-row"><div class="length-btn ${state.ownHair==='own'?'selected':''}" data-action="pick-own-hair" data-key="own">I have my own hair</div><div class="length-btn ${state.ownHair==='provide'?'selected':''}" data-action="pick-own-hair" data-key="provide">Please provide hair</div></div>` : ''}
           ${state.braidStyle==='twist' && state.braidSize ? `
             <div class="opt-sub" style="margin:12px 0 2px;">Twist hair type</div>
@@ -887,7 +893,7 @@ function renderBook(){
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">When would you like your appointment?</span></div>
       <div class="field">
-        <label>Preferred date</label>
+        <label>Preferred date <span style="color:var(--pink);">*required</span></label>
         <input type="date" id="f-date" value="${state.date}"/>
         ${dayNote ? `<div class="avail-note">${dayNote}</div>` : ''}
       </div>
@@ -959,8 +965,8 @@ function renderBook(){
     ${showDetails ? `
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
-      <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
-      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
+      <div class="field"><label>Name <span style="color:var(--pink);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
+      <div class="field"><label>Phone number <span style="color:var(--pink);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
 
       <div class="field">
@@ -1266,6 +1272,7 @@ function attachHandlers(){
         if(partnerContactEl) state.partnerContact = partnerContactEl.value.trim();
 
         if(!state.name || !state.phone){ state.error = "Please add your name and phone number so I can confirm your appt."; render(); return; }
+        if(state.category !== 'bundles' && !state.date){ state.error = "Please add your preferred appointment date."; render(); return; }
         if(state.bookingType !== 'solo' && !state.partnerName && !state.partnerContact){
           state.error = "Please add your partner's name or contact info for the " + (state.bookingType==='couple' ? "Couple's" : "Bestie") + " Deal."; render(); return;
         }
