@@ -449,7 +449,6 @@ const checkSVG = `<svg viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r
 let state = {
   view: "landing",
   category: null,
-  hideCategoryGrid: false,
   style: "traditional", // traditional | fulani (qw/si only)
   tierKey: null, length: null, addBundleCount: 0, addons: {},
   braidStyle: null, braidSize: null, ownHair: null, braidBoho: false,
@@ -496,6 +495,7 @@ function render(){
   document.body.style.background = isLight ? "#F8F3EF" : "#171214";
   if(state.view === "landing") app.innerHTML = renderLanding();
   else if(state.view === "book") app.innerHTML = renderBook();
+  else if(state.view === "bundles") app.innerHTML = renderBundles();
   else if(state.view === "confirm") app.innerHTML = renderConfirm();
   else if(state.view === "admin-gate") app.innerHTML = renderGate();
   else if(state.view === "admin") app.innerHTML = renderAdmin();
@@ -655,8 +655,7 @@ function serviceLabelText(){
     return s;
   }
   if(state.category==='bundles'){
-    const kitName = state.bundleCareKit==='luxury' ? 'Luxury' : 'Basic';
-    return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails} — Care kit: ${kitName} (${money(bundleCareKitCost())} total)`;
+    return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
   }
   if(state.category==='custom') return `Custom style request (approval-based) — ${state.customDetails}`;
   return '';
@@ -706,12 +705,11 @@ function renderBook(){
     <div class="card">
       <span class="back-link" data-action="go-landing">&lsaquo; back</span>
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
-      ${!state.hideCategoryGrid ? `
       <div class="cat-grid">
-        ${CATEGORIES.map(c=>`<div class="cat ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
-      </div>` : `<div class="opt-sub">Bundles — pick your texture, quantity, and details below</div><div class="back-link" data-action="switch-to-service" style="margin-top:8px;">Also want to book a service? ›</div>`}
+        ${CATEGORIES.map(c=>`<div class="cat ${c.key==='custom'?'cat-wide':''} ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
+      </div>
 
-      ${(state.category && state.category!=='bundles') ? `
+      ${state.category ? `
       <div style="margin-top:14px;">
         <div class="opt-sub" style="margin-bottom:6px;">Booking type</div>
         <div class="length-row">
@@ -821,43 +819,6 @@ function renderBook(){
           <div class="opt-sub">You'll be able to upload reference photos in the next step too.</div>
         </div>` : ''}
 
-      ${state.category==='bundles' ? `
-        <div style="margin-top:14px;">
-          <div class="opt-sub" style="margin-bottom:6px;">Virgin or raw hair?</div>
-          <div class="length-row">
-            <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
-            <div class="length-btn ${state.bundleHairSource==='raw'?'selected':''}" data-action="pick-bundle-source" data-key="raw">Raw hair</div>
-          </div>
-          <div class="field" style="margin-top:14px;">
-            <label>Hair type</label>
-            <select id="f-bundle-texture" data-action="pick-bundle-texture">
-              <option value="">choose a texture</option>
-              <optgroup label="Raw / Human">
-                ${RAW_HUMAN_TEXTURES.map(tx=>`<option value="${tx}" ${state.bundleTexture===tx?'selected':''}>${tx}</option>`).join('')}
-              </optgroup>
-              <optgroup label="Synthetic">
-                ${SYNTHETIC_TEXTURES.map(tx=>`<option value="${tx}" ${state.bundleTexture===tx?'selected':''}>${tx}</option>`).join('')}
-              </optgroup>
-            </select>
-          </div>
-          <div class="opt-sub" style="margin-bottom:6px;">How many bundles?</div>
-          <div class="bundle-row">
-            <span class="opt-sub">Quantity</span>
-            <div class="stepper"><button data-action="qty-minus" ${state.bundleQty<=1?'disabled':''}>−</button><span>${state.bundleQty}</span><button data-action="qty-plus">+</button></div>
-          </div>
-          <div class="field" style="margin-top:14px;">
-            <label>Any other details? (brand, length, color)</label>
-            <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
-          </div>
-          <div class="opt-sub">Pricing depends on the bundle type you pick — I'll confirm your total once I see what you want from my catalog.</div>
-
-          <div class="opt-sub" style="margin:16px 0 6px;">Care kit (per bundle)</div>
-          <div class="length-row">
-            <div class="length-btn ${state.bundleCareKit==='basic'?'selected':''}" data-action="pick-care-kit" data-key="basic">Basic — ${money(BUNDLE_CARE_KIT_BASIC)}/bundle</div>
-            <div class="length-btn ${state.bundleCareKit==='luxury'?'selected':''}" data-action="pick-care-kit" data-key="luxury">Luxury — ${money(BUNDLE_CARE_KIT_LUXURY)}/bundle</div>
-          </div>
-          <div class="opt-sub" style="margin-top:6px;">Care kit total: ${money(bundleCareKitCost())} (${state.bundleQty} × ${money(state.bundleCareKit==='luxury'?BUNDLE_CARE_KIT_LUXURY:BUNDLE_CARE_KIT_BASIC)})</div>
-        </div>` : ''}
     </div>
 
     ${(state.category==='qw'||state.category==='si') && state.tierKey ? `
@@ -872,7 +833,7 @@ function renderBook(){
 
     ${showDetails && giftEligible() ? `
     <div class="card">
-      <div class="opt-sub" style="margin-bottom:8px; color:var(--pink);">🎁 ${giftNoteText()}</div>
+      <div class="opt-sub" style="margin-bottom:8px; color:var(--pink);">${giftNoteText()}</div>
       <div class="addon-row">
         <label><input type="checkbox" data-action="toggle-gift-upgrade" ${state.giftUpgrade?'checked':''}/>Upgrade to luxury gift kit</label>
         <span class="opt-price">+${money(GIFT_UPGRADE_PRICE)}</span>
@@ -957,11 +918,6 @@ function renderBook(){
       <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
-      ${state.category==='bundles' ? `
-      <div class="field">
-        <label>Preferred pickup date</label>
-        <input type="date" id="f-date" value="${state.date}"/>
-      </div>` : ''}
       <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
 
       <div class="field">
@@ -993,6 +949,89 @@ function renderBook(){
   </div>`;
 }
 
+function renderBundles(){
+  return `
+  <div class="wrap">
+    <div class="hero">
+      <h1 class="title" style="margin-top:0;">Order Bundles</h1>
+      <p class="tagline">uncomplicated &amp; at your service</p>
+      <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-deep);">pick your hair → I confirm your price → you pick it up</p>
+    </div>
+
+    <div class="card">
+      <span class="back-link" data-action="go-landing">&lsaquo; back</span>
+      <div class="opt-sub" style="margin-bottom:6px;">Virgin or raw hair?</div>
+      <div class="length-row">
+        <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
+        <div class="length-btn ${state.bundleHairSource==='raw'?'selected':''}" data-action="pick-bundle-source" data-key="raw">Raw hair</div>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Hair type</label>
+        <select id="f-bundle-texture" data-action="pick-bundle-texture">
+          <option value="">choose a texture</option>
+          <optgroup label="Raw / Human">
+            ${RAW_HUMAN_TEXTURES.map(tx=>`<option value="${tx}" ${state.bundleTexture===tx?'selected':''}>${tx}</option>`).join('')}
+          </optgroup>
+          <optgroup label="Synthetic">
+            ${SYNTHETIC_TEXTURES.map(tx=>`<option value="${tx}" ${state.bundleTexture===tx?'selected':''}>${tx}</option>`).join('')}
+          </optgroup>
+        </select>
+      </div>
+      <div class="opt-sub" style="margin-bottom:6px;">How many bundles?</div>
+      <div class="bundle-row">
+        <span class="opt-sub">Quantity</span>
+        <div class="stepper"><button data-action="qty-minus" ${state.bundleQty<=1?'disabled':''}>−</button><span>${state.bundleQty}</span><button data-action="qty-plus">+</button></div>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Any other details? (brand, length, color)</label>
+        <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
+      </div>
+
+      <div class="opt-sub" style="margin:16px 0 6px;">Care kit (per bundle)</div>
+      <div class="length-row">
+        <div class="length-btn ${state.bundleCareKit==='basic'?'selected':''}" data-action="pick-care-kit" data-key="basic">Basic — ${money(BUNDLE_CARE_KIT_BASIC)}/bundle</div>
+        <div class="length-btn ${state.bundleCareKit==='luxury'?'selected':''}" data-action="pick-care-kit" data-key="luxury">Luxury — ${money(BUNDLE_CARE_KIT_LUXURY)}/bundle</div>
+      </div>
+      <div class="opt-sub" style="margin-top:6px;">Care kit total: ${money(bundleCareKitCost())} (${state.bundleQty} × ${money(state.bundleCareKit==='luxury'?BUNDLE_CARE_KIT_LUXURY:BUNDLE_CARE_KIT_BASIC)})</div>
+    </div>
+
+    <div class="card">
+      <div class="opt-sub">I'll confirm your final price with you after I see what you'd like from my catalog — the care kit charge above is fixed, the hair itself is quoted separately.</div>
+    </div>
+
+    <div class="card">
+      <div class="step-label"><span class="step-title">Your info</span></div>
+      <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
+      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
+      <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
+      <div class="field">
+        <label>Preferred pickup date</label>
+        <input type="date" id="f-date" value="${state.date}"/>
+      </div>
+      <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
+
+      <div class="field">
+        <label>Reference photos (optional, up to 3)</label>
+        <div class="photo-row">
+          ${state.photos.map((p,i)=>`<div class="photo-thumb"><img src="${p}"/><div class="rm" data-action="remove-photo" data-key="${i}">×</div></div>`).join('')}
+          ${state.photos.length < 3 ? `<div class="photo-add" id="photo-add-btn">+</div>` : ''}
+        </div>
+        <input type="file" id="photo-input" accept="image/*" multiple style="display:none;"/>
+      </div>
+
+      <div class="agree-row">
+        <input type="checkbox" id="agree-policy" ${state.agreedPolicy?'checked':''} data-action="toggle-agree"/>
+        <label for="agree-policy">I understand my final price will be confirmed after review, and I'll pick up on the date above.</label>
+      </div>
+
+      ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
+      <button class="submit-btn" data-action="submit">Send Bundle Request</button>
+    </div>
+
+    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
+  </div>`;
+}
+
 function renderConfirm(){
   const svcLabel = serviceLabelText();
   const dealsLabel = dealsLabelText(true);
@@ -1009,9 +1048,13 @@ function renderConfirm(){
     ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleCareKit==='luxury'?'Luxury':'Basic'} (${money(bundleCareKitCost())} total)</div>` : ''}
     <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
   </div>
+  ${state.category==='bundles' ? `
+  <p style="margin-top:16px;">I'll review your bundle request and <b>text you to confirm your final price</b> — have it ready for pickup on ${state.date||'your selected date'}.</p>
+  ` : `
   <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get a text within <b>24 hours</b> letting you know if it's approved or not.</p>
   <p>Once approved, send your <b>${money(CONFIG.depositAmount)}</b> deposit to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to hold your spot.</p>
-  <button data-action="book-again">Book another</button>
+  `}
+  <button data-action="book-again">${state.category==='bundles' ? 'Order More Bundles' : 'Book another'}</button>
   <button data-action="go-landing" style="margin-top:10px;">Homepage</button>
   <div class="back-link" data-action="go-questions" style="margin-top:16px;">Questions about your appointment? ›</div>
   </div></div>`;
@@ -1110,13 +1153,11 @@ function attachHandlers(){
 
       if(action==='landing-pick'){
         resetSelection();
-        state.view = 'book';
-        if(key === 'bundles'){ state.category = 'bundles'; state.hideCategoryGrid = true; }
-        else { state.category = null; state.hideCategoryGrid = false; }
+        if(key === 'bundles'){ state.view = 'bundles'; state.category = 'bundles'; }
+        else { state.view = 'book'; state.category = null; }
       }
       else if(action==='go-landing'){ state.view = 'landing'; }
       else if(action==='go-questions'){ state.view = 'questions'; }
-      else if(action==='switch-to-service'){ resetSelection(); state.category = null; state.hideCategoryGrid = false; }
       else if(action==='pick-category'){ state.category = key; resetSelection(); }
       else if(action==='toggle-deal'){
         const idx = state.dealsSelected.indexOf(key);
@@ -1175,7 +1216,12 @@ function attachHandlers(){
           const dayNoteNow = AVAILABILITY[new Date(state.date + 'T12:00:00').getDay()];
           state.error = `That time isn't available on this date. ${dayNoteNow}`; render(); return;
         }
-        if(!state.agreedPolicy){ state.error = "Please check the box confirming you've read the wash/blow-dry and cancellation policy."; render(); return; }
+        if(!state.agreedPolicy){
+          state.error = state.category==='bundles'
+            ? "Please check the box confirming your price will be confirmed after review."
+            : "Please check the box confirming you've read the wash/blow-dry and cancellation policy.";
+          render(); return;
+        }
         if(state.category==='crochet'){
           state.crochetDetails = document.getElementById('f-crochet-details').value.trim();
           if(!state.crochetHairSource || !state.crochetConfirmed){ state.error = "Please pick who's providing the hair and confirm you'll send hair details."; render(); return; }
@@ -1204,13 +1250,15 @@ function attachHandlers(){
           giftKit: giftLabelText(), careKitCost: state.category==='bundles' ? bundleCareKitCost() : '',
           total: (rawTotal===null ? "Quote pending" : rawTotal)
         };
+        const originalBtnText = el.textContent;
         el.disabled = true; el.textContent = "Sending...";
         try{ await saveBooking(booking); state.view = 'confirm'; }
-        catch(err){ state.error = "Something went wrong — try again in a moment."; el.disabled=false; el.textContent="Send Booking Request"; }
+        catch(err){ state.error = "Something went wrong — try again in a moment."; el.disabled=false; el.textContent=originalBtnText; }
       }
       else if(action==='book-again'){
         const bookings = state.bookings;
-        state = { view:"book", category:null, hideCategoryGrid:false, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleCareKit:"basic", customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        const wasBundle = state.category === 'bundles';
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleCareKit:"basic", customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
