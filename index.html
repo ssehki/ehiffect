@@ -136,6 +136,11 @@
 
   .policy-box{ border:1px solid var(--line); padding:12px 14px; margin-top:14px; font-size:12.5px; color:var(--muted); line-height:1.6; }
   .policy-box b{ color:var(--cream); }
+  .policy-box summary{ cursor:pointer; color:var(--pink); font-weight:600; font-size:13px; list-style:none; }
+  .policy-box summary::-webkit-details-marker{ display:none; }
+  .policy-box summary::after{ content:' ▾'; }
+  .policy-box[open] summary::after{ content:' ▴'; }
+  .policy-box .policy-body{ margin-top:10px; }
   .agree-row{ display:flex; align-items:flex-start; gap:10px; margin-top:14px; }
   .agree-row input{ width:17px; height:17px; margin-top:2px; accent-color:var(--pink); flex-shrink:0; }
   .agree-row label{ font-size:12.5px; color:var(--cream); line-height:1.5; }
@@ -240,7 +245,7 @@ const FULANI_SURCHARGE = { qw: 70, si: 70 };
 
 const INSTALL_ADDONS = [
   { key:"trim", name:"Trim", price:10, note:"Different from face framing" },
-  { key:"curls", name:"Curls / wand styling", price:10 },
+  { key:"curls", name:"Curls / wand styling", price:7 },
   { key:"closure", name:"Closure install", price:20 },
   { key:"extraBundleSynthetic", name:"Extra bundle (synthetic)", price:25 },
   { key:"extraBundleHuman", name:"Extra bundle (human)", price:40 },
@@ -284,8 +289,7 @@ const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
 
 const GIFT_THRESHOLD = 200;
 const GIFT_UPGRADE_PRICE = 50;
-const BUNDLE_CARE_KIT_PRICE = 18;
-const BUNDLE_CARE_KIT_ORIGINAL = 25;
+const BUNDLE_KIT_UPGRADE_PRICE = 50;
 const BRAID_HAIR_PACK_PRICE = 20;
 const BOOKING_TYPE_DISCOUNT = { couple: 0.15, bestie: 0.15, bestieSewIn: 0.30 };
 
@@ -471,7 +475,7 @@ let state = {
   cornrowKey: null,
   treatmentKeys: {},
   crochetHairSource: null, crochetConfirmed: false, crochetDetails: "",
-  bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "",
+  bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "", bundleKitUpgrade: false,
   customDetails: "",
   installTexture: "",
   dealsSelected: [],
@@ -479,7 +483,7 @@ let state = {
   treatmentGroupSize: 1, treatmentGroupNames: "",
   bookingType: "solo", partnerName: "", partnerContact: "",
   giftUpgrade: false, isFirstTimeSewin: null,
-  name:"", phone:"", ig:"", date:"", time:"", notes:"",
+  name:"", phone:"", ig:"", date:"", time:"", notes:"", referenceLink:"",
   photos: [],
   agreedPolicy: false,
   error: "",
@@ -493,7 +497,7 @@ function resetSelection(){
   state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1; state.twistHairType="";
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
-  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource="";
+  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleKitUpgrade=false;
   state.customDetails="";
   state.installTexture="";
   state.dealsSelected=[];
@@ -531,7 +535,7 @@ function serviceChosen(){
   if(state.category==='crochet') return !!state.crochetHairSource;
   if(state.category==='treatments') return Object.values(state.treatmentKeys).some(Boolean);
   if(state.category==='bundles') return true;
-  if(state.category==='custom') return !!state.customDetails;
+  if(state.category==='custom') return true;
   return false;
 }
 function computeBaseTotal(){
@@ -634,7 +638,7 @@ function giftLabelText(){
   return `${kit} — ${reasons.join(', ')}`;
 }
 function bundleCareKitCost(){
-  return BUNDLE_CARE_KIT_PRICE; // flat, once per order — not per bundle
+  return state.bundleKitUpgrade ? BUNDLE_KIT_UPGRADE_PRICE : 0; // mini kit is naturally included, free
 }
 function calcTotal(){
   const base = computeBaseTotal();
@@ -696,7 +700,7 @@ const CATEGORIES = [
   { key:'cornrows', name:'Cornrows' },
   { key:'crochet', name:'Crochet' },
   { key:'treatments', name:'Hair Treatments' },
-  { key:'custom', name:'Custom Style' },
+  { key:'custom', name:'Custom' },
 ];
 
 function renderLanding(){
@@ -747,11 +751,11 @@ function renderBook(){
         </div>
         ${state.bookingType!=='solo' ? `
         <div class="field" style="margin-top:12px;">
-          <label>Partner's name</label>
+          <label>${state.bookingType==='couple' ? "Partner's name" : "Bestie's name"}</label>
           <input type="text" id="f-partner-name" value="${state.partnerName}" placeholder="their name"/>
         </div>
         <div class="field">
-          <label>Partner's Instagram handle or phone number</label>
+          <label>${state.bookingType==='couple' ? "Partner's Instagram handle or phone number" : "Bestie's Instagram handle or phone number"}</label>
           <input type="text" id="f-partner-contact" value="${state.partnerContact}" placeholder="@theirhandle or their number"/>
         </div>
         ` : ''}
@@ -873,9 +877,9 @@ function renderBook(){
     ${showDetails && giftEligible() ? `
     <div class="card">
       <div class="opt-sub" style="margin-bottom:8px; color:var(--pink);">${giftNoteText()}</div>
-      <div class="addon-row">
-        <label><input type="checkbox" data-action="toggle-gift-upgrade" ${state.giftUpgrade?'checked':''}/>Upgrade to luxury gift kit</label>
-        <span class="opt-price">+${money(GIFT_UPGRADE_PRICE)}</span>
+      <div class="length-row">
+        <div class="length-btn ${!state.giftUpgrade?'selected':''}" data-action="pick-gift-kit" data-key="normal">Keep normal gift kit</div>
+        <div class="length-btn ${state.giftUpgrade?'selected':''}" data-action="pick-gift-kit" data-key="luxury">Upgrade to luxury (+${money(GIFT_UPGRADE_PRICE)})</div>
       </div>
     </div>` : ''}
 
@@ -958,7 +962,6 @@ function renderBook(){
       <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
-      <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
 
       <div class="field">
         <label>Reference photos (optional, up to 3)</label>
@@ -967,9 +970,16 @@ function renderBook(){
           ${state.photos.length < 3 ? `<div class="photo-add" id="photo-add-btn">+</div>` : ''}
         </div>
         <input type="file" id="photo-input" accept="image/*" multiple style="display:none;"/>
+        <div class="opt-sub" style="margin-top:8px;">Or paste a TikTok/Instagram link instead</div>
+        <input type="text" id="f-reference-link" value="${state.referenceLink}" placeholder="link to the style you want" style="margin-top:5px;"/>
       </div>
 
-      <div class="policy-box">${fullPolicyHTML()}</div>
+      <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
+
+      <details class="policy-box">
+        <summary>Read the full policy</summary>
+        <div class="policy-body">${fullPolicyHTML()}</div>
+      </details>
 
       <div class="deposit-note">
         Your appointment isn't confirmed until a <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. Deposit comes off your total at your appointment.
@@ -1026,14 +1036,17 @@ function renderBundles(){
         <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
       </div>
 
-      <div class="addon-row" style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
-        <span class="opt-name">Every order comes with a hair care kit 💕</span>
-        <span class="opt-price"><span style="text-decoration:line-through; color:var(--muted); margin-right:6px; font-weight:400;">${money(BUNDLE_CARE_KIT_ORIGINAL)}</span>${money(BUNDLE_CARE_KIT_PRICE)}</span>
+      <div style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
+        <div class="opt-sub">Thanks for your inquiry to get bundles! Every order comes with a mini hair care kit, naturally — or you can upgrade to the full kit for ${money(BUNDLE_KIT_UPGRADE_PRICE)}.</div>
+        <div class="addon-row" style="margin-top:8px;">
+          <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the full kit</label>
+          <span class="opt-price">+${money(BUNDLE_KIT_UPGRADE_PRICE)}</span>
+        </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="opt-sub">I'll confirm your final price with you after I see what you'd like from my catalog — the care kit charge above is fixed, the hair itself is quoted separately.</div>
+      <div class="opt-sub">I'll confirm your final price with you after I see what you'd like from my catalog.</div>
     </div>
 
     <div class="card">
@@ -1083,7 +1096,7 @@ function renderConfirm(){
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
     ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
     ${giftLabel ? `<div style="margin-top:4px;"><b>Gift:</b> ${giftLabel}</div>` : ''}
-    ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit included:</b> ${money(bundleCareKitCost())}</div>` : ''}
+    ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleKitUpgrade ? `Full kit upgrade (+${money(BUNDLE_KIT_UPGRADE_PRICE)})` : 'Mini kit (included)'}</div>` : ''}
     <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
   </div>
   ${state.category==='bundles' ? `
@@ -1163,7 +1176,7 @@ function renderAdmin(){
           ${b.dealsUsed ? `<div><span class="k">Deals:</span> ${b.dealsUsed}</div>` : ''}
           ${b.bookingType && b.bookingType!=='solo' ? `<div><span class="k">Booking type:</span> ${b.bookingType}${b.partnerName?(' — partner: '+b.partnerName):''}${b.partnerContact?(' ('+b.partnerContact+')'):''}</div>` : ''}
           ${b.giftKit ? `<div><span class="k">Gift kit:</span> ${b.giftKit}</div>` : ''}
-          ${b.careKitCost ? `<div><span class="k">Care kit:</span> ${money(Number(b.careKitCost))}</div>` : ''}
+          ${b.careKitCost ? `<div><span class="k">Care kit:</span> ${b.careKitCost}</div>` : ''}
           <div><span class="k">Preferred:</span> ${b.date || '—'} ${b.time || ''}</div>
           <div><span class="k">Total:</span> ${displayTotal(b.total)}</div>
           ${b.notes ? `<div><span class="k">Notes:</span> ${b.notes}</div>` : ''}
@@ -1188,6 +1201,7 @@ function attachHandlers(){
     const evt = (el.tagName === 'SELECT' || (el.tagName === 'INPUT' && el.type==='checkbox')) ? 'change' : 'click';
     el.addEventListener(evt, async (e)=>{
       const key = el.getAttribute('data-key');
+      try{
 
       if(action==='landing-pick'){
         resetSelection();
@@ -1224,7 +1238,8 @@ function attachHandlers(){
       else if(action==='toggle-btc-confirm'){ state.btcFirstConfirmed = !state.btcFirstConfirmed; }
       else if(action==='toggle-hallohair-confirm'){ state.hallohairCostumeConfirmed = !state.hallohairCostumeConfirmed; }
       else if(action==='pick-booking-type'){ state.bookingType = key; }
-      else if(action==='toggle-gift-upgrade'){ state.giftUpgrade = !state.giftUpgrade; }
+      else if(action==='pick-gift-kit'){ state.giftUpgrade = (key==='luxury'); }
+      else if(action==='toggle-bundle-kit-upgrade'){ state.bundleKitUpgrade = !state.bundleKitUpgrade; }
       else if(action==='toggle-crochet-confirm'){ state.crochetConfirmed = !state.crochetConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
       else if(action==='qty-minus'){ state.bundleQty = Math.max(1, state.bundleQty-1); }
@@ -1241,6 +1256,8 @@ function attachHandlers(){
         const timeEl = document.getElementById('f-time');
         state.time = timeEl ? timeEl.value : '';
         state.notes = document.getElementById('f-notes').value.trim();
+        const referenceLinkEl = document.getElementById('f-reference-link');
+        if(referenceLinkEl) state.referenceLink = referenceLinkEl.value.trim();
         const groupNamesEl = document.getElementById('f-group-names');
         if(groupNamesEl) state.treatmentGroupNames = groupNamesEl.value.trim();
         const partnerNameEl = document.getElementById('f-partner-name');
@@ -1282,12 +1299,13 @@ function attachHandlers(){
         }
 
         const rawTotal = calcTotal();
+        const notesWithLink = state.referenceLink ? `${state.notes}${state.notes ? ' | ' : ''}Reference link: ${state.referenceLink}` : state.notes;
         const booking = {
-          name: state.name, phone: state.phone, ig: state.ig, date: state.date, time: state.time, notes: state.notes,
+          name: state.name, phone: state.phone, ig: state.ig, date: state.date, time: state.time, notes: notesWithLink,
           photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(),
           bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
-          giftKit: giftLabelText(), careKitCost: state.category==='bundles' ? bundleCareKitCost() : '',
+          giftKit: giftLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Full kit upgrade (+${money(BUNDLE_KIT_UPGRADE_PRICE)})` : 'Mini kit (included)') : '',
           total: (rawTotal===null ? "Quote pending" : rawTotal)
         };
         const originalBtnText = el.textContent;
@@ -1298,7 +1316,7 @@ function attachHandlers(){
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1, twistHairType:"", cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1, twistHairType:"", cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
@@ -1320,6 +1338,13 @@ function attachHandlers(){
         await updateStatus(key, status);
         try{ state.bookings = await listBookings(); }catch(err){}
       }
+      } catch(err){
+        // Safety net: no matter what goes wrong above, the client always sees
+        // feedback instead of a stuck, unresponsive button.
+        console.error('Action failed:', action, err);
+        state.error = "Something went wrong — please try again.";
+        if(action==='submit'){ el.disabled = false; el.textContent = (state.category==='bundles' ? 'Send Bundle Request' : 'Send Booking Request'); }
+      }
       render();
     });
   });
@@ -1335,7 +1360,7 @@ function attachHandlers(){
   // keep text/textarea fields synced live so a re-render triggered by another
   // control (checkbox, select, date/time) never wipes what's already been typed
   const liveFieldMap = {
-    'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-notes':'notes',
+    'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-notes':'notes', 'f-reference-link':'referenceLink',
     'f-bundle-details':'bundleDetails', 'f-crochet-details':'crochetDetails',
     'f-group-names':'treatmentGroupNames',
     'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',
