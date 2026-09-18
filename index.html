@@ -141,6 +141,23 @@
   .policy-box summary::after{ content:' ▾'; }
   .policy-box[open] summary::after{ content:' ▴'; }
   .policy-box .policy-body{ margin-top:10px; }
+
+  .aftercare-title{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:18px; line-height:1.25; letter-spacing:0.06em; text-transform:uppercase; color:var(--cream); margin:0 0 8px; }
+  .aftercare-text{ font-size:12.5px; color:var(--muted); line-height:1.6; margin:0 0 12px; }
+  .kit-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:9px 0; border-top:1px solid var(--line); }
+  .kit-row > div:first-child{ flex:1; min-width:0; }
+  .kit-name{ font-size:13.5px; font-weight:500; color:var(--cream); }
+  .kit-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.45; }
+  .kit-badge{ font-size:10px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; white-space:nowrap; padding:3px 8px; border:1px solid var(--pink); color:var(--pink); border-radius:2px; margin-top:2px; }
+  .kit-badge.solid{ background:var(--pink); color:#241318; }
+  .kit-more{ margin-top:6px; }
+  .kit-more summary{ cursor:pointer; color:var(--pink); font-size:12px; letter-spacing:0.04em; list-style:none; }
+  .kit-more summary::-webkit-details-marker{ display:none; }
+  .kit-more summary::after{ content:' ▾'; }
+  .kit-more[open] summary::after{ content:' ▴'; }
+  .kit-more .kit-more-body{ margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; }
+  .kit-more .kit-more-body b{ color:var(--cream); font-weight:500; }
+  .kit-more ul{ margin:6px 0 0; padding-left:18px; }
   .agree-row{ display:flex; align-items:flex-start; gap:10px; margin-top:14px; }
   .agree-row input{ width:17px; height:17px; margin-top:2px; accent-color:var(--pink); flex-shrink:0; }
   .agree-row label{ font-size:12.5px; color:var(--cream); line-height:1.5; }
@@ -293,9 +310,9 @@ const DEALS = [
 const MAX_DEALS = 2;
 const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
 
-const GIFT_THRESHOLD = 200;
-const GIFT_UPGRADE_PRICE = 50;
-const BUNDLE_KIT_UPGRADE_PRICE = 50;
+const MINI_KIT_MIN_TOTAL = 200;
+const LUXURY_INCLUDED_MIN = 400;
+const LUXURY_KIT_PRICE = 50;
 const BRAID_HAIR_PACK_PRICE = 20;
 const BOOKING_TYPE_DISCOUNT = { couple: 0.15, bestie: 0.15, bestieSewIn: 0.30 };
 
@@ -427,7 +444,7 @@ async function updateStatus(key, status){
 }
 // Looks up only whether this one phone number has any approved bookings before —
 // doesn't expose the rest of the client list, unlike a full listBookings() call.
-async function checkFirstTimeSewin(phone){
+async function checkFirstTimeClient(phone){
   try{
     const res = await fetch(`${CONFIG.apiUrl}?action=checkVisits&phone=${encodeURIComponent(phone)}`);
     const json = await res.json();
@@ -459,6 +476,39 @@ function fileToCompressedDataURL(file, maxW=700, quality=0.65){
 
 const checkSVG = `<svg viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="25" stroke="#B85C82" stroke-width="2"/><path d="M15 27l7 7 15-15" stroke="#B85C82" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
+// Shared aftercare intro: headline, supporting text, the three kit tiers, and "See what's included".
+function aftercareIntroHTML(){
+  return `
+    <div class="aftercare-title">Your hair doesn't end at the appointment.</div>
+    <p class="aftercare-text">Every qualifying appointment comes with thoughtful aftercare essentials to help you care for your hair long after you leave the chair.</p>
+    <div class="kit-row">
+      <div><div class="kit-name">Mini Care Kit</div><div class="kit-sub">Every bundle order · first-time clients with $200+ services</div></div>
+      <span class="kit-badge">Complimentary</span>
+    </div>
+    <div class="kit-row">
+      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">An elevated upgrade to your EHIffect experience</div></div>
+      <span class="kit-badge">+${money(LUXURY_KIT_PRICE)}</span>
+    </div>
+    <div class="kit-row">
+      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">Included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages</div></div>
+      <span class="kit-badge solid">Included</span>
+    </div>
+    <details class="kit-more">
+      <summary>See what's included</summary>
+      <div class="kit-more-body">
+        <div><b>Complimentary Mini Care Kit</b> — a small collection of essentials for maintaining your hair after your appointment. Every bundle order includes a complimentary mini hair-care kit. First-time clients also receive a complimentary mini care kit with qualifying services of $${MINI_KIT_MIN_TOTAL}+.</div>
+        <div style="margin-top:8px;"><b>Luxury Care Kit</b> — upgrade your EHIffect experience with our full-size hair-care essentials, satin accessories, detangling tools &amp; personalized aftercare guide. Luxury Care Kit included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages.</div>
+        <ul>
+          <li>Satin bonnet</li>
+          <li>Detangling brush</li>
+          <li>Aftercare guide</li>
+          <li>Shampoo + conditioner (qualifying luxury kits)</li>
+        </ul>
+      </div>
+    </details>
+  `;
+}
+
 function fullPolicyHTML(){
   return `
     <div><b>Deposit:</b> $${CONFIG.depositAmount} required — refunded only if the appointment is cancelled at least 24 hours ahead.</div>
@@ -488,7 +538,7 @@ let state = {
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
   treatmentGroupSize: 1, treatmentGroupNames: "",
   bookingType: "solo", partnerName: "", partnerContact: "",
-  giftUpgrade: false, isFirstTimeSewin: null,
+  luxuryKit: false, isFirstTimeClient: null, firstTimePhone: "",
   name:"", phone:"", ig:"", date:"", time:"", notes:"", referenceLink:"",
   photos: [],
   agreedPolicy: false,
@@ -510,7 +560,7 @@ function resetSelection(){
   state.loyaltyVisit=""; state.btcFirstConfirmed=false; state.hallohairCostumeConfirmed=false;
   state.treatmentGroupSize=1; state.treatmentGroupNames="";
   state.bookingType="solo"; state.partnerName=""; state.partnerContact="";
-  state.giftUpgrade=false; state.isFirstTimeSewin=null;
+  state.luxuryKit=false;
   state.error='';
 }
 
@@ -612,45 +662,64 @@ function computeBaseTotal(){
   return total;
 }
 
-// True once this booking qualifies for a complimentary gift kit, from any source.
-function giftEligible(){
-  if(state.category==='bundles' || state.category==='custom') return false;
-  const base = computeBaseTotal();
-  if(base !== null && base >= GIFT_THRESHOLD) return true;
-  if(state.bookingType==='couple' || state.bookingType==='bestie') return true;
-  if(state.category==='si' && state.tierKey && state.tierKey!=='service' && state.isFirstTimeSewin===true) return true;
-  return false;
+// Care kits apply to service bookings only (bundles have their own flow; custom is quote-based).
+function kitsApply(){ return state.category && state.category!=='bundles' && state.category!=='custom'; }
+
+// Luxury Care Kit is included (no +$50) with qualifying $400+ hair packages.
+function luxuryIncluded(){
+  if(!(state.category==='qw' || state.category==='si')) return false;
+  const tier = currentTier();
+  return !!(tier && tier.price >= LUXURY_INCLUDED_MIN);
 }
+
+// Reasons this booking earns a complimentary Mini Care Kit (empty = not eligible).
+function miniKitReasons(){
+  if(!kitsApply()) return [];
+  const reasons = [];
+  const base = computeBaseTotal();
+  if(state.isFirstTimeClient===true && base !== null && base >= MINI_KIT_MIN_TOTAL) reasons.push('first-time client, $200+ service');
+  if(state.category==='si' && state.tierKey && state.tierKey!=='service' && state.isFirstTimeClient===true) reasons.push('first-time sew-in with hair purchase');
+  if(state.bookingType==='couple') reasons.push("Couple's Deal");
+  if(state.bookingType==='bestie') reasons.push('Bestie Deal');
+  return reasons;
+}
+function miniKitEligible(){ return miniKitReasons().length > 0; }
 function bookingTypeNoteText(){
   if(state.bookingType==='couple') return "Couple's Deal: please book your appointment on a different day than your partner — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
   if(state.bookingType==='bestie') return "Bestie Deal: please book your appointment on a different day than your bestie — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
   return '';
 }
-function giftNoteText(){
-  if(state.bookingType==='couple') return "Your Couple's Deal booking includes a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
-  if(state.bookingType==='bestie') return "Your Bestie Deal booking includes a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
-  if(state.category==='si' && state.isFirstTimeSewin===true) return "First-time sew-in clients who purchase hair through us receive a complimentary gift kit — or upgrade to our luxury kit for $50.";
-  return "Bookings $200+ include a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
-}
-function giftLabelText(){
-  if(!giftEligible()) return '';
-  const reasons = [];
+// Client-facing status line under the aftercare section.
+function kitStatusText(){
+  if(luxuryIncluded()) return "Your $400+ hair package includes the Luxury Care Kit.";
+  if(miniKitEligible()){
+    if(state.bookingType==='couple') return "Your Couple's Deal booking includes a complimentary Mini Care Kit.";
+    if(state.bookingType==='bestie') return "Your Bestie Deal booking includes a complimentary Mini Care Kit.";
+    return "Your booking includes a complimentary Mini Care Kit as a first-time EHIffect client.";
+  }
   const base = computeBaseTotal();
-  if(base !== null && base >= GIFT_THRESHOLD) reasons.push('$200+ order');
-  if(state.bookingType==='couple') reasons.push("Couple's Deal");
-  if(state.bookingType==='bestie') reasons.push('Bestie Deal');
-  if(state.category==='si' && state.isFirstTimeSewin===true) reasons.push('first-time sew-in hair purchase');
-  const kit = state.giftUpgrade ? `Luxury gift kit (+${money(GIFT_UPGRADE_PRICE)} upgrade)` : 'Complimentary gift kit';
-  return `${kit} — ${reasons.join(', ')}`;
+  if(state.isFirstTimeClient===null && base !== null && base >= MINI_KIT_MIN_TOTAL)
+    return "First-time clients with qualifying $200+ services receive a complimentary Mini Care Kit — we'll confirm once you add your phone number below.";
+  return '';
+}
+// Stored with the booking so it can be cross-checked on the dashboard/sheet.
+function kitLabelText(clientFacing){
+  if(!kitsApply()) return '';
+  if(luxuryIncluded()) return clientFacing ? 'Luxury Care Kit (included)' : 'Luxury Care Kit — included ($400+ package)';
+  const reasons = miniKitReasons();
+  const why = (!clientFacing && reasons.length) ? ` (${reasons.join(', ')})` : '';
+  if(state.luxuryKit) return `Luxury Care Kit (+${money(LUXURY_KIT_PRICE)})` + (reasons.length && !clientFacing ? ` — in place of complimentary Mini${why}` : '');
+  if(reasons.length) return `Mini Care Kit — complimentary${why}`;
+  return '';
 }
 function bundleCareKitCost(){
-  return state.bundleKitUpgrade ? BUNDLE_KIT_UPGRADE_PRICE : 0; // mini kit is naturally included, free
+  return state.bundleKitUpgrade ? LUXURY_KIT_PRICE : 0; // mini kit is naturally included, free
 }
 function calcTotal(){
   const base = computeBaseTotal();
   if(base === null) return null;
   let total = base;
-  if(giftEligible() && state.giftUpgrade) total += GIFT_UPGRADE_PRICE;
+  if(kitsApply() && !luxuryIncluded() && state.luxuryKit) total += LUXURY_KIT_PRICE;
   return total;
 }
 function dealsLabelText(clientFacing){
@@ -880,13 +949,18 @@ function renderBook(){
     ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' ? `
     <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
-    ${showDetails && giftEligible() ? `
+    ${showDetails && kitsApply() ? `
     <div class="card">
-      <div class="opt-sub" style="margin-bottom:8px; color:var(--pink);">${giftNoteText()}</div>
-      <div class="length-row">
-        <div class="length-btn ${!state.giftUpgrade?'selected':''}" data-action="pick-gift-kit" data-key="normal">Keep normal gift kit</div>
-        <div class="length-btn ${state.giftUpgrade?'selected':''}" data-action="pick-gift-kit" data-key="luxury">Upgrade to luxury (+${money(GIFT_UPGRADE_PRICE)})</div>
-      </div>
+      ${aftercareIntroHTML()}
+      ${kitStatusText() ? `<div class="avail-note" style="margin-top:10px;">${kitStatusText()}</div>` : ''}
+      ${luxuryIncluded() ? '' : (miniKitEligible() ? `
+      <div class="length-row" style="margin-top:10px;">
+        <div class="length-btn ${!state.luxuryKit?'selected':''}" data-action="pick-luxury-kit" data-key="normal">Keep Mini Care Kit</div>
+        <div class="length-btn ${state.luxuryKit?'selected':''}" data-action="pick-luxury-kit" data-key="luxury">Upgrade to Luxury (+${money(LUXURY_KIT_PRICE)})</div>
+      </div>` : `
+      <div class="length-row" style="margin-top:10px;">
+        <div class="length-btn ${state.luxuryKit?'selected':''}" data-action="pick-luxury-kit" data-key="${state.luxuryKit?'normal':'luxury'}">${state.luxuryKit?'✓ ':''}Add the Luxury Care Kit (+${money(LUXURY_KIT_PRICE)})</div>
+      </div>`)}
     </div>` : ''}
 
     ${showDetails && state.category!=='bundles' ? `
@@ -1043,10 +1117,11 @@ function renderBundles(){
       </div>
 
       <div style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
-        <div class="opt-sub">Thanks for your inquiry to get bundles! Every order comes with a mini hair care kit, naturally — or you can upgrade to the full kit for ${money(BUNDLE_KIT_UPGRADE_PRICE)}.</div>
+        ${aftercareIntroHTML()}
+        <div class="avail-note" style="margin-top:10px;">Every bundle order includes a complimentary Mini Care Kit.${state.bundleHairSource==='raw' ? ` Luxury Care Kit included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages — I'll confirm when I quote your order.` : ''}</div>
         <div class="addon-row" style="margin-top:8px;">
-          <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the full kit</label>
-          <span class="opt-price">+${money(BUNDLE_KIT_UPGRADE_PRICE)}</span>
+          <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the Luxury Care Kit</label>
+          <span class="opt-price">+${money(LUXURY_KIT_PRICE)}</span>
         </div>
       </div>
     </div>
@@ -1092,7 +1167,7 @@ function renderBundles(){
 function renderConfirm(){
   const svcLabel = serviceLabelText();
   const dealsLabel = dealsLabelText(true);
-  const giftLabel = giftLabelText();
+  const giftLabel = kitLabelText(true);
   const whenLine = state.category==='bundles'
     ? (state.date ? `Pickup: ${state.date}` : '')
     : [state.date, state.time].filter(Boolean).join(' at ');
@@ -1101,8 +1176,8 @@ function renderConfirm(){
     ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
     ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
-    ${giftLabel ? `<div style="margin-top:4px;"><b>Gift:</b> ${giftLabel}</div>` : ''}
-    ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleKitUpgrade ? `Full kit upgrade (+${money(BUNDLE_KIT_UPGRADE_PRICE)})` : 'Mini kit (included)'}</div>` : ''}
+    ${giftLabel ? `<div style="margin-top:4px;"><b>Aftercare:</b> ${giftLabel}</div>` : ''}
+    ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)'}</div>` : ''}
     <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
   </div>
   ${state.category==='bundles' ? `
@@ -1181,7 +1256,7 @@ function renderAdmin(){
           <div><span class="k">Service:</span> ${b.serviceLabel}</div>
           ${b.dealsUsed ? `<div><span class="k">Deals:</span> ${b.dealsUsed}</div>` : ''}
           ${b.bookingType && b.bookingType!=='solo' ? `<div><span class="k">Booking type:</span> ${b.bookingType}${b.partnerName?(' — partner: '+b.partnerName):''}${b.partnerContact?(' ('+b.partnerContact+')'):''}</div>` : ''}
-          ${b.giftKit ? `<div><span class="k">Gift kit:</span> ${b.giftKit}</div>` : ''}
+          ${b.giftKit ? `<div><span class="k">Care kit:</span> ${b.giftKit}</div>` : ''}
           ${b.careKitCost ? `<div><span class="k">Care kit:</span> ${b.careKitCost}</div>` : ''}
           <div><span class="k">Preferred:</span> ${b.date || '—'} ${b.time || ''}</div>
           <div><span class="k">Total:</span> ${displayTotal(b.total)}</div>
@@ -1244,7 +1319,7 @@ function attachHandlers(){
       else if(action==='toggle-btc-confirm'){ state.btcFirstConfirmed = !state.btcFirstConfirmed; }
       else if(action==='toggle-hallohair-confirm'){ state.hallohairCostumeConfirmed = !state.hallohairCostumeConfirmed; }
       else if(action==='pick-booking-type'){ state.bookingType = key; }
-      else if(action==='pick-gift-kit'){ state.giftUpgrade = (key==='luxury'); }
+      else if(action==='pick-luxury-kit'){ state.luxuryKit = (key==='luxury'); }
       else if(action==='toggle-bundle-kit-upgrade'){ state.bundleKitUpgrade = !state.bundleKitUpgrade; }
       else if(action==='toggle-crochet-confirm'){ state.crochetConfirmed = !state.crochetConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
@@ -1312,7 +1387,7 @@ function attachHandlers(){
           photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(),
           bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
-          giftKit: giftLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Full kit upgrade (+${money(BUNDLE_KIT_UPGRADE_PRICE)})` : 'Mini kit (included)') : '',
+          giftKit: kitLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)') : '',
           total: (rawTotal===null ? "Quote pending" : rawTotal)
         };
         const originalBtnText = el.textContent;
@@ -1323,7 +1398,7 @@ function attachHandlers(){
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1, twistHairType:"", cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1, twistHairType:"", cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
@@ -1378,15 +1453,16 @@ function attachHandlers(){
     if(el2) el2.addEventListener('input', (e)=>{ state[key] = e.target.value; });
   });
 
-  // First-time sew-in-with-purchased-hair check: phone isn't collected until this
-  // step, so this is the earliest point we can look up the client's history.
+  // First-time client check (drives Mini Care Kit eligibility). Phone isn't collected
+  // until this step, so this is the earliest point we can look up their history.
+  // Re-checks whenever the phone number changes.
   const phoneInput = document.getElementById('f-phone');
-  if(phoneInput && state.category==='si' && state.tierKey && state.tierKey!=='service'){
+  if(phoneInput && state.category && state.category!=='bundles'){
     phoneInput.addEventListener('blur', async (e)=>{
       const phone = e.target.value.trim();
-      if(!phone || state.isFirstTimeSewin !== null) return;
-      const result = await checkFirstTimeSewin(phone);
-      if(result !== null){ state.isFirstTimeSewin = result; render(); }
+      if(!phone || phone === state.firstTimePhone) return;
+      const result = await checkFirstTimeClient(phone);
+      if(result !== null){ state.firstTimePhone = phone; state.isFirstTimeClient = result; render(); }
     });
   }
 

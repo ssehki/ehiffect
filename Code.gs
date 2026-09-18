@@ -147,8 +147,8 @@ function handleCreate(body){
         "Service: " + (body.serviceLabel||"") + "\n" +
         (body.dealsLabel ? "Deals: " + body.dealsLabel + "\n" : "") +
         (body.bookingType && body.bookingType !== "solo" ? "Booking type: " + body.bookingType + " — partner: " + (body.partnerName||"") + " " + (body.partnerContact||"") + "\n" : "") +
-        (body.giftKit ? "Gift kit: " + body.giftKit + "\n" : "") +
-        (body.careKitCost ? "Care kit charge: $" + body.careKitCost + "\n" : "") +
+        (body.giftKit ? "Care kit: " + body.giftKit + "\n" : "") +
+        (body.careKitCost ? "Bundle care kit: " + body.careKitCost + "\n" : "") +
         "Total: $" + (body.total||0) + "\n" +
         "Preferred date/time: " + niceDate + " " + niceTime + "\n" +
         "Notes: " + (body.notes||"") + "\n" +
