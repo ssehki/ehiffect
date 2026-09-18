@@ -269,14 +269,21 @@ const CROCHET_PRICES = { own:50, stylist:80 };
 
 const DEALS = [
   { key:"btc", name:"Back to Campus", desc:"$20 off your first appointment of the semester", type:"flat", value:20 },
-  { key:"hallohair", name:"Hallohair", desc:"Free curls/crimps with any Quick Weave or Sew-In", type:"freeAddon" },
+  { key:"hallohair", name:"Hallohair", desc:"Free curls/crimps with any Quick Weave or Sew-In — bring a costume hair inspo for 20% off your style too (Halloween week, Oct 25–31, only)", type:"freeAddon" },
   { key:"campuscutie", name:"Campus Cutie", desc:"$15 off — Wednesdays & Sundays only (ID required)", type:"flat", value:15, dayGated:true },
-  { key:"bestie", name:"Bestie Bonus", desc:"Book with a bestie — each of you gets $20 off", type:"flat", value:20 },
   { key:"loyalty", name:"Loyalty Love", desc:"Your 5th install or more is 50% off", type:"percent", value:50 },
   { key:"flash", name:"Flash Deal", desc:"A random discount announced on my IG stories — mention it and I'll confirm", type:"custom" },
 ];
+// Bestie Bonus (flat $20 off) was replaced by the Couple's/Bestie Deal booking-type
+// selector below — percentage-based, tracks partner info, and grants an automatic gift.
 const MAX_DEALS = 2;
 const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
+
+const GIFT_THRESHOLD = 200;
+const GIFT_UPGRADE_PRICE = 50;
+const BUNDLE_CARE_KIT_BASIC = 20;
+const BUNDLE_CARE_KIT_LUXURY = 50;
+const BOOKING_TYPE_DISCOUNT = { couple: 0.15, bestie: 0.15, bestieSewIn: 0.30 };
 
 function getThanksgivingDate(year){
   const d = new Date(year, 10, 1); // Nov 1
@@ -296,6 +303,11 @@ function isCampusCutieDay(dateStr){
   if(!dateStr) return false;
   const day = new Date(dateStr + 'T12:00:00').getDay();
   return day === 0 || day === 3; // Sunday or Wednesday
+}
+function isHalloweenWeek(dateStr){
+  if(!dateStr) return false;
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.getMonth() === 9 && d.getDate() >= 25 && d.getDate() <= 31; // Oct 25-31
 }
 
 const WEEKDAY_WINDOWS = {
@@ -399,6 +411,15 @@ async function listBookings(){
 async function updateStatus(key, status){
   await submitViaGet('updateStatus', { key, status });
 }
+// Looks up only whether this one phone number has any approved bookings before —
+// doesn't expose the rest of the client list, unlike a full listBookings() call.
+async function checkFirstTimeSewin(phone){
+  try{
+    const res = await fetch(`${CONFIG.apiUrl}?action=checkVisits&phone=${encodeURIComponent(phone)}`);
+    const json = await res.json();
+    return !!json.isFirstTime;
+  }catch(err){ return null; }
+}
 
 function fileToCompressedDataURL(file, maxW=700, quality=0.65){
   return new Promise((resolve,reject)=>{
@@ -435,11 +456,14 @@ let state = {
   cornrowKey: null,
   treatmentKeys: {},
   crochetHairSource: null, crochetConfirmed: false, crochetDetails: "",
-  bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "",
+  bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "", bundleCareKit: "basic",
+  customDetails: "",
   installTexture: "",
   dealsSelected: [],
-  bestieInfo: "", loyaltyVisit: "", btcFirstConfirmed: false,
+  loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
   treatmentGroupSize: 1, treatmentGroupNames: "",
+  bookingType: "solo", partnerName: "", partnerContact: "",
+  giftUpgrade: false, isFirstTimeSewin: null,
   name:"", phone:"", ig:"", date:"", time:"", notes:"",
   photos: [],
   agreedPolicy: false,
@@ -454,11 +478,14 @@ function resetSelection(){
   state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false;
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
-  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource="";
+  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleCareKit="basic";
+  state.customDetails="";
   state.installTexture="";
   state.dealsSelected=[];
-  state.bestieInfo=""; state.loyaltyVisit=""; state.btcFirstConfirmed=false;
+  state.loyaltyVisit=""; state.btcFirstConfirmed=false; state.hallohairCostumeConfirmed=false;
   state.treatmentGroupSize=1; state.treatmentGroupNames="";
+  state.bookingType="solo"; state.partnerName=""; state.partnerContact="";
+  state.giftUpgrade=false; state.isFirstTimeSewin=null;
   state.error='';
 }
 
@@ -488,9 +515,10 @@ function serviceChosen(){
   if(state.category==='crochet') return !!state.crochetHairSource;
   if(state.category==='treatments') return Object.values(state.treatmentKeys).some(Boolean);
   if(state.category==='bundles') return true;
+  if(state.category==='custom') return !!state.customDetails;
   return false;
 }
-function calcTotal(){
+function computeBaseTotal(){
   let total = 0;
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier();
@@ -534,14 +562,63 @@ function calcTotal(){
           const curlsAddon = INSTALL_ADDONS.find(a=>a.key==='curls');
           if(curlsAddon) total -= curlsAddon.price;
         }
+        // Hallohair's free curls/crimps above apply any time it's selected on a QW/SI —
+        // the extra 20% off the style only kicks in with a costume inspo AND during Halloween week.
+        if(deal.key==='hallohair' && state.hallohairCostumeConfirmed && isHalloweenWeek(state.date)){
+          total -= total * 0.20;
+        }
       });
     }
     // Thanksgiving week discount is automatic, doesn't count toward the 2-deal max
     if(isThanksgivingWeek(state.date)){
       total -= total * 0.15;
     }
+    // Couple's/Bestie Deal — percentage off, stacks on top of selected deals above
+    if(state.bookingType === 'couple'){
+      total -= total * BOOKING_TYPE_DISCOUNT.couple;
+    } else if(state.bookingType === 'bestie'){
+      const pct = (state.category === 'si') ? BOOKING_TYPE_DISCOUNT.bestieSewIn : BOOKING_TYPE_DISCOUNT.bestie;
+      total -= total * pct;
+    }
     total = Math.max(0, total);
   }
+  return total;
+}
+
+// True once this booking qualifies for a complimentary gift kit, from any source.
+function giftEligible(){
+  if(state.category==='bundles' || state.category==='custom') return false;
+  const base = computeBaseTotal();
+  if(base !== null && base >= GIFT_THRESHOLD) return true;
+  if(state.bookingType==='couple' || state.bookingType==='bestie') return true;
+  if(state.category==='si' && state.tierKey && state.tierKey!=='service' && state.isFirstTimeSewin===true) return true;
+  return false;
+}
+function giftNoteText(){
+  if(state.bookingType==='couple') return "Your Couple's Deal booking includes a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
+  if(state.bookingType==='bestie') return "Your Bestie Deal booking includes a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
+  if(state.category==='si' && state.isFirstTimeSewin===true) return "First-time sew-in clients who purchase hair through us receive a complimentary gift kit — or upgrade to our luxury kit for $50.";
+  return "Bookings $200+ include a complimentary hair care gift kit — or upgrade to our luxury kit for $50.";
+}
+function giftLabelText(){
+  if(!giftEligible()) return '';
+  const reasons = [];
+  const base = computeBaseTotal();
+  if(base !== null && base >= GIFT_THRESHOLD) reasons.push('$200+ order');
+  if(state.bookingType==='couple') reasons.push("Couple's Deal");
+  if(state.bookingType==='bestie') reasons.push('Bestie Deal');
+  if(state.category==='si' && state.isFirstTimeSewin===true) reasons.push('first-time sew-in hair purchase');
+  const kit = state.giftUpgrade ? `Luxury gift kit (+${money(GIFT_UPGRADE_PRICE)} upgrade)` : 'Complimentary gift kit';
+  return `${kit} — ${reasons.join(', ')}`;
+}
+function bundleCareKitCost(){
+  return state.bundleQty * (state.bundleCareKit==='luxury' ? BUNDLE_CARE_KIT_LUXURY : BUNDLE_CARE_KIT_BASIC);
+}
+function calcTotal(){
+  const base = computeBaseTotal();
+  if(base === null) return null;
+  let total = base;
+  if(giftEligible() && state.giftUpgrade) total += GIFT_UPGRADE_PRICE;
   return total;
 }
 function dealsLabelText(clientFacing){
@@ -551,10 +628,10 @@ function dealsLabelText(clientFacing){
     if(!deal) return;
     if(clientFacing){ dealDetails.push(deal.name); return; }
     let line = deal.name;
-    if(dk==='bestie') line += ` (bestie: ${state.bestieInfo||'not given'})`;
     if(dk==='loyalty') line += ` (client says: ${state.loyaltyVisit||'not specified'} install)`;
     if(dk==='btc') line += ` (first appt of semester confirmed: ${state.btcFirstConfirmed?'yes':'no'})`;
     if(dk==='campuscutie') line += isCampusCutieDay(state.date) ? ' (date matches Wed/Sun)' : ' (date does NOT match Wed/Sun — verify)';
+    if(dk==='hallohair' && state.hallohairCostumeConfirmed) line += isHalloweenWeek(state.date) ? ' (costume inspo — 20% off style applied, Halloween week confirmed)' : ' (costume inspo checked, but NOT Halloween week — 20% off NOT applied)';
     dealDetails.push(line);
   });
   if(isThanksgivingWeek(state.date)) dealDetails.push(clientFacing ? 'Thanksgiving Week (15% off)' : 'Thanksgiving week (auto 15% off)');
@@ -577,7 +654,11 @@ function serviceLabelText(){
     if(state.treatmentGroupSize > 1) s += ` [group of ${state.treatmentGroupSize}: ${state.treatmentGroupNames||'names not given'}]`;
     return s;
   }
-  if(state.category==='bundles') return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
+  if(state.category==='bundles'){
+    const kitName = state.bundleCareKit==='luxury' ? 'Luxury' : 'Basic';
+    return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails} — Care kit: ${kitName} (${money(bundleCareKitCost())} total)`;
+  }
+  if(state.category==='custom') return `Custom style request (approval-based) — ${state.customDetails}`;
   return '';
 }
 
@@ -588,6 +669,7 @@ const CATEGORIES = [
   { key:'cornrows', name:'Cornrows' },
   { key:'crochet', name:'Crochet' },
   { key:'treatments', name:'Hair Treatments' },
+  { key:'custom', name:'Custom Style' },
 ];
 
 function renderLanding(){
@@ -628,6 +710,27 @@ function renderBook(){
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
       </div>` : `<div class="opt-sub">Bundles — pick your texture, quantity, and details below</div><div class="back-link" data-action="switch-to-service" style="margin-top:8px;">Also want to book a service? ›</div>`}
+
+      ${(state.category && state.category!=='bundles') ? `
+      <div style="margin-top:14px;">
+        <div class="opt-sub" style="margin-bottom:6px;">Booking type</div>
+        <div class="length-row">
+          <div class="length-btn ${state.bookingType==='solo'?'selected':''}" data-action="pick-booking-type" data-key="solo">Solo</div>
+          <div class="length-btn ${state.bookingType==='couple'?'selected':''}" data-action="pick-booking-type" data-key="couple">Couple's Deal</div>
+          <div class="length-btn ${state.bookingType==='bestie'?'selected':''}" data-action="pick-booking-type" data-key="bestie">Bestie Deal</div>
+        </div>
+        ${state.bookingType!=='solo' ? `
+        <div class="field" style="margin-top:12px;">
+          <label>Partner's name</label>
+          <input type="text" id="f-partner-name" value="${state.partnerName}" placeholder="their name"/>
+        </div>
+        <div class="field">
+          <label>Partner's Instagram handle or phone number</label>
+          <input type="text" id="f-partner-contact" value="${state.partnerContact}" placeholder="@theirhandle or their number"/>
+        </div>
+        <div class="avail-note">Please book your appointment on a different day than your partner/bestie — we can't do both in one session. I'll confirm both bookings match before applying your deal.</div>
+        ` : ''}
+      </div>` : ''}
 
       ${(state.category==='qw'||state.category==='si') ? `
         <div style="margin-top:14px;">
@@ -708,6 +811,16 @@ function renderBook(){
 
       ${state.category==='treatments' ? `<div class="opt-group" style="margin-top:14px;">${TREATMENTS.map(t=>`<div class="opt ${state.treatmentKeys[t.key]?'selected':''}" data-action="toggle-treatment" data-key="${t.key}"><div><div class="opt-name">${t.name}</div>${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div><span class="opt-price">${money(t.price)}</span></div>`).join('')}</div>` : ''}
 
+      ${state.category==='custom' ? `
+        <div class="opt-group" style="margin-top:14px;">
+          <div class="opt-sub" style="margin-bottom:6px;">Custom styles are approval-based — I'll review what you send and confirm final pricing and timing before your appointment is locked in.</div>
+          <div class="field" style="margin-top:10px;">
+            <label>Describe the style you want, or paste a TikTok/Instagram link</label>
+            <textarea id="f-custom-details" placeholder="describe the style, and/or paste a link to a video or photo of it">${state.customDetails}</textarea>
+          </div>
+          <div class="opt-sub">You'll be able to upload reference photos in the next step too.</div>
+        </div>` : ''}
+
       ${state.category==='bundles' ? `
         <div style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:6px;">Virgin or raw hair?</div>
@@ -737,6 +850,13 @@ function renderBook(){
             <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
           </div>
           <div class="opt-sub">Pricing depends on the bundle type you pick — I'll confirm your total once I see what you want from my catalog.</div>
+
+          <div class="opt-sub" style="margin:16px 0 6px;">Care kit (per bundle)</div>
+          <div class="length-row">
+            <div class="length-btn ${state.bundleCareKit==='basic'?'selected':''}" data-action="pick-care-kit" data-key="basic">Basic — ${money(BUNDLE_CARE_KIT_BASIC)}/bundle</div>
+            <div class="length-btn ${state.bundleCareKit==='luxury'?'selected':''}" data-action="pick-care-kit" data-key="luxury">Luxury — ${money(BUNDLE_CARE_KIT_LUXURY)}/bundle</div>
+          </div>
+          <div class="opt-sub" style="margin-top:6px;">Care kit total: ${money(bundleCareKitCost())} (${state.bundleQty} × ${money(state.bundleCareKit==='luxury'?BUNDLE_CARE_KIT_LUXURY:BUNDLE_CARE_KIT_BASIC)})</div>
         </div>` : ''}
     </div>
 
@@ -747,8 +867,17 @@ function renderBook(){
       <div class="total-bar"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
-    ${showDetails && !(state.category==='qw'||state.category==='si') ? `
+    ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' ? `
     <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
+
+    ${showDetails && giftEligible() ? `
+    <div class="card">
+      <div class="opt-sub" style="margin-bottom:8px; color:var(--pink);">🎁 ${giftNoteText()}</div>
+      <div class="addon-row">
+        <label><input type="checkbox" data-action="toggle-gift-upgrade" ${state.giftUpgrade?'checked':''}/>Upgrade to luxury gift kit</label>
+        <span class="opt-price">+${money(GIFT_UPGRADE_PRICE)}</span>
+      </div>
+    </div>` : ''}
 
     ${showDetails && state.category!=='bundles' ? `
     <div class="card">
@@ -795,11 +924,6 @@ function renderBook(){
           <div class="opt ${state.dealsSelected.includes(d.key)?'selected':''}" data-action="toggle-deal" data-key="${d.key}">
             <div><div class="opt-name">${d.name}</div><div class="opt-sub">${d.desc}</div>${extraNote}</div>
           </div>
-          ${(d.key==='bestie' && state.dealsSelected.includes('bestie')) ? `
-            <div class="field" style="margin-top:-2px;">
-              <label>Bestie's name/IG (so I can match your bookings)</label>
-              <input type="text" id="f-bestie-info" value="${state.bestieInfo}" placeholder="@theirhandle or their name"/>
-            </div>` : ''}
           ${(d.key==='loyalty' && state.dealsSelected.includes('loyalty')) ? `
             <div class="field" style="margin-top:-2px;">
               <label>Which install is this for you?</label>
@@ -814,6 +938,12 @@ function renderBook(){
               <input type="checkbox" id="btc-confirm" ${state.btcFirstConfirmed?'checked':''} data-action="toggle-btc-confirm"/>
               <label for="btc-confirm">Yes, this is my first appointment of the semester.</label>
             </div>` : ''}
+          ${(d.key==='hallohair' && state.dealsSelected.includes('hallohair')) ? `
+            <div class="agree-row" style="margin-top:-2px;">
+              <input type="checkbox" id="hallohair-confirm" ${state.hallohairCostumeConfirmed?'checked':''} data-action="toggle-hallohair-confirm"/>
+              <label for="hallohair-confirm">I'm bringing a costume hair inspo (photo or link) for this style, for the extra 20% off.</label>
+            </div>
+            ${state.hallohairCostumeConfirmed && !isHalloweenWeek(state.date) ? `<div class="opt-sub" style="margin-top:5px; color:var(--pink-deep);">The costume 20% off only applies during Halloween week (Oct 25–31) — pick your date above to check.</div>` : ''}` : ''}
           `;
         }).join('')}
       </div>
@@ -866,6 +996,7 @@ function renderBook(){
 function renderConfirm(){
   const svcLabel = serviceLabelText();
   const dealsLabel = dealsLabelText(true);
+  const giftLabel = giftLabelText();
   const whenLine = state.category==='bundles'
     ? (state.date ? `Pickup: ${state.date}` : '')
     : [state.date, state.time].filter(Boolean).join(' at ');
@@ -874,6 +1005,8 @@ function renderConfirm(){
     ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
     ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
+    ${giftLabel ? `<div style="margin-top:4px;"><b>Gift:</b> ${giftLabel}</div>` : ''}
+    ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleCareKit==='luxury'?'Luxury':'Basic'} (${money(bundleCareKitCost())} total)</div>` : ''}
     <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
   </div>
   <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get a text within <b>24 hours</b> letting you know if it's approved or not.</p>
@@ -947,9 +1080,13 @@ function renderAdmin(){
         <div class="booking-detail">
           <div><span class="k">Service:</span> ${b.serviceLabel}</div>
           ${b.dealsUsed ? `<div><span class="k">Deals:</span> ${b.dealsUsed}</div>` : ''}
+          ${b.bookingType && b.bookingType!=='solo' ? `<div><span class="k">Booking type:</span> ${b.bookingType}${b.partnerName?(' — partner: '+b.partnerName):''}${b.partnerContact?(' ('+b.partnerContact+')'):''}</div>` : ''}
+          ${b.giftKit ? `<div><span class="k">Gift kit:</span> ${b.giftKit}</div>` : ''}
+          ${b.careKitCost ? `<div><span class="k">Care kit:</span> ${money(Number(b.careKitCost))}</div>` : ''}
           <div><span class="k">Preferred:</span> ${b.date || '—'} ${b.time || ''}</div>
           <div><span class="k">Total:</span> ${displayTotal(b.total)}</div>
           ${b.notes ? `<div><span class="k">Notes:</span> ${b.notes}</div>` : ''}
+          ${Number(b.visitCount) ? `<div><span class="k">Visit count:</span> ${b.visitCount}${b.loyaltyFlag==='TRUE'||b.loyaltyFlag===true ? ' 🎉 surprise loyalty gift time!' : ''}</div>` : ''}
           <div><span class="k">Submitted:</span> ${b.submittedAt || ''}</div>
         </div>
         ${b.photos && b.photos.length ? `<div class="booking-photos">${b.photos.map(p=>`<img src="${p}" data-action="view-photo" data-src="${p}"/>`).join('')}</div>` : ''}
@@ -1003,6 +1140,10 @@ function attachHandlers(){
       else if(action==='pick-group-size'){ state.treatmentGroupSize = parseInt(key); }
       else if(action==='pick-loyalty-visit'){ state.loyaltyVisit = el.value; }
       else if(action==='toggle-btc-confirm'){ state.btcFirstConfirmed = !state.btcFirstConfirmed; }
+      else if(action==='toggle-hallohair-confirm'){ state.hallohairCostumeConfirmed = !state.hallohairCostumeConfirmed; }
+      else if(action==='pick-booking-type'){ state.bookingType = key; }
+      else if(action==='pick-care-kit'){ state.bundleCareKit = key; }
+      else if(action==='toggle-gift-upgrade'){ state.giftUpgrade = !state.giftUpgrade; }
       else if(action==='toggle-crochet-confirm'){ state.crochetConfirmed = !state.crochetConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
       else if(action==='qty-minus'){ state.bundleQty = Math.max(1, state.bundleQty-1); }
@@ -1019,12 +1160,17 @@ function attachHandlers(){
         const timeEl = document.getElementById('f-time');
         state.time = timeEl ? timeEl.value : '';
         state.notes = document.getElementById('f-notes').value.trim();
-        const bestieEl = document.getElementById('f-bestie-info');
-        if(bestieEl) state.bestieInfo = bestieEl.value.trim();
         const groupNamesEl = document.getElementById('f-group-names');
         if(groupNamesEl) state.treatmentGroupNames = groupNamesEl.value.trim();
+        const partnerNameEl = document.getElementById('f-partner-name');
+        if(partnerNameEl) state.partnerName = partnerNameEl.value.trim();
+        const partnerContactEl = document.getElementById('f-partner-contact');
+        if(partnerContactEl) state.partnerContact = partnerContactEl.value.trim();
 
         if(!state.name || !state.phone){ state.error = "Please add your name and phone number so I can confirm your appt."; render(); return; }
+        if(state.bookingType !== 'solo' && !state.partnerName && !state.partnerContact){
+          state.error = "Please add your partner's name or contact info for the " + (state.bookingType==='couple' ? "Couple's" : "Bestie") + " Deal."; render(); return;
+        }
         if(state.category !== 'bundles' && state.date && state.time && !isTimeAllowed(state.date, state.time)){
           const dayNoteNow = AVAILABILITY[new Date(state.date + 'T12:00:00').getDay()];
           state.error = `That time isn't available on this date. ${dayNoteNow}`; render(); return;
@@ -1039,17 +1185,24 @@ function attachHandlers(){
           state.bundleDetails = document.getElementById('f-bundle-details').value.trim();
           if(!state.bundleDetails){ state.error = "Please describe the type/brand/length of bundles you want."; render(); return; }
         }
+        if(state.category==='custom'){
+          state.customDetails = document.getElementById('f-custom-details').value.trim();
+          if(!state.customDetails){ state.error = "Please describe the style you want, or paste a link/photo reference."; render(); return; }
+        }
         if(state.category==='treatments' && state.treatmentGroupSize > 1){
           const chosenCount = TREATMENTS.filter(t=>state.treatmentKeys[t.key]).length;
           if(chosenCount !== 1){ state.error = "For a group booking, please select exactly one service that everyone will get."; render(); return; }
           if(!state.treatmentGroupNames){ state.error = "Please add your bestie(s) name/IG so I can match your bookings."; render(); return; }
         }
-        if(state.dealsSelected.includes('bestie') && !state.bestieInfo){ state.error = "Please add your bestie's name/IG for the Bestie Bonus deal."; render(); return; }
 
         const rawTotal = calcTotal();
         const booking = {
           name: state.name, phone: state.phone, ig: state.ig, date: state.date, time: state.time, notes: state.notes,
-          photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(), total: (rawTotal===null ? "Quote pending" : rawTotal)
+          photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(),
+          bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
+          partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
+          giftKit: giftLabelText(), careKitCost: state.category==='bundles' ? bundleCareKitCost() : '',
+          total: (rawTotal===null ? "Quote pending" : rawTotal)
         };
         el.disabled = true; el.textContent = "Sending...";
         try{ await saveBooking(booking); state.view = 'confirm'; }
@@ -1057,7 +1210,7 @@ function attachHandlers(){
       }
       else if(action==='book-again'){
         const bookings = state.bookings;
-        state = { view:"book", category:null, hideCategoryGrid:false, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", installTexture:"", dealsSelected:[], bestieInfo:"", loyaltyVisit:"", btcFirstConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view:"book", category:null, hideCategoryGrid:false, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleCareKit:"basic", customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", giftUpgrade:false, isFirstTimeSewin:null, name:"",phone:"",ig:"",date:"",time:"",notes:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
@@ -1096,12 +1249,26 @@ function attachHandlers(){
   const liveFieldMap = {
     'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-notes':'notes',
     'f-bundle-details':'bundleDetails', 'f-crochet-details':'crochetDetails',
-    'f-bestie-info':'bestieInfo', 'f-group-names':'treatmentGroupNames'
+    'f-group-names':'treatmentGroupNames',
+    'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',
+    'f-custom-details':'customDetails'
   };
   Object.entries(liveFieldMap).forEach(([id, key])=>{
     const el2 = document.getElementById(id);
     if(el2) el2.addEventListener('input', (e)=>{ state[key] = e.target.value; });
   });
+
+  // First-time sew-in-with-purchased-hair check: phone isn't collected until this
+  // step, so this is the earliest point we can look up the client's history.
+  const phoneInput = document.getElementById('f-phone');
+  if(phoneInput && state.category==='si' && state.tierKey && state.tierKey!=='service'){
+    phoneInput.addEventListener('blur', async (e)=>{
+      const phone = e.target.value.trim();
+      if(!phone || state.isFirstTimeSewin !== null) return;
+      const result = await checkFirstTimeSewin(phone);
+      if(result !== null){ state.isFirstTimeSewin = result; render(); }
+    });
+  }
 
   const photoAddBtn = document.getElementById('photo-add-btn');
   const photoInput = document.getElementById('photo-input');

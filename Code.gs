@@ -10,19 +10,28 @@
  * 5. Click Deploy, authorize when Google asks (click Advanced → Go to project (unsafe) — this is
  *    just Google being cautious about your own script, it's fine).
  * 6. Copy the Web App URL it gives you — that's what goes into CONFIG.apiUrl in index.html.
- * 7. Run formatSheet() once (see its own instructions below) — this also backfills the
- *    "dealsUsed" column header and locks the date/time columns as plain text so Sheets
- *    stops auto-converting them into its own confusing date/time values.
+ * 7. Run formatSheet() once (see its own instructions below) — this also backfills any new
+ *    column headers and locks the date/time columns as plain text so Sheets stops
+ *    auto-converting them into its own confusing date/time values.
  *
  * NOTE: everything runs through doGet (not doPost). Apps Script's /exec endpoint does an
  * internal redirect, and browsers silently convert POST -> GET when following that redirect —
  * so POST from an external site like GitHub Pages never reliably reaches doPost. GET survives
- * the redirect correctly every time, so all actions (list/create/updateStatus) go through it.
+ * the redirect correctly every time, so all actions (list/create/updateStatus/checkVisits) go
+ * through it.
  */
 
 const NOTIFY_EMAIL = "ehivoltk@gmail.com"; // <-- CHANGE THIS
 const PHOTO_FOLDER_NAME = "Ehiffect Booking Photos";
-const HEADERS = ["id","name","phone","ig","date","time","notes","serviceLabel","total","status","submittedAt","photoUrls","dealsUsed"];
+
+// Every Nth approved visit from the same phone number gets flagged for a surprise
+// internal loyalty gift. Change this one number any time — nothing else to touch.
+const LOYALTY_SURPRISE_EVERY = 5;
+
+const HEADERS = [
+  "id","name","phone","ig","date","time","notes","serviceLabel","total","status","submittedAt","photoUrls","dealsUsed",
+  "bookingType","partnerName","partnerContact","giftKit","careKitCost","visitCount","loyaltyFlag"
+];
 
 function getSheet(){
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -87,6 +96,22 @@ function formatTimestamp(ms){
   return Utilities.formatDate(new Date(ms), Session.getScriptTimeZone(), "MM/dd/yyyy hh:mm a");
 }
 
+// Counts approved bookings for a phone number, for internal visit tracking.
+// excludeRowIndex is a 0-based index into getDataRange().getValues() (header
+// row included) to skip — used when recomputing a row's own count so it
+// doesn't count itself. Pass -1 to not exclude anything.
+function countApprovedForPhone(phone, excludeRowIndex){
+  if(!phone) return 0;
+  const sheet = getSheet();
+  const data = sheet.getDataRange().getValues();
+  let count = 0;
+  for(let i=1; i<data.length; i++){
+    if(i === excludeRowIndex) continue;
+    if(String(data[i][2]) === String(phone) && data[i][9] === "approved") count++;
+  }
+  return count;
+}
+
 function handleCreate(body){
   const sheet = getSheet();
   const id = "b_" + new Date().getTime() + "_" + Math.floor(Math.random()*10000);
@@ -95,10 +120,19 @@ function handleCreate(body){
   const niceTime = formatTimeStr(body.time);
   const niceSubmittedAt = formatTimestamp(new Date().getTime());
 
+  // Internal-only tracking — not sent back to the client, just for your dashboard.
+  // This is an estimate at submission time (their Nth visit IF this one gets approved);
+  // handleUpdateStatus recomputes it for real when a booking is actually approved,
+  // in case bookings get approved out of chronological order.
+  const visitCount = countApprovedForPhone(body.phone, -1) + 1;
+  const loyaltyFlag = (visitCount % LOYALTY_SURPRISE_EVERY === 0);
+
   sheet.appendRow([
     id, body.name || "", body.phone || "", body.ig || "", niceDate, niceTime,
     body.notes || "", body.serviceLabel || "", body.total || 0, "pending",
-    niceSubmittedAt, photoUrls.join("|"), body.dealsLabel || ""
+    niceSubmittedAt, photoUrls.join("|"), body.dealsLabel || "",
+    body.bookingType || "solo", body.partnerName || "", body.partnerContact || "",
+    body.giftKit || "", body.careKitCost || "", visitCount, loyaltyFlag
   ]);
 
   try{
@@ -112,10 +146,14 @@ function handleCreate(body){
         "IG: " + (body.ig||"") + "\n" +
         "Service: " + (body.serviceLabel||"") + "\n" +
         (body.dealsLabel ? "Deals: " + body.dealsLabel + "\n" : "") +
+        (body.bookingType && body.bookingType !== "solo" ? "Booking type: " + body.bookingType + " — partner: " + (body.partnerName||"") + " " + (body.partnerContact||"") + "\n" : "") +
+        (body.giftKit ? "Gift kit: " + body.giftKit + "\n" : "") +
+        (body.careKitCost ? "Care kit charge: $" + body.careKitCost + "\n" : "") +
         "Total: $" + (body.total||0) + "\n" +
         "Preferred date/time: " + niceDate + " " + niceTime + "\n" +
         "Notes: " + (body.notes||"") + "\n" +
         (photoUrls.length ? "Photos:\n" + photoUrls.join("\n") + "\n" : "") +
+        (loyaltyFlag ? "\n🎉 If approved, this would be visit #" + visitCount + " for this client — surprise loyalty gift time!\n" : "") +
         "\nApprove or deny it from your dashboard."
     });
   }catch(err){ /* email failure shouldn't block the booking from saving */ }
@@ -129,6 +167,13 @@ function handleUpdateStatus(body){
   for(let i=1; i<data.length; i++){
     if(data[i][0] === body.key){
       sheet.getRange(i+1, 10).setValue(body.status); // column 10 = status
+      if(body.status === "approved"){
+        const phone = data[i][2];
+        const visitCount = countApprovedForPhone(phone, i) + 1;
+        const loyaltyFlag = (visitCount % LOYALTY_SURPRISE_EVERY === 0);
+        sheet.getRange(i+1, 19).setValue(visitCount);   // column 19 = visitCount
+        sheet.getRange(i+1, 20).setValue(loyaltyFlag);  // column 20 = loyaltyFlag
+      }
       break;
     }
   }
@@ -145,9 +190,20 @@ function doGet(e){
     const bookings = rows.map(r => ({
       key: r[0], name: r[1], phone: r[2], ig: r[3], date: r[4], time: r[5],
       notes: r[6], serviceLabel: r[7], total: r[8], status: r[9],
-      submittedAt: r[10], photos: r[11] ? r[11].split("|") : [], dealsUsed: r[12] || ""
+      submittedAt: r[10], photos: r[11] ? r[11].split("|") : [], dealsUsed: r[12] || "",
+      bookingType: r[13] || "solo", partnerName: r[14] || "", partnerContact: r[15] || "",
+      giftKit: r[16] || "", careKitCost: r[17] || "", visitCount: r[18] || 0, loyaltyFlag: r[19] || false
     }));
     return ContentService.createTextOutput(JSON.stringify({ bookings }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Lightweight, privacy-conscious lookup for the public booking page: returns
+  // only a count/boolean for ONE phone number, not the rest of the client list.
+  if(action === "checkVisits"){
+    const phone = e.parameter.phone || "";
+    const count = countApprovedForPhone(phone, -1);
+    return ContentService.createTextOutput(JSON.stringify({ approvedCount: count, isFirstTime: count === 0 }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
@@ -178,7 +234,7 @@ function doPost(e){
   return ContentService.createTextOutput(JSON.stringify({ error: "unknown action" })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Adds any header columns that are missing (e.g. the new "dealsUsed" column)
+// Adds any header columns that are missing (e.g. new columns from an update)
 // without touching ones that already exist — safe to run anytime.
 function ensureHeaders(){
   const sheet = getSheet();
@@ -209,16 +265,18 @@ function formatSheet(){
   sheet.setFrozenRows(1);
   sheet.setRowHeight(1, 32);
 
-  // column widths — id, name, phone, ig, date, time, notes, service, total, status, submittedAt, photos, dealsUsed
-  const widths = [0, 130, 110, 110, 90, 90, 220, 260, 70, 100, 150, 260, 220];
+  // column widths — id, name, phone, ig, date, time, notes, service, total, status, submittedAt,
+  // photos, dealsUsed, bookingType, partnerName, partnerContact, giftKit, careKitCost, visitCount, loyaltyFlag
+  const widths = [0, 130, 110, 110, 90, 90, 220, 260, 70, 100, 150, 260, 220, 100, 130, 150, 220, 90, 80, 90];
   widths.forEach((w, i) => { if(w) sheet.setColumnWidth(i+1, w); });
   sheet.hideColumns(1); // hide the internal id column, you don't need to see it
 
-  // wrap long text columns (notes, service, photos, dealsUsed) — applied ahead of current data too
-  sheet.getRange(2, 7, FUTURE_PROOF_ROWS, 1).setWrap(true);
-  sheet.getRange(2, 8, FUTURE_PROOF_ROWS, 1).setWrap(true);
-  sheet.getRange(2, 12, FUTURE_PROOF_ROWS, 1).setWrap(true);
-  sheet.getRange(2, 13, FUTURE_PROOF_ROWS, 1).setWrap(true);
+  // wrap long text columns — applied ahead of current data too
+  sheet.getRange(2, 7, FUTURE_PROOF_ROWS, 1).setWrap(true);   // notes
+  sheet.getRange(2, 8, FUTURE_PROOF_ROWS, 1).setWrap(true);   // serviceLabel
+  sheet.getRange(2, 12, FUTURE_PROOF_ROWS, 1).setWrap(true);  // photoUrls
+  sheet.getRange(2, 13, FUTURE_PROOF_ROWS, 1).setWrap(true);  // dealsUsed
+  sheet.getRange(2, 16, FUTURE_PROOF_ROWS, 1).setWrap(true);  // giftKit
 
   // Lock date (E), time (F), and submittedAt (K) as PLAIN TEXT — applied to future rows too.
   // This is the actual fix for the "random number"/garbled date problem: Google Sheets
@@ -250,6 +308,16 @@ function formatSheet(){
       .whenTextEqualTo(r.text)
       .setBackground(r.bg).setFontColor(r.fg).setBold(true)
       .setRanges([statusRange])
+      .build()
+  );
+
+  // highlight the loyaltyFlag column (T) when TRUE, as a visual heads-up
+  const loyaltyRange = sheet.getRange(2, 20, FUTURE_PROOF_ROWS, 1);
+  rules.push(
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo("TRUE")
+      .setBackground("#F0D9A8").setFontColor("#7A5C14").setBold(true)
+      .setRanges([loyaltyRange])
       .build()
   );
   sheet.setConditionalFormatRules(rules);
