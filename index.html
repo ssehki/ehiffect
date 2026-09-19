@@ -486,7 +486,7 @@ function aftercareIntroHTML(){
       <span class="kit-badge">Complimentary</span>
     </div>
     <div class="kit-row">
-      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">An elevated upgrade to your Ehiffect experience</div></div>
+      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">An elevated upgrade to your aftercare routine</div></div>
       <span class="kit-badge">+${money(LUXURY_KIT_PRICE)}</span>
     </div>
     <div class="kit-row">
@@ -497,7 +497,7 @@ function aftercareIntroHTML(){
       <summary>See what's included</summary>
       <div class="kit-more-body">
         <div><b>Complimentary Mini Care Kit</b> — a small collection of essentials for maintaining your hair after your appointment. Every bundle order includes a complimentary mini hair-care kit. First-time clients also receive a complimentary mini care kit with qualifying services of $${MINI_KIT_MIN_TOTAL}+.</div>
-        <div style="margin-top:8px;"><b>Luxury Care Kit</b> — upgrade your Ehiffect experience with our full-size hair-care essentials, satin accessories, detangling tools &amp; personalized aftercare guide. Luxury Care Kit included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages.</div>
+        <div style="margin-top:8px;"><b>Luxury Care Kit</b> — upgrade your aftercare experience with our full-size hair-care essentials, satin accessories, detangling tools &amp; personalized aftercare guide. Luxury Care Kit included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages.</div>
         <ul>
           <li>Satin bonnet</li>
           <li>Detangling brush</li>
@@ -695,7 +695,7 @@ function kitStatusText(){
   if(miniKitEligible()){
     if(state.bookingType==='couple') return "Your Couple's Deal booking includes a complimentary Mini Care Kit.";
     if(state.bookingType==='bestie') return "Your Bestie Deal booking includes a complimentary Mini Care Kit.";
-    return "Your booking includes a complimentary Mini Care Kit as a first-time Ehiffect client.";
+    return "Your booking includes a complimentary Mini Care Kit as a first-time client.";
   }
   const base = computeBaseTotal();
   if(state.isFirstTimeClient===null && base !== null && base >= MINI_KIT_MIN_TOTAL)
