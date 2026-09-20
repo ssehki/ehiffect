@@ -142,6 +142,13 @@
   .policy-box[open] summary::after{ content:' ▴'; }
   .policy-box .policy-body{ margin-top:10px; }
 
+  .drop summary{ cursor:pointer; list-style:none; display:flex; align-items:baseline; gap:8px; font-family:'Cormorant Garamond', serif; font-size:20px; font-weight:600; color:var(--cream); }
+  .drop summary::-webkit-details-marker{ display:none; }
+  .drop summary::after{ content:'▾'; margin-left:auto; color:var(--pink); font-size:14px; }
+  .drop[open] summary::after{ content:'▴'; }
+  .drop .drop-count{ font-family:'Work Sans', sans-serif; font-size:12px; font-weight:500; color:var(--pink); }
+  .drop .drop-body{ margin-top:14px; }
+
   .aftercare-title{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:18px; line-height:1.25; letter-spacing:0.06em; text-transform:uppercase; color:var(--cream); margin:0 0 8px; }
   .aftercare-text{ font-size:12.5px; color:var(--muted); line-height:1.6; margin:0 0 12px; }
   .kit-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:9px 0; border-top:1px solid var(--line); }
@@ -493,7 +500,7 @@ function aftercareIntroHTML(){
       <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">Included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages</div></div>
       <span class="kit-badge solid">Included</span>
     </div>
-    <details class="kit-more">
+    <details class="kit-more" data-keep="kitOpen" ${state.kitOpen?'open':''}>
       <summary>See what's included</summary>
       <div class="kit-more-body">
         <div><b>Complimentary Mini Care Kit</b> — a small collection of essentials for maintaining your hair after your appointment. Every bundle order includes a complimentary mini hair-care kit. First-time clients also receive a complimentary mini care kit with qualifying services of $${MINI_KIT_MIN_TOTAL}+.</div>
@@ -538,7 +545,7 @@ let state = {
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
   treatmentGroupSize: 1, treatmentGroupNames: "",
   bookingType: "solo", partnerName: "", partnerContact: "",
-  luxuryKit: false, isFirstTimeClient: null, firstTimePhone: "",
+  luxuryKit: false, isFirstTimeClient: null, firstTimePhone: "", dealsOpen: false, policyOpen: false, kitOpen: false,
   name:"", phone:"", ig:"", date:"", time:"", notes:"", referenceLink:"",
   photos: [],
   agreedPolicy: false,
@@ -997,7 +1004,9 @@ function renderBook(){
 
     ${showDetails && state.category!=='bundles' && state.category!=='treatments' ? `
     <div class="card">
-      <div class="step-label"><span class="step-num">•</span><span class="step-title">Using a deal?</span></div>
+      <details class="drop" data-keep="dealsOpen" ${state.dealsOpen?'open':''}>
+      <summary><span class="step-num">•</span>Using a deal?${state.dealsSelected.length ? `<span class="drop-count">${state.dealsSelected.length} selected</span>` : ''}</summary>
+      <div class="drop-body">
       <div class="opt-sub" style="margin-bottom:10px;">Select up to ${MAX_DEALS} — I'll confirm eligibility when I approve your request.</div>
       <div class="opt-group">
         ${DEALS.map(d=>{
@@ -1032,8 +1041,10 @@ function renderBook(){
           `;
         }).join('')}
       </div>
-      ${isThanksgivingWeek(state.date) ? `<div class="avail-note" style="margin-top:10px;">🦃 Thanksgiving week discount (15% off) is automatically applied to your total — no need to select it.</div>` : ''}
       ${state.dealsSelected.length >= MAX_DEALS ? `<div class="opt-sub" style="margin-top:10px; color:var(--pink-deep);">maxed out at ${MAX_DEALS} deals.</div>` : ''}
+      </div>
+      </details>
+      ${isThanksgivingWeek(state.date) ? `<div class="avail-note" style="margin-top:12px;">🦃 Thanksgiving week discount (15% off) is automatically applied to your total — no need to select it.</div>` : ''}
     </div>` : ''}
 
     ${showDetails ? `
@@ -1056,7 +1067,7 @@ function renderBook(){
 
       <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
 
-      <details class="policy-box">
+      <details class="policy-box" data-keep="policyOpen" ${state.policyOpen?'open':''}>
         <summary>Read the full policy</summary>
         <div class="policy-body">${fullPolicyHTML()}</div>
       </details>
@@ -1255,6 +1266,7 @@ function renderAdmin(){
         <div class="booking-detail">
           <div><span class="k">Service:</span> ${b.serviceLabel}</div>
           ${b.dealsUsed ? `<div><span class="k">Deals:</span> ${b.dealsUsed}</div>` : ''}
+          ${b.dealAlert ? `<div style="color:#e39997;"><span class="k" style="color:#e39997;">Deal alert:</span> ${b.dealAlert}</div>` : ''}
           ${b.bookingType && b.bookingType!=='solo' ? `<div><span class="k">Booking type:</span> ${b.bookingType}${b.partnerName?(' — partner: '+b.partnerName):''}${b.partnerContact?(' ('+b.partnerContact+')'):''}</div>` : ''}
           ${b.giftKit ? `<div><span class="k">Care kit:</span> ${b.giftKit}</div>` : ''}
           ${b.careKitCost ? `<div><span class="k">Care kit:</span> ${b.careKitCost}</div>` : ''}
@@ -1384,7 +1396,7 @@ function attachHandlers(){
         const notesWithLink = state.referenceLink ? `${state.notes}${state.notes ? ' | ' : ''}Reference link: ${state.referenceLink}` : state.notes;
         const booking = {
           name: state.name, phone: state.phone, ig: state.ig, date: state.date, time: state.time, notes: notesWithLink,
-          photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(),
+          photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(), dealKeys: state.dealsSelected.join(", "),
           bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
           giftKit: kitLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)') : '',
@@ -1451,6 +1463,11 @@ function attachHandlers(){
   Object.entries(liveFieldMap).forEach(([id, key])=>{
     const el2 = document.getElementById(id);
     if(el2) el2.addEventListener('input', (e)=>{ state[key] = e.target.value; });
+  });
+
+  // Dropdowns remember whether they're open, since every click re-renders the page.
+  document.querySelectorAll('details[data-keep]').forEach(d=>{
+    d.addEventListener('toggle', ()=>{ state[d.getAttribute('data-keep')] = d.open; });
   });
 
   // First-time client check (drives Mini Care Kit eligibility). Phone isn't collected
