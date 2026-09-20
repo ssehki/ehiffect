@@ -17,8 +17,11 @@
  *   • Dashboard = overview: what's pending, deal alerts, deal usage. Updates by itself.
  *   • Clients   = one row per person: visits, deals they've used, loyalty countdown.
  *   • Bookings  = every request. Change the Status dropdown and the other tabs refresh.
- *   • Columns are found by their header NAME, so you can insert/move your own columns
- *     in Bookings without breaking anything. ("total" may also be titled "pricing".)
+ *   • Columns are found by their header NAME, so bookings always land under the right
+ *     header. ("total" may also be titled "pricing".) Columns you add yourself are left alone.
+ *   • formatSheet also tidies the Bookings tab: most-used columns on the left, technical
+ *     ones hidden, partner/kit details in a [+] group, phones shown as 260-298-2022, and it
+ *     repairs any old rows that ended up under the wrong headers. Safe to run any time.
  *
  * NOTE: everything goes through doGet (not doPost) because browsers turn POST into GET when
  * following Apps Script's redirect, so POST from a GitHub Pages site never reliably arrives.
@@ -48,6 +51,17 @@ const DEAL_NAMES = {
 // the booking gets a "Deal alert" (sheet, email, and website dashboard).
 // Add or remove keys from the list above to change which deals count.
 const ONE_TIME_DEALS = ["btc", "hallohair"];
+
+const VALID_STATUSES = ["pending", "approved", "denied", "no-show"];
+
+// Bookings tab layout: formatSheet puts the columns you use most on the left and the
+// technical ones on the right (hidden). Set to false to keep your own column order.
+const REORDER_COLUMNS = true;
+const DISPLAY_ORDER = [
+  "id", "name", "phone", "ig", "date", "time", "status", "serviceLabel", "total", "dealsUsed", "dealAlert",
+  "notes", "submittedAt", "photoUrls", "bookingType", "partnerName", "partnerContact", "giftKit", "careKitCost",
+  "visitCount", "loyaltyFlag", "dealKeys"
+];
 
 // Brand colors used to style the sheet.
 const COLORS = {
@@ -141,6 +155,14 @@ function setCell(sheet, cols, field, row, value){
 
 // Same client no matter how the number was typed: "(555) 123-4567" = "5551234567".
 function phoneKey(p){ return String(p).replace(/\D/g, "").slice(-10); }
+
+// Friendly display: 2602982022 -> "260-298-2022". Anything else is left as typed.
+function fmtPhone(p){
+  const raw = (p === undefined || p === null) ? "" : String(p);
+  let d = raw.replace(/\D/g, "");
+  if(d.length === 11 && d[0] === "1") d = d.slice(1);
+  return d.length === 10 ? d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6) : raw;
+}
 
 function isActive(b){ return b.status === "pending" || b.status === "approved"; }
 
@@ -245,7 +267,7 @@ function handleCreate(body){
     const id = "b_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
 
     const values = {
-      id: id, name: body.name || "", phone: body.phone || "", ig: body.ig || "",
+      id: id, name: body.name || "", phone: fmtPhone(body.phone), ig: body.ig || "",
       date: formatDateStr(body.date), time: formatTimeStr(body.time), notes: body.notes || "",
       serviceLabel: body.serviceLabel || "", total: body.total || 0, status: "pending",
       submittedAt: formatTimestamp(Date.now()), photoUrls: photoUrls.join("|"),
@@ -312,8 +334,8 @@ function json(obj){
 
 function toWebsiteShape(b){
   return {
-    key: b.id, name: b.name, phone: b.phone, ig: b.ig, date: b.date, time: b.time, notes: b.notes,
-    serviceLabel: b.serviceLabel, total: b.total, status: b.status, submittedAt: b.submittedAt,
+    key: b.id, name: b.name, phone: fmtPhone(b.phone), ig: b.ig, date: asDate(b.date), time: asTime(b.time), notes: b.notes,
+    serviceLabel: b.serviceLabel, total: b.total, status: b.status, submittedAt: asText(b.submittedAt),
     photos: b.photoUrls ? String(b.photoUrls).split("|") : [], dealsUsed: b.dealsUsed || "",
     bookingType: b.bookingType || "solo", partnerName: b.partnerName || "", partnerContact: b.partnerContact || "",
     giftKit: b.giftKit || "", careKitCost: b.careKitCost || "", visitCount: b.visitCount || 0,
@@ -396,10 +418,36 @@ function getOrCreateSheet(name){
   return ss.getSheetByName(name) || ss.insertSheet(name);
 }
 
-// Safe text for cells that Sheets may have auto-converted into real dates.
-function asText(v){
+// --- Safe display text. Older rows can hold real dates, or raw millisecond timestamps
+//     like 1789652770960, so every value shown on a sheet passes through these. ---
+
+function asText(v){                                   // "submitted at" style timestamps
   if(v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), "MM/dd/yyyy hh:mm a");
+  if(typeof v === "number" && v > 1e11) return formatTimestamp(v);
+  if(/^\d{12,13}$/.test(String(v))) return formatTimestamp(Number(v));
   return String(v === undefined || v === null ? "" : v);
+}
+
+function asDate(v){                                   // appointment date -> 09/23/2026
+  if(v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), "MM/dd/yyyy");
+  if(/^\d{4}-\d{2}-\d{2}/.test(String(v))) return formatDateStr(String(v).slice(0, 10));
+  return String(v === undefined || v === null ? "" : v);
+}
+
+function asTime(v){                                   // appointment time -> 2:30 PM
+  if(v instanceof Date) return timeFromDate(v);
+  if(/^\d{1,2}:\d{2}$/.test(String(v))) return formatTimeStr(v);
+  return String(v === undefined || v === null ? "" : v);
+}
+
+// Sheets stores a bare time as a date back in 1899, which can drift by a few minutes in
+// some timezones. Appointments are on 15-minute steps, so snap back to the nearest one.
+function timeFromDate(v){
+  const tz = Session.getScriptTimeZone();
+  const mins = Number(Utilities.formatDate(v, tz, "H")) * 60 + Number(Utilities.formatDate(v, tz, "m"));
+  const snapped = Math.round(mins / 15) * 15;
+  const h = Math.floor(snapped / 60) % 24, m = snapped % 60;
+  return formatTimeStr(h + ":" + (m < 10 ? "0" + m : m));
 }
 
 function dealSummary(bookings){
@@ -423,12 +471,12 @@ function buildClients(all){
     const oneTime = ONE_TIME_DEALS.filter(d => counts[d]).map(d => DEAL_NAMES[d]);
     const ig = bs.map(b => b.ig).filter(Boolean).pop() || "";
     return {
-      lastRow: last.row, name: last.name, phone: String(last.phone), ig: ig,
-      type: visits === 0 ? "Pending" : visits === 1 ? "New" : visits < LOYALTY_SURPRISE_EVERY ? "Returning" : "Regular",
+      lastRow: last.row, name: last.name, phone: fmtPhone(last.phone), ig: ig,
+      type: visits === 0 ? "Awaiting first visit" : visits === 1 ? "New client" : visits < LOYALTY_SURPRISE_EVERY ? "Returning" : "Regular",
       visits: visits, bookings: bs.length,
       deals: used.join(", ") || "—", oneTime: oneTime.join(", ") || "—",
-      loyalty: visits === 0 ? "—" : visits % LOYALTY_SURPRISE_EVERY === 0 ? "Surprise gift due" : (LOYALTY_SURPRISE_EVERY - visits % LOYALTY_SURPRISE_EVERY) + " to go",
-      lastBooking: asText(last.submittedAt)
+      loyalty: visits === 0 ? "—" : visits % LOYALTY_SURPRISE_EVERY === 0 ? "Surprise gift due" : (LOYALTY_SURPRISE_EVERY - visits % LOYALTY_SURPRISE_EVERY) + " visits to go",
+      lastBooking: asText(last.submittedAt) || "—"
     };
   }).sort((a, b) => b.lastRow - a.lastRow);
 }
@@ -445,33 +493,40 @@ function writeClientsSheet(clients){
   sheet.clear();
   sheet.setHiddenGridlines(true);
 
-  const headers = ["Client", "Phone", "Instagram", "Type", "Visits", "Bookings", "Deals used", "One-time deals used", "Loyalty", "Last booking"];
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  styleHeaderRow(sheet.getRange(1, 1, 1, headers.length));
-  sheet.setRowHeight(1, 34);
-  sheet.setFrozenRows(1);
-  sheet.setFrozenColumns(1);
+  const headers = ["Client", "Phone", "Instagram", "Client type", "Visits", "Bookings", "Deals used", "One-time deals used", "Loyalty", "Last booking"];
+  const W = headers.length, HEAD = 3;                 // header sits on row 3, data starts on row 4
+
+  sheet.getRange(1, 1, 1, W).merge().setValue("Clients").setBackground(COLORS.ink).setFontColor(COLORS.cream)
+       .setFontFamily("Cormorant Garamond").setFontSize(24).setFontWeight("bold").setVerticalAlignment("middle");
+  sheet.getRange(2, 1, 1, W).merge()
+       .setValue("Client type:  New client = 1 approved visit  ·  Returning = 2–4  ·  Regular = " + LOYALTY_SURPRISE_EVERY + "+  ·  Awaiting first visit = booked, nothing approved yet.  Visits only count approved bookings.")
+       .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setWrap(true).setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 46); sheet.setRowHeight(2, 34);
+
+  sheet.getRange(HEAD, 1, 1, W).setValues([headers]);
+  styleHeaderRow(sheet.getRange(HEAD, 1, 1, W));
+  sheet.setRowHeight(HEAD, 32);
+  sheet.setFrozenRows(HEAD);
 
   if(clients.length){
-    const n = clients.length;
-    sheet.getRange(2, 2, n, 1).setNumberFormat("@");
-    sheet.getRange(2, 1, n, headers.length).setValues(clients.map(c =>
+    const n = clients.length, first = HEAD + 1;
+    sheet.getRange(first, 2, n, 1).setNumberFormat("@");
+    sheet.getRange(first, 1, n, W).setValues(clients.map(c =>
       [c.name, c.phone, c.ig, c.type, c.visits, c.bookings, c.deals, c.oneTime, c.loyalty, c.lastBooking]));
-    const body = sheet.getRange(2, 1, n, headers.length);
-    body.setFontSize(10).setVerticalAlignment("middle").setWrap(true)
-        .setBackgrounds(clients.map((c, i) => new Array(headers.length).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
-    sheet.getRange(2, 5, n, 2).setHorizontalAlignment("center");
-    sheet.getRange(2, 1, n, 1).setFontWeight("bold");
+    sheet.getRange(first, 1, n, W).setFontSize(10).setVerticalAlignment("middle").setWrap(true)
+         .setBackgrounds(clients.map((c, i) => new Array(W).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
+    sheet.getRange(first, 5, n, 2).setHorizontalAlignment("center");
+    sheet.getRange(first, 1, n, 1).setFontWeight("bold");
 
-    const typeColors = { Pending: COLORS.grey, New: COLORS.blush, Returning: COLORS.green, Regular: COLORS.gold };
-    sheet.getRange(2, 4, n, 1).setBackgrounds(clients.map(c => [typeColors[c.type]])).setFontWeight("bold");
+    const typeColors = { "Awaiting first visit": COLORS.grey, "New client": COLORS.blush, "Returning": COLORS.green, "Regular": COLORS.gold };
+    sheet.getRange(first, 4, n, 1).setBackgrounds(clients.map(c => [typeColors[c.type]])).setFontWeight("bold");
     clients.forEach((c, i) => {
-      if(c.oneTime !== "—") sheet.getRange(i + 2, 8).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setFontWeight("bold");
-      if(c.loyalty === "Surprise gift due") sheet.getRange(i + 2, 9).setBackground(COLORS.gold).setFontWeight("bold");
+      if(c.oneTime !== "—") sheet.getRange(first + i, 8).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setFontWeight("bold");
+      if(c.loyalty === "Surprise gift due") sheet.getRange(first + i, 9).setBackground(COLORS.gold).setFontWeight("bold");
     });
-    sheet.getRange(1, 1, n + 1, headers.length).createFilter();
+    sheet.getRange(HEAD, 1, n + 1, W).createFilter();
   }
-  [170, 120, 130, 90, 60, 75, 220, 190, 130, 150].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  [170, 120, 130, 160, 60, 75, 220, 190, 130, 150].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
   sheet.setTabColor(COLORS.muted);
 }
 
@@ -480,7 +535,8 @@ function writeDashboardSheet(all, clients){
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.clear();
   sheet.setHiddenGridlines(true);
-  [140, 150, 250, 170, 250, 110, 80, 28, 170, 90, 100].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  // A–H = pending list, I = spacer, J–L = deals table
+  [140, 150, 115, 230, 160, 230, 120, 80, 28, 170, 90, 100].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 
   const pending = all.filter(b => b.status === "pending");
   const approved = all.filter(b => b.status === "approved");
@@ -489,9 +545,9 @@ function writeDashboardSheet(all, clients){
   const returning = clients.filter(c => c.visits >= 2).length;
 
   // --- header band ---
-  sheet.getRange("A1:K1").merge().setValue("Bookings Overview").setBackground(COLORS.ink).setFontColor(COLORS.cream)
+  sheet.getRange("A1:L1").merge().setValue("Bookings Overview").setBackground(COLORS.ink).setFontColor(COLORS.cream)
        .setFontFamily("Cormorant Garamond").setFontSize(26).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("left");
-  sheet.getRange("A2:K2").merge()
+  sheet.getRange("A2:L2").merge()
        .setValue("Updated " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MMM d, h:mm a") + "  ·  change a Status in the Bookings tab and this refreshes on its own")
        .setBackground(COLORS.ink).setFontColor(COLORS.pink).setFontSize(10).setHorizontalAlignment("left");
   sheet.setRowHeight(1, 54); sheet.setRowHeight(2, 24); sheet.setRowHeight(3, 14);
@@ -500,83 +556,129 @@ function writeDashboardSheet(all, clients){
   const tiles = [
     { label: "PENDING",        value: pending.length,   fmt: "0",        cap: "waiting on you" },
     { label: "APPROVED",       value: approved.length,  fmt: "0",        cap: "all time" },
-    { label: "APPROVED VALUE", value: value,            fmt: "$#,##0",   cap: "quoted totals, all time" },
+    { label: "APPROVED VALUE", value: value,            fmt: "$#,##0",   cap: "quoted totals" },
     { label: "CLIENTS",        value: clients.length,   fmt: "0",        cap: returning + " returning" },
     { label: "DEAL ALERTS",    value: alerts.length,    fmt: "0",        cap: "pending bookings reusing a one-time deal", alert: alerts.length > 0 }
   ];
   tiles.forEach((t, i) => {
     const col = i + 1;
-    const block = sheet.getRange(4, col, 3, 1);
-    block.setBackground(t.alert ? COLORS.alertBg : COLORS.cream).setHorizontalAlignment("left").setVerticalAlignment("middle")
+    sheet.getRange(4, col, 3, 1).setBackground(t.alert ? COLORS.alertBg : COLORS.cream).setHorizontalAlignment("left").setVerticalAlignment("middle")
          .setBorder(true, true, false, true, false, false, "#FFFFFF", SpreadsheetApp.BorderStyle.SOLID_THICK);
     sheet.getRange(4, col).setValue(t.label).setFontSize(9).setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.muted);
     sheet.getRange(5, col).setValue(t.value).setNumberFormat(t.fmt).setFontFamily("Cormorant Garamond").setFontSize(30)
          .setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.ink);
     sheet.getRange(6, col).setValue(t.cap).setFontSize(9).setFontColor(t.alert ? COLORS.alertText : COLORS.muted).setWrap(true);
-    sheet.getRange(4, col, 1, 1).setBorder(true, null, null, null, null, null, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
+    sheet.getRange(4, col).setBorder(true, null, null, null, null, null, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
   });
   sheet.setRowHeight(4, 26); sheet.setRowHeight(5, 50); sheet.setRowHeight(6, 34); sheet.setRowHeight(7, 18);
 
   // --- section titles ---
-  ["A8", "I8"].forEach((a, i) => sheet.getRange(a).setValue(i ? "Deals at a glance" : "Needs your attention")
-       .setFontFamily("Cormorant Garamond").setFontSize(18).setFontWeight("bold").setFontColor(COLORS.ink));
+  [["A8", "Needs your attention"], ["J8", "Deals at a glance"]].forEach(p =>
+    sheet.getRange(p[0]).setValue(p[1]).setFontFamily("Cormorant Garamond").setFontSize(18).setFontWeight("bold").setFontColor(COLORS.ink));
   sheet.setRowHeight(8, 34);
 
   // --- pending list (newest first) ---
-  const listHeaders = ["Submitted", "Client", "Service", "Deals", "Deal alert", "Preferred date", "Total"];
-  sheet.getRange(9, 1, 1, listHeaders.length).setValues([listHeaders]);
-  styleHeaderRow(sheet.getRange(9, 1, 1, listHeaders.length));
+  const listHeaders = ["Submitted", "Client", "Phone", "Service", "Deals", "Deal alert", "Preferred date", "Total"];
+  const LW = listHeaders.length;
+  sheet.getRange(9, 1, 1, LW).setValues([listHeaders]);
+  styleHeaderRow(sheet.getRange(9, 1, 1, LW));
   sheet.setRowHeight(9, 28);
 
   const rows = pending.slice().reverse().slice(0, 30);
   if(rows.length){
-    sheet.getRange(10, 1, rows.length, listHeaders.length).setValues(rows.map(b => [
-      asText(b.submittedAt), b.name, b.serviceLabel, b.dealsUsed || "—", b.dealAlert || "—",
-      (asText(b.date) + " " + asText(b.time)).trim() || "—", isNaN(Number(b.total)) || b.total === "" ? String(b.total) : Number(b.total)
+    sheet.getRange(10, 3, rows.length, 1).setNumberFormat("@");
+    sheet.getRange(10, 1, rows.length, LW).setValues(rows.map(b => [
+      asText(b.submittedAt) || "—", b.name, fmtPhone(b.phone), b.serviceLabel, b.dealsUsed || "—", b.dealAlert || "—",
+      (asDate(b.date) + " " + asTime(b.time)).trim() || "—",
+      isNaN(Number(b.total)) || b.total === "" ? String(b.total) : Number(b.total)
     ]));
-    const body = sheet.getRange(10, 1, rows.length, listHeaders.length);
-    body.setFontSize(10).setVerticalAlignment("middle").setWrap(true)
-        .setBackgrounds(rows.map((b, i) => new Array(listHeaders.length).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
+    sheet.getRange(10, 1, rows.length, LW).setFontSize(10).setVerticalAlignment("middle").setWrap(true)
+         .setBackgrounds(rows.map((b, i) => new Array(LW).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
     sheet.getRange(10, 2, rows.length, 1).setFontWeight("bold");
-    sheet.getRange(10, 7, rows.length, 1).setNumberFormat("$#,##0").setHorizontalAlignment("right");
+    sheet.getRange(10, 8, rows.length, 1).setNumberFormat("$#,##0").setHorizontalAlignment("right");
     rows.forEach((b, i) => {
-      if(b.dealAlert) sheet.getRange(i + 10, 5).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setFontWeight("bold");
+      if(b.dealAlert) sheet.getRange(i + 10, 6).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setFontWeight("bold");
     });
   }else{
     sheet.getRange(10, 1).setValue("You're all caught up — no pending requests.").setFontColor(COLORS.muted).setFontStyle("italic");
   }
 
-  // --- deals at a glance (columns I–K) ---
+  // --- deals at a glance (columns J–L) ---
   const counts = dealSummary(all);
-  const dealHeaders = ["Deal", "Times used", "Type"];
-  sheet.getRange(9, 9, 1, 3).setValues([dealHeaders]);
-  styleHeaderRow(sheet.getRange(9, 9, 1, 3));
-  const dealKeys = Object.keys(DEAL_NAMES);
-  sheet.getRange(10, 9, dealKeys.length, 3).setValues(dealKeys.map(k =>
+  sheet.getRange(9, 10, 1, 3).setValues([["Deal", "Times used", "Type"]]);
+  styleHeaderRow(sheet.getRange(9, 10, 1, 3));
+  const keys = Object.keys(DEAL_NAMES);
+  sheet.getRange(10, 10, keys.length, 3).setValues(keys.map(k =>
     [DEAL_NAMES[k], counts[k] || 0, ONE_TIME_DEALS.indexOf(k) !== -1 ? "One-time" : "Any time"]));
-  sheet.getRange(10, 9, dealKeys.length, 3).setFontSize(10).setVerticalAlignment("middle")
-       .setBackgrounds(dealKeys.map((k, i) => new Array(3).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
-  sheet.getRange(10, 10, dealKeys.length, 1).setHorizontalAlignment("center");
-  dealKeys.forEach((k, i) => {
-    if(ONE_TIME_DEALS.indexOf(k) !== -1) sheet.getRange(i + 10, 11).setFontColor(COLORS.alertText).setFontWeight("bold");
+  sheet.getRange(10, 10, keys.length, 3).setFontSize(10).setVerticalAlignment("middle")
+       .setBackgrounds(keys.map((k, i) => new Array(3).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
+  sheet.getRange(10, 11, keys.length, 1).setHorizontalAlignment("center");
+  keys.forEach((k, i) => {
+    if(ONE_TIME_DEALS.indexOf(k) !== -1) sheet.getRange(i + 10, 12).setFontColor(COLORS.alertText).setFontWeight("bold");
   });
   sheet.setTabColor(COLORS.pink);
 }
 
 
 /* ================================================================
-   8. ONE-TIME SETUP — restyles the Bookings tab and builds the other two
+   8. ONE-TIME SETUP / TIDY-UP  (safe to run any time)
    ================================================================ */
 
 function formatSheet(){
-  formatBookingsSheet();
-  refreshViews();
+  const repaired = repairLegacyRows();        // 1. rescue rows the old script wrote to the wrong columns
+  if(REORDER_COLUMNS) reorderBookingColumns();// 2. most-used columns first
+  formatBookingsSheet();                      // 3. compact, modern look
+  cleanLegacyValues();                        // 4. readable phones, dates, times
+  refreshViews();                             // 5. Dashboard + Clients
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ["Dashboard", "Clients", "Bookings"].forEach((name, i) => {   // order the tabs
+  ["Dashboard", "Clients", "Bookings"].forEach((name, i) => {
     const s = ss.getSheetByName(name);
     if(s){ ss.setActiveSheet(s); ss.moveActiveSheet(i + 1); }
   });
   ss.setActiveSheet(ss.getSheetByName("Dashboard"));
+  ss.toast(repaired ? "Done — repaired " + repaired + " booking row(s) too." : "Done — everything is tidy.", "Ehiffect", 8);
+}
+
+// Before the script found columns by header name, it wrote every booking to fixed positions.
+// Once a column was inserted in your sheet, those rows landed one column off (the status ended
+// up under "pricing", the timestamp under "status"). This moves each such row's values back
+// under their correct headers. Healthy rows are never touched, and it's safe to re-run.
+function repairLegacyRows(){
+  const sheet = getSheet();
+  const cols = getColumns(sheet);
+  const data = sheet.getDataRange().getValues();
+  const OLD_POSITIONS = HEADERS.slice(0, 20);         // the fixed order the old script wrote
+  let fixed = 0;
+  for(let i = 1; i < data.length; i++){
+    const row = data[i];
+    if(VALID_STATUSES.indexOf(String(row[cols.map.total]).trim()) === -1) continue;   // healthy: a real total is not a status word
+    const out = new Array(cols.width).fill("");
+    OLD_POSITIONS.forEach((field, p) => { out[cols.map[field]] = (row[p] === undefined ? "" : row[p]); });
+    // If an approval was typed over the timestamp, keep the approval and clear the timestamp.
+    const overwritten = String(out[cols.map.submittedAt]).trim();
+    if(VALID_STATUSES.indexOf(overwritten) !== -1){
+      out[cols.map.status] = overwritten;
+      out[cols.map.submittedAt] = "";
+    }
+    sheet.getRange(i + 1, 1, 1, cols.width).setValues([out]);
+    fixed++;
+  }
+  return fixed;
+}
+
+// Puts the columns you actually use on the left; technical ones go to the right.
+function reorderBookingColumns(){
+  const sheet = getSheet();
+  const width = getColumns(sheet).width;
+  sheet.setFrozenColumns(0);
+  const filter = sheet.getFilter(); if(filter) filter.remove();
+  const everything = sheet.getRange(1, 1, 1, width);
+  for(let n = 0; n < 5; n++){ try{ everything.shiftColumnGroupDepth(-1); }catch(e){ break; } }  // clear old groups
+  sheet.showColumns(1, width);
+  DISPLAY_ORDER.forEach((field, i) => {
+    const from = getColumns(sheet).map[field];
+    if(from !== i) sheet.moveColumns(sheet.getRange(1, from + 1), i + 1);
+  });
 }
 
 function formatBookingsSheet(){
@@ -591,28 +693,40 @@ function formatBookingsSheet(){
 
   sheet.setHiddenGridlines(true);
   sheet.setTabColor(COLORS.ink);
-  const header = sheet.getRange(1, 1, 1, cols.width);
-  header.setBackground(COLORS.pink).setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(10).setVerticalAlignment("middle");
+  styleHeaderRow(sheet.getRange(1, 1, 1, cols.width));
   sheet.setRowHeight(1, 34);
   sheet.setFrozenRows(1);
-  sheet.setFrozenColumns(c.name + 1);
+  sheet.setFrozenColumns(c.name + 1);                  // keeps the client name visible when scrolling
 
+  // compact widths
   const widths = {
-    name: 130, phone: 110, ig: 110, date: 90, time: 90, notes: 220, serviceLabel: 260, total: 70, status: 100,
-    submittedAt: 150, photoUrls: 260, dealsUsed: 220, bookingType: 100, partnerName: 130, partnerContact: 150,
-    giftKit: 220, careKitCost: 150, visitCount: 80, loyaltyFlag: 90, dealKeys: 130, dealAlert: 260
+    name: 125, phone: 110, ig: 100, date: 85, time: 80, status: 95, serviceLabel: 200, total: 65,
+    dealsUsed: 150, dealAlert: 200, notes: 180, submittedAt: 135, photoUrls: 100,
+    bookingType: 95, partnerName: 115, partnerContact: 125, giftKit: 170, careKitCost: 130
   };
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
-  sheet.hideColumns(c.id + 1);                         // internal id, you never need to see it
+
+  // technical columns stay out of sight (their info lives on the Clients tab)
+  ["id", "visitCount", "loyaltyFlag", "dealKeys"].forEach(f => sheet.hideColumns(c[f] + 1));
+
+  // Partner / care-kit details fold into a group you can open with the small [+] above the headers.
+  if(c.careKitCost - c.bookingType === 4){
+    const first = c.bookingType + 1;
+    if(sheet.getColumnGroupDepth(first) === 0) sheet.getRange(1, first, 1, 5).shiftColumnGroupDepth(1);
+    sheet.getColumnGroup(first, 1).collapse();
+  }
 
   const data = sheet.getRange(2, 1, ROWS, cols.width);
   data.setFontSize(10).setVerticalAlignment("middle");
-  ["notes", "serviceLabel", "photoUrls", "dealsUsed", "giftKit", "dealAlert"].forEach(f =>
+  ["serviceLabel", "dealsUsed", "dealAlert", "notes", "giftKit"].forEach(f =>
     sheet.getRange(2, c[f] + 1, ROWS, 1).setWrap(true));
+  ["photoUrls", "dealKeys"].forEach(f =>                // long links get clipped so rows stay short
+    sheet.getRange(2, c[f] + 1, ROWS, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP));
 
-  // Lock date/time/submittedAt as PLAIN TEXT so Sheets can't turn them into its own date values.
-  ["date", "time", "submittedAt"].forEach(f =>
+  // Plain text for phone/date/time/submittedAt so Sheets can't reinterpret them; tidy price format.
+  ["phone", "date", "time", "submittedAt"].forEach(f =>
     sheet.getRange(2, c[f] + 1, ROWS, 1).setNumberFormat("@"));
+  sheet.getRange(2, c.total + 1, ROWS, 1).setNumberFormat("$#,##0");
 
   // soft alternating row colors
   sheet.getBandings().forEach(b => b.remove());
@@ -623,10 +737,10 @@ function formatBookingsSheet(){
   const filter = sheet.getFilter(); if(filter) filter.remove();
   sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), cols.width).createFilter();
 
-  // status dropdown + colors, deal alert highlight, loyalty highlight
+  // status dropdown + colors, deal alert highlight
   const statusRange = sheet.getRange(2, c.status + 1, ROWS, 1);
   statusRange.setDataValidation(SpreadsheetApp.newDataValidation()
-    .requireValueInList(["pending", "approved", "denied", "no-show"], true).setAllowInvalid(false).build());
+    .requireValueInList(VALID_STATUSES, true).setAllowInvalid(false).build());
 
   const rules = [
     { text: "approved", bg: "#C9E3C6", fg: "#2F5C2B" },
@@ -641,12 +755,27 @@ function formatBookingsSheet(){
     .whenFormulaSatisfied("=LEN($" + colLetter(c.dealAlert + 1) + "2)>0")
     .setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setBold(true).setRanges([alertRange]).build());
 
-  const loyaltyRange = sheet.getRange(2, c.loyaltyFlag + 1, ROWS, 1);
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo("TRUE")
-    .setBackground(COLORS.gold).setFontColor("#7A5C14").setBold(true).setRanges([loyaltyRange]).build());
-
   sheet.setConditionalFormatRules(rules);
   SpreadsheetApp.flush();
+}
+
+// Rewrites old values into readable text: phone 260-298-2022, dates 09/23/2026, times 2:30 PM,
+// and timestamps like 1789652770960 -> 09/19/2026 09:26 AM. Only cells that need it are changed.
+function cleanLegacyValues(){
+  const sheet = getSheet();
+  const c = getColumns(sheet).map;
+  const n = sheet.getLastRow() - 1;
+  if(n < 1) return;
+  const fixers = { phone: fmtPhone, submittedAt: asText, date: asDate, time: asTime };
+  Object.keys(fixers).forEach(field => {
+    const range = sheet.getRange(2, c[field] + 1, n, 1);
+    const before = range.getValues();
+    const after = before.map(r => [r[0] === "" ? "" : fixers[field](r[0])]);
+    if(after.some((r, i) => String(r[0]) !== String(before[i][0]))){
+      range.setNumberFormat("@");
+      range.setValues(after);
+    }
+  });
 }
 
 function testEmail(){
