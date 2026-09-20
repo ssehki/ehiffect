@@ -219,6 +219,18 @@
   .booking-actions button.deny.active{ background:#7a2f2f; }
   .booking-actions button.pending.active{ background:#7a5c14; color:#fff; border-color:#7a5c14; }
 
+  .admin-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:14px; }
+  .admin-stat{ background:var(--panel); border:1px solid var(--line); padding:10px 4px; text-align:center; }
+  .admin-stat b{ display:block; font-family:'Cormorant Garamond', serif; font-size:26px; line-height:1.1; color:var(--pink); font-weight:600; }
+  .admin-stat span{ font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); }
+  .admin-stat.alert{ background:#3a1f22; border-color:#c9716f; }
+  .admin-stat.alert b{ color:#e39997; }
+  .admin-badges{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .admin-badge{ font-size:10px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--line); color:var(--muted); border-radius:2px; }
+  .admin-badge.bad{ border-color:#c9716f; color:#e39997; }
+  .admin-badge.good{ border-color:#5fa858; color:#8fd487; }
+  .admin-warn{ margin-top:10px; padding:8px 10px; font-size:12.5px; line-height:1.5; background:#3a1f22; border-left:3px solid #c9716f; color:#f0c4c2; }
+  .admin-warn.ok{ background:#1f2e1e; border-left-color:#5fa858; color:#c9e3c6; }
   .empty{ text-align:center; color:var(--muted); padding:60px 20px; font-size:14px; }
   .admin-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
   .refresh-btn{ background:none; border:1px solid var(--line); padding:7px 12px; font-size:12px; cursor:pointer; color:var(--muted); }
@@ -443,7 +455,6 @@ async function listBookings(){
   const res = await fetch(CONFIG.apiUrl + "?action=list");
   const json = await res.json();
   const bookings = json.bookings || [];
-  bookings.sort((a,b)=> (b.submittedAt||0) - (a.submittedAt||0));
   return bookings;
 }
 async function updateStatus(key, status){
@@ -545,7 +556,7 @@ let state = {
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
   treatmentGroupSize: 1, treatmentGroupNames: "",
   bookingType: "solo", partnerName: "", partnerContact: "",
-  luxuryKit: false, isFirstTimeClient: null, firstTimePhone: "", dealsOpen: false, policyOpen: false, kitOpen: false,
+  luxuryKit: false, isFirstTimeClient: null, firstTimePhone: "", dealsOpen: false, policyOpen: false, kitOpen: false, adminSearch: "", copiedKey: "",
   name:"", phone:"", ig:"", date:"", time:"", notes:"", referenceLink:"",
   photos: [],
   agreedPolicy: false,
@@ -1244,46 +1255,99 @@ function renderAdmin(){
   if(state.loadingAdmin){
     return `<div class="wrap admin-wrap"><div class="loading">Loading bookings…</div></div>`;
   }
-  const filtered = state.filter === 'all' ? state.bookings : state.bookings.filter(b=>b.status===state.filter);
-  const noShowCounts = {};
-  state.bookings.forEach(b=>{ if(b.status==='no-show' && b.phone){ noShowCounts[b.phone] = (noShowCounts[b.phone]||0)+1; } });
-  const approvedCounts = {};
-  state.bookings.forEach(b=>{ if(b.status==='approved' && b.phone){ approvedCounts[b.phone] = (approvedCounts[b.phone]||0)+1; } });
+  const all = state.bookings;
+  const q = (state.adminSearch||'').trim().toLowerCase();
+  const qDigits = q.replace(/\D/g,'');
+  const matches = b => !q ||
+    String(b.name).toLowerCase().includes(q) || String(b.ig).toLowerCase().includes(q) ||
+    String(b.serviceLabel).toLowerCase().includes(q) ||
+    (qDigits.length>=3 && String(b.phone).replace(/\D/g,'').includes(qDigits));
+
+  const byStatus = f => f==='all' ? all : all.filter(b=>b.status===f);
+  // pending: oldest first (most urgent); everything else: newest first
+  const filtered = state.filter==='pending' ? byStatus('pending').filter(matches) : byStatus(state.filter).slice().reverse().filter(matches);
+
+  const noShowCounts = {}, approvedCounts = {};
+  all.forEach(b=>{
+    if(b.status==='no-show' && b.phone) noShowCounts[b.phone] = (noShowCounts[b.phone]||0)+1;
+    if(b.status==='approved' && b.phone) approvedCounts[b.phone] = (approvedCounts[b.phone]||0)+1;
+  });
+
+  const pending = all.filter(b=>b.status==='pending');
+  const overdue = pending.filter(b=>b.overdue).length;
+  const awaitingDeposit = all.filter(b=>b.status==='approved' && !b.isBundle && !b.depositPaid).length;
+  const luxToPack = all.filter(b=>b.status==='approved' && b.kit==='Luxury').length;
+
   return `<div class="wrap admin-wrap">
     <div class="admin-header">
       <img class="logo-img small" src="data:image/png;base64,${LOGO_B64}" alt="The Ehiffect"/>
       <button class="refresh-btn" data-action="refresh">refresh</button>
     </div>
-    <div class="cat-grid" style="grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:18px;">
-      ${['all','pending','approved','denied','no-show'].map(f=>`<div class="cat ${state.filter===f?'selected':''}" data-action="filter" data-key="${f}"><span class="cat-name" style="text-transform:capitalize;">${f}</span></div>`).join('')}
+
+    <div class="admin-stats">
+      <div class="admin-stat"><b>${pending.length}</b><span>pending</span></div>
+      <div class="admin-stat ${overdue?'alert':''}"><b>${overdue}</b><span>over 24h</span></div>
+      <div class="admin-stat"><b>${awaitingDeposit}</b><span>need deposit</span></div>
+      <div class="admin-stat"><b>${luxToPack}</b><span>luxury kits</span></div>
     </div>
-    ${filtered.length===0 ? `<div class="empty">No bookings here yet.</div>` : filtered.map(b=>`
+
+    <div class="field" style="margin-bottom:12px;">
+      <input type="text" id="admin-search" value="${state.adminSearch||''}" placeholder="search name, phone, IG, or service"/>
+    </div>
+
+    <div class="cat-grid" style="grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:18px;">
+      ${['all','pending','approved','denied','no-show'].map(f=>`<div class="cat ${state.filter===f?'selected':''}" data-action="filter" data-key="${f}"><span class="cat-name" style="text-transform:capitalize;">${f} <span style="opacity:.65;">${byStatus(f).length}</span></span></div>`).join('')}
+    </div>
+
+    ${filtered.length===0 ? `<div class="empty">${q ? 'No bookings match that search.' : 'No bookings here yet.'}</div>` : filtered.map(b=>{
+      const warnings = [b.dealAlert, b.checks].filter(Boolean).join(' · ');
+      const hasWarn = !!b.dealAlert || String(b.checks).includes('⚠');
+      return `
       <div class="booking-card">
         <div class="booking-top">
-          <div><div class="booking-name">${b.name || 'no name'}${(noShowCounts[b.phone]||0) >= 2 ? `<span class="repeat-flag">repeat no-show</span>` : ''}${(approvedCounts[b.phone]||0) >= 2 ? `<span class="returning-flag">returning ×${approvedCounts[b.phone]}</span>` : ''}</div><div class="booking-meta">${b.phone || ''} ${b.ig ? '· ' + b.ig : ''}</div></div>
+          <div>
+            <div class="booking-name">${b.name || 'no name'}${(noShowCounts[b.phone]||0) >= 2 ? `<span class="repeat-flag">repeat no-show</span>` : ''}${(approvedCounts[b.phone]||0) >= 2 ? `<span class="returning-flag">returning ×${approvedCounts[b.phone]}</span>` : ''}</div>
+            <div class="booking-meta">${b.phone || ''} ${b.ig ? '· ' + b.ig : ''}</div>
+          </div>
           <span class="status-pill status-${b.status}">${b.status}</span>
         </div>
+
+        <div class="admin-badges">
+          ${b.status==='pending' && b.waiting ? `<span class="admin-badge ${b.overdue?'bad':''}">waiting ${b.waiting}${b.overdue?' · reply due':''}</span>` : ''}
+          ${b.isBundle ? `<span class="admin-badge">bundle order</span>` : ''}
+          ${b.kit==='Luxury' ? `<span class="kit-badge solid">Luxury kit</span>` : b.kit==='Mini' ? `<span class="kit-badge">Mini kit</span>` : ''}
+          ${b.status==='approved' && !b.isBundle ? `<span class="admin-badge ${b.depositPaid?'good':'bad'}">${b.depositPaid?'deposit paid':'deposit not paid'}</span>` : ''}
+        </div>
+
+        ${warnings ? `<div class="admin-warn ${hasWarn?'':'ok'}">${warnings}</div>` : ''}
+
         <div class="booking-detail">
           <div><span class="k">Service:</span> ${b.serviceLabel}</div>
           ${b.dealsUsed ? `<div><span class="k">Deals:</span> ${b.dealsUsed}</div>` : ''}
-          ${b.dealAlert ? `<div style="color:#e39997;"><span class="k" style="color:#e39997;">Deal alert:</span> ${b.dealAlert}</div>` : ''}
           ${b.bookingType && b.bookingType!=='solo' ? `<div><span class="k">Booking type:</span> ${b.bookingType}${b.partnerName?(' — partner: '+b.partnerName):''}${b.partnerContact?(' ('+b.partnerContact+')'):''}</div>` : ''}
           ${b.giftKit ? `<div><span class="k">Care kit:</span> ${b.giftKit}</div>` : ''}
           ${b.careKitCost ? `<div><span class="k">Care kit:</span> ${b.careKitCost}</div>` : ''}
-          <div><span class="k">Preferred:</span> ${b.date || '—'} ${b.time || ''}</div>
+          <div><span class="k">${b.isBundle ? 'Pickup:' : 'Preferred:'}</span> ${b.date || '—'} ${b.time || ''}</div>
           <div><span class="k">Total:</span> ${displayTotal(b.total)}</div>
           ${b.notes ? `<div><span class="k">Notes:</span> ${b.notes}</div>` : ''}
-          ${Number(b.visitCount) ? `<div><span class="k">Visit count:</span> ${b.visitCount}${b.loyaltyFlag==='TRUE'||b.loyaltyFlag===true ? ' 🎉 surprise loyalty gift time!' : ''}</div>` : ''}
+          ${Number(b.visitCount) ? `<div><span class="k">Visit count:</span> ${b.visitCount}${b.loyaltyFlag==='TRUE'||b.loyaltyFlag===true ? ' — surprise loyalty gift time!' : ''}</div>` : ''}
           <div><span class="k">Submitted:</span> ${b.submittedAt || ''}</div>
         </div>
         ${b.photos && b.photos.length ? `<div class="booking-photos">${b.photos.map(p=>`<img src="${p}" data-action="view-photo" data-src="${p}"/>`).join('')}</div>` : ''}
+
+        ${(b.status==='approved' && !b.isBundle) ? `
+        <div class="addon-row" style="margin-top:10px;">
+          <label><input type="checkbox" data-action="toggle-deposit" data-key="${b.key}" ${b.depositPaid?'checked':''}/>Deposit received</label>
+        </div>` : ''}
+
         <div class="booking-actions">
           <button class="approve ${b.status==='approved'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="approved">Approve</button>
           <button class="pending ${b.status==='pending'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="pending">Pending</button>
           <button class="deny ${b.status==='denied'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="denied">Deny</button>
           <button class="deny ${b.status==='no-show'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="no-show">No-show</button>
         </div>
-      </div>`).join('')}
+        ${b.text ? `<div class="booking-actions"><button data-action="copy-text" data-key="${b.key}">${state.copiedKey===b.key ? 'Copied ✓' : 'Copy ' + String(b.textLabel||'text').toLowerCase()}</button></div>` : ''}
+      </div>`;}).join('')}
   </div>`;
 }
 
@@ -1427,6 +1491,25 @@ function attachHandlers(){
         state.loadingAdmin = false;
       }
       else if(action==='filter'){ state.filter = key; }
+      else if(action==='toggle-deposit'){
+        const b = state.bookings.find(x=>x.key===key);
+        if(b){ b.depositPaid = !b.depositPaid; render(); }
+        await submitViaGet('setDeposit', { key, paid: b ? b.depositPaid : true });
+        try{ state.bookings = await listBookings(); }catch(err){}
+      }
+      else if(action==='copy-text'){
+        const b = state.bookings.find(x=>x.key===key);
+        if(b && b.text){
+          try{ await navigator.clipboard.writeText(b.text); }
+          catch(err){
+            const ta = document.createElement('textarea'); ta.value = b.text; document.body.appendChild(ta); ta.select();
+            try{ document.execCommand('copy'); }catch(e2){}
+            document.body.removeChild(ta);
+          }
+          state.copiedKey = key;
+          setTimeout(()=>{ state.copiedKey = ''; if(state.view==='admin') render(); }, 2000);
+        }
+      }
       else if(action==='set-status'){
         const status = el.getAttribute('data-status');
         await updateStatus(key, status);
@@ -1441,6 +1524,14 @@ function attachHandlers(){
       }
       render();
     });
+  });
+
+  const searchInput = document.getElementById('admin-search');
+  if(searchInput) searchInput.addEventListener('input', (e)=>{
+    state.adminSearch = e.target.value;
+    render();
+    const again = document.getElementById('admin-search');
+    if(again){ again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
   });
 
   const passInput = document.getElementById('admin-pass');
