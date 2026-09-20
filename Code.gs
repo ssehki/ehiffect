@@ -675,6 +675,7 @@ function styleHeaderRow(range){
 function writeClientsSheet(clients){
   const sheet = getOrCreateSheet("Clients");
   const f = sheet.getFilter(); if(f) f.remove();
+  sheet.setFrozenRows(0); sheet.setFrozenColumns(0);   // leftovers from older versions block merged banners
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.clear();
   sheet.setHiddenGridlines(true);
@@ -750,6 +751,7 @@ function writeDashboardSheet(all, clients){
   const sheet = getOrCreateSheet("Dashboard");
   let revenueMode = "Hidden";                          // remember your dropdown choice across refreshes
   try{ if(sheet.getRange("B8").getValue() === "Show") revenueMode = "Show"; }catch(e){}
+  sheet.setFrozenRows(0); sheet.setFrozenColumns(0);   // leftovers from older versions block merged banners
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.clear();
   sheet.setHiddenGridlines(true);
