@@ -288,7 +288,7 @@ const INSTALL_ADDONS = [
   { key:"color", name:"Color (per bundle)", price:30 },
 ];
 
-const BRAID_STYLES = { box:"Box Braids", twist:"Twists" };
+const BRAID_STYLES = { box:"Box Braids", twist:"Twists", twostrand:"Two Strand Twists" };
 const BOX_BRAID_SIZES = [
   { key:"large", name:"Large", price:180 },
   { key:"medium", name:"Medium", price:200 },
@@ -299,7 +299,10 @@ const TWIST_SIZES = [
   { key:"medium", name:"Medium", price:180 },
   { key:"small", name:"Small", price:200 },
 ];
-function currentBraidSizes(){ return state.braidStyle==='twist' ? TWIST_SIZES : BOX_BRAID_SIZES; }
+const TWO_STRAND_SIZES = [
+  { key:"standard", name:"Standard", price:50 },
+];
+function currentBraidSizes(){ return state.braidStyle==='twostrand' ? TWO_STRAND_SIZES : state.braidStyle==='twist' ? TWIST_SIZES : BOX_BRAID_SIZES; }
 const BOHO_PRICE = 40;
 
 const CORNROW_OPTIONS = [
@@ -333,6 +336,8 @@ const MINI_KIT_MIN_TOTAL = 200;
 const LUXURY_INCLUDED_MIN = 400;
 const LUXURY_KIT_PRICE = 50;
 const BRAID_HAIR_PACK_PRICE = 20;
+const TWO_STRAND_HAIR_PACK_PRICE = 10;
+function braidPackPrice(){ return state.braidStyle==='twostrand' ? TWO_STRAND_HAIR_PACK_PRICE : BRAID_HAIR_PACK_PRICE; }
 const BOOKING_TYPE_DISCOUNT = { couple: 0.15, bestie: 0.15, bestieSewIn: 0.30 };
 
 function getThanksgivingDate(year){
@@ -626,7 +631,7 @@ function computeBaseTotal(){
     const size = currentBraidSizes().find(s=>s.key===state.braidSize);
     if(size) total += size.price;
     if(state.braidBoho) total += BOHO_PRICE;
-    if(state.ownHair==='provide') total += state.braidHairPacks * BRAID_HAIR_PACK_PRICE;
+    if(state.ownHair==='provide') total += state.braidHairPacks * braidPackPrice();
   } else if(state.category==='cornrows'){
     const c = CORNROW_OPTIONS.find(c=>c.key===state.cornrowKey);
     if(c) total += c.price;
@@ -908,10 +913,10 @@ function renderBook(){
             </div>` : ''}
           ${state.ownHair==='provide' ? `
             <div class="bundle-row" style="margin-top:10px;">
-              <span class="opt-sub">Hair packs needed (${money(BRAID_HAIR_PACK_PRICE)}/pack)</span>
+              <span class="opt-sub">Hair packs needed (${money(braidPackPrice())}/pack)</span>
               <div class="stepper"><button data-action="braid-packs-minus" ${state.braidHairPacks<=1?'disabled':''}>−</button><span>${state.braidHairPacks}</span><button data-action="braid-packs-plus">+</button></div>
             </div>
-            <div class="opt-sub">Pick as many packs as you'll need — ${money(state.braidHairPacks*BRAID_HAIR_PACK_PRICE)} total.</div>` : ''}
+            <div class="opt-sub">Pick as many packs as you'll need — ${money(state.braidHairPacks*braidPackPrice())} total.</div>` : ''}
           ${state.ownHair ? `
             <div class="addon-row" style="margin-top:6px;">
               <label><input type="checkbox" data-action="toggle-boho" ${state.braidBoho?'checked':''}/>Add boho pieces</label>
@@ -1380,7 +1385,7 @@ function attachHandlers(){
       else if(action==='bundle-plus'){ state.addBundleCount++; }
       else if(action==='bundle-minus'){ state.addBundleCount = Math.max(0,state.addBundleCount-1); }
       else if(action==='toggle-addon'){ state.addons[key] = !state.addons[key]; }
-      else if(action==='pick-braid-style'){ state.braidStyle = key; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.twistHairType=""; state.braidHairPacks=1; }
+      else if(action==='pick-braid-style'){ state.braidStyle = key; state.braidSize = key==='twostrand' ? 'standard' : null; state.ownHair=null; state.braidBoho=false; state.twistHairType=""; state.braidHairPacks=1; }
       else if(action==='pick-braid-size'){ state.braidSize = key; }
       else if(action==='pick-own-hair'){ state.ownHair = key; }
       else if(action==='toggle-boho'){ state.braidBoho = !state.braidBoho; }

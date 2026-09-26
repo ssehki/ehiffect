@@ -63,20 +63,35 @@ const VALID_STATUSES = ["pending", "approved", "denied", "no-show"];
 
 // Used in the ready-to-send text messages.
 const CASHTAG = "$ehiixs";
-const DEPOSIT_AMOUNT = 20;
 
-// You promise clients a reply within this many hours; older pending requests show as overdue.
+// These three are just the starting defaults — once the sheet exists, edit them from the
+// "Settings" row on the Dashboard tab instead (row 9) and they'll stick; no need to touch code.
+const DEPOSIT_AMOUNT = 20;               // You promise clients a reply within this many hours; older pending requests show as overdue.
 const RESPONSE_HOURS = 24;
+const MIN_GAP_MINUTES = 120;             // Two appointments on the same day closer together than this get a scheduling warning.
 
-// Two appointments on the same day starting closer together than this get a scheduling warning.
-const MIN_GAP_MINUTES = 120;
+// Reads the live values (Dashboard row 9 overrides, once set) so booking creation, checks,
+// texts, and the Dashboard all agree on the same numbers even if the Dashboard hasn't been open.
+function getSettings(){
+  const p = PropertiesService.getScriptProperties();
+  const num = (key, fallback) => { const v = Number(p.getProperty(key)); return v > 0 ? v : fallback; };
+  return {
+    depositAmount: num("depositAmount", DEPOSIT_AMOUNT),
+    responseHours: num("responseHours", RESPONSE_HOURS),
+    minGapMinutes: num("minGapMinutes", MIN_GAP_MINUTES)
+  };
+}
+
+function saveSetting(key, value){
+  PropertiesService.getScriptProperties().setProperty(key, String(value));
+}
 
 // Bookings tab layout: formatSheet puts the columns you use most on the left and the
 // technical ones on the right (hidden). Set to false to keep your own column order.
 const REORDER_COLUMNS = true;
 const DISPLAY_ORDER = [
-  "id", "name", "phone", "ig", "date", "time", "status", "depositPaid", "serviceLabel", "total", "dealsUsed",
-  "giftKit", "careKitCost", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
+  "id", "name", "phone", "ig", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "dealsUsed",
+  "giftKit", "careKitCost", "kitComp", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
   "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys"
 ];
 
@@ -96,7 +111,8 @@ const COLORS = {
 const HEADERS = [
   "id", "name", "phone", "ig", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
-  "giftKit", "careKitCost", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert", "depositPaid", "checks"
+  "giftKit", "careKitCost", "kitComp", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
+  "depositPaid", "depositRefunded", "checks"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -232,6 +248,10 @@ function isBundle(b){ return /^bundle/i.test(String(b.serviceLabel)); }
 
 function isPaid(b){ return b.depositPaid === true || String(b.depositPaid).toUpperCase() === "TRUE"; }
 
+function isRefunded(b){ return b.depositRefunded === true || String(b.depositRefunded).toUpperCase() === "TRUE"; }
+
+function isComp(b){ return b.kitComp === true || String(b.kitComp).toUpperCase() === "TRUE"; }
+
 // "Luxury" / "Mini" / "—" — which care kit to pack for this booking.
 function kitTier(b){
   const t = String(b.giftKit) + " " + String(b.careKitCost);
@@ -261,12 +281,12 @@ function parseMinutes(b){
 function dayKey(d){ return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
 
 // How long a pending request has been waiting, and whether it's past your reply promise.
-function waitInfo(b){
+function waitInfo(b, responseHours){
   const d = parseSubmitted(b.submittedAt);
   if(!d) return { text: "—", overdue: false };
   const h = (Date.now() - d.getTime()) / 3600000;
   const text = h < 1 ? "<1h" : h < 24 ? Math.floor(h) + "h" : Math.floor(h / 24) + "d " + Math.floor(h % 24) + "h";
-  return { text: text, overdue: h >= RESPONSE_HOURS };
+  return { text: text, overdue: h >= (responseHours || getSettings().responseHours) };
 }
 
 function normName(s){ return String(s).toLowerCase().replace(/[^a-z ]/g, "").trim(); }
@@ -286,7 +306,8 @@ function findPartner(a, live){
 }
 
 // One line of "things to look at" per booking, keyed by sheet row. ⚠ = needs your attention.
-function computeChecks(all){
+function computeChecks(all, minGapMinutes){
+  minGapMinutes = minGapMinutes || getSettings().minGapMinutes;
   const notes = {};
   const add = (row, t) => (notes[row] = notes[row] || []).push(t);
   const live = all.filter(isActive);
@@ -303,7 +324,7 @@ function computeChecks(all){
   const slots = live.filter(b => !isBundle(b)).map(b => ({ b: b, day: parseDay(b), min: parseMinutes(b) }))
                     .filter(s => s.day && s.min !== null);
   slots.forEach((a, i) => slots.forEach((c, j) => {
-    if(i < j && dayKey(a.day) === dayKey(c.day) && Math.abs(a.min - c.min) < MIN_GAP_MINUTES){
+    if(i < j && dayKey(a.day) === dayKey(c.day) && Math.abs(a.min - c.min) < minGapMinutes){
       add(a.b.row, "⚠ Too close to " + c.b.name + " (" + asTime(c.b.time) + ")");
       add(c.b.row, "⚠ Too close to " + a.b.name + " (" + asTime(a.b.time) + ")");
     }
@@ -327,7 +348,7 @@ function computeChecks(all){
 function syncChecks(all){
   const sheet = getSheet();
   const cols = getColumns(sheet).map;
-  const checks = computeChecks(all);
+  const checks = computeChecks(all, getSettings().minGapMinutes);
   all.forEach(b => {
     const t = checks[b.row] || "";
     if(String(b.checks) !== t){ setCell(sheet, cols, "checks", b.row, t); b.checks = t; }
@@ -345,15 +366,16 @@ function whenText(b){
   return d ? (t ? d + " at " + t : d) : "your requested date";
 }
 
-function messageFor(b){
+function messageFor(b, depositAmount){
+  depositAmount = depositAmount || getSettings().depositAmount;
   const hi = "Hi " + firstName(b) + "! ";
   if(isBundle(b) && b.status !== "denied")
     return hi + "Thanks for your bundle request! I'm confirming pricing and shipping timing and will text you your final price and pickup date shortly.";
   if(b.status === "pending")
-    return hi + "Your " + b.serviceLabel + " on " + whenText(b) + " is approved! To lock in your spot, please send the $" + DEPOSIT_AMOUNT +
+    return hi + "Your " + b.serviceLabel + " on " + whenText(b) + " is approved! To lock in your spot, please send the $" + depositAmount +
            " deposit to " + CASHTAG + " on Cash App (it comes off your total at your appointment). Thank you!";
   if(b.status === "approved" && !isPaid(b))
-    return hi + "Just a reminder to send your $" + DEPOSIT_AMOUNT + " deposit to " + CASHTAG + " on Cash App to keep your spot on " + whenText(b) + ". Thank you!";
+    return hi + "Just a reminder to send your $" + depositAmount + " deposit to " + CASHTAG + " on Cash App to keep your spot on " + whenText(b) + ". Thank you!";
   if(b.status === "approved")
     return hi + "Reminder: your appointment is " + whenText(b) + ". Please come with your hair ready to go (an extra $20 applies for washing/drying) and let me know ASAP if anything changes. See you soon!";
   return "";
@@ -431,13 +453,17 @@ function handleCreate(body){
       submittedAt: formatTimestamp(Date.now()), photoUrls: photoUrls.join("|"),
       dealsUsed: body.dealsLabel || "", bookingType: body.bookingType || "solo",
       partnerName: body.partnerName || "", partnerContact: body.partnerContact || "",
-      giftKit: body.giftKit || "", careKitCost: body.careKitCost || "",
+      giftKit: body.giftKit || "", careKitCost: body.careKitCost || "", kitComp: false,
       visitCount: visitCount, loyaltyFlag: loyaltyFlag, dealKeys: dealKeys.join(", "), dealAlert: dealAlert,
-      depositPaid: false, checks: ""
+      depositPaid: false, depositRefunded: false, checks: ""
     };
     const row = new Array(cols.width).fill("");           // each value goes under its own header
     Object.keys(values).forEach(f => { row[cols.map[f]] = values[f]; });
-    sheet.appendRow(row);
+    // Not sheet.appendRow(): formatBookingsSheet formats 1000 rows ahead, which makes Sheets
+    // think those blank rows are "used" — appendRow would then drop new bookings at row 1000+
+    // instead of right after your real data. Compute the real next row ourselves instead.
+    const targetRow = (all.length ? Math.max.apply(null, all.map(b => b.row)) : 1) + 1;
+    sheet.getRange(targetRow, 1, 1, cols.width).setValues([row]);
 
     const updated = readBookings();                       // recheck everything now that this booking exists
     syncChecks(updated);
@@ -511,24 +537,28 @@ function json(obj){
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function toWebsiteShape(b){
+function toWebsiteShape(b, settings){
+  const wait = waitInfo(b, settings.responseHours);
   return {
     key: b.id, name: b.name, phone: fmtPhone(b.phone), ig: b.ig, date: asDate(b.date), time: asTime(b.time), notes: b.notes,
     serviceLabel: b.serviceLabel, total: b.total, status: b.status, submittedAt: asText(b.submittedAt),
     photos: b.photoUrls ? String(b.photoUrls).split("|") : [], dealsUsed: b.dealsUsed || "",
     bookingType: b.bookingType || "solo", partnerName: b.partnerName || "", partnerContact: b.partnerContact || "",
-    giftKit: b.giftKit || "", careKitCost: b.careKitCost || "", visitCount: b.visitCount || 0,
+    giftKit: b.giftKit || "", careKitCost: b.careKitCost || "", kitComp: isComp(b), visitCount: b.visitCount || 0,
     loyaltyFlag: b.loyaltyFlag || false, dealKeys: b.dealKeys || "", dealAlert: b.dealAlert || "",
-    depositPaid: isPaid(b), checks: b.checks || "", kit: kitTier(b), isBundle: isBundle(b),
-    waiting: b.status === "pending" ? waitInfo(b).text : "", overdue: b.status === "pending" && waitInfo(b).overdue,
-    text: messageFor(b), textLabel: messageLabel(b)
+    depositPaid: isPaid(b), depositRefunded: isRefunded(b), checks: b.checks || "", kit: kitTier(b), isBundle: isBundle(b),
+    waiting: b.status === "pending" ? wait.text : "", overdue: b.status === "pending" && wait.overdue,
+    text: messageFor(b, settings.depositAmount), textLabel: messageLabel(b)
   };
 }
 
 function doGet(e){
   const action = e.parameter.action;
 
-  if(action === "list") return json({ bookings: readBookings().map(toWebsiteShape) });
+  if(action === "list"){
+    const settings = getSettings();
+    return json({ bookings: readBookings().map(b => toWebsiteShape(b, settings)) });
+  }
 
   // Privacy-friendly: answers yes/no for ONE phone number, never exposes the client list.
   if(action === "checkVisits"){
@@ -571,14 +601,25 @@ function onOpen(){
     .addToUi();
 }
 
-// Changing a Status dropdown in the Bookings tab keeps everything else in sync.
+// Changing a Status dropdown in the Bookings tab keeps everything else in sync. Editing a pink
+// Settings box on the Dashboard (row 9) saves it so every part of the script picks it up.
 function onEdit(e){
   try{
     const sheet = e.range.getSheet();
+    if(sheet.getName() === "Dashboard"){
+      const settingCells = { C9: "depositAmount", E9: "responseHours", G9: "minGapMinutes" };
+      const key = settingCells[e.range.getA1Notation()];
+      if(key){
+        const n = Number(e.value);
+        if(!isNaN(n) && n > 0) saveSetting(key, n);
+        refreshViews();
+      }
+      return;
+    }
     if(sheet.getName() !== "Bookings" || e.range.getRow() < 2) return;
     const cols = getColumns(sheet).map;
     const col = e.range.getColumn();
-    if([cols.status, cols.depositPaid, cols.date, cols.time].map(i => i + 1).indexOf(col) === -1) return;
+    if([cols.status, cols.depositPaid, cols.depositRefunded, cols.kitComp, cols.date, cols.time].map(i => i + 1).indexOf(col) === -1) return;
     if(col === cols.status + 1 && String(e.value).trim() === "approved") applyApproval(sheet, cols, e.range.getRow());
     refreshViews();
   }catch(err){ /* never interrupt your editing */ }
@@ -749,8 +790,10 @@ function money(b){ return (b.total === "" || isNaN(Number(b.total))) ? String(b.
 
 function writeDashboardSheet(all, clients){
   const sheet = getOrCreateSheet("Dashboard");
+  const settings = getSettings();
   let revenueMode = "Hidden";                          // remember your dropdown choice across refreshes
   try{ if(sheet.getRange("B8").getValue() === "Show") revenueMode = "Show"; }catch(e){}
+  sheet.getCharts().forEach(c => sheet.removeChart(c));  // rebuilt below so refreshes don't stack duplicates
   sheet.setFrozenRows(0); sheet.setFrozenColumns(0);   // leftovers from older versions block merged banners
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.clear();
@@ -768,9 +811,10 @@ function writeDashboardSheet(all, clients){
 
   const pending = all.filter(b => b.status === "pending");
   const approved = all.filter(b => b.status === "approved");
-  const overdue = pending.filter(b => waitInfo(b).overdue);
+  const overdue = pending.filter(b => waitInfo(b, settings.responseHours).overdue);
   const upcoming = approved.filter(b => { const d = parseDay(b); return !isBundle(b) && d && d >= today && d < in7; }).sort(byDay);
   const awaiting = approved.filter(b => !isBundle(b) && !isPaid(b)).sort(byDay);
+  const toRefund = all.filter(b => b.status === "denied" && isPaid(b) && !isRefunded(b));
   const bundles = all.filter(b => isBundle(b) && isActive(b)).sort(byDay);
   const alertCount = all.filter(b => isActive(b) && hasWarning(b)).length;
   const toPack = approved.filter(b => isBundle(b) || upcoming.indexOf(b) !== -1);
@@ -786,14 +830,15 @@ function writeDashboardSheet(all, clients){
        .setBackground(COLORS.ink).setFontColor(COLORS.pink).setFontSize(10).setHorizontalAlignment("left");
   sheet.setRowHeight(1, 54); sheet.setRowHeight(2, 24); sheet.setRowHeight(3, 14);
 
-  // ---------- stat tiles (A–F) ----------
+  // ---------- stat tiles (A–G) ----------
   const tiles = [
     { label: "PENDING",              value: pending.length,   cap: "waiting on you" },
-    { label: "OVER " + RESPONSE_HOURS + "H",   value: overdue.length,   cap: "reply is overdue", alert: overdue.length > 0 },
+    { label: "OVER " + settings.responseHours + "H",   value: overdue.length,   cap: "reply is overdue", alert: overdue.length > 0 },
     { label: "AWAITING DEPOSIT",     value: awaiting.length,  cap: "approved, deposit not marked paid" },
     { label: "LUXURY KITS TO PACK",  value: luxury,           cap: mini + " mini  ·  next 7 days + bundle orders" },
     { label: "ALERTS",               value: alertCount,       cap: "deals, no-shows, scheduling", alert: alertCount > 0 },
-    { label: "CLIENTS",              value: clients.length,   cap: returning + " returning" }
+    { label: "CLIENTS",              value: clients.length,   cap: returning + " returning" },
+    { label: "TO REFUND",            value: toRefund.length,  cap: "denied, deposit not sent back yet", alert: toRefund.length > 0 }
   ];
   tiles.forEach((t, i) => {
     const col = i + 1;
@@ -821,6 +866,56 @@ function writeDashboardSheet(all, clients){
        .setFontColor(COLORS.muted).setFontSize(11).setVerticalAlignment("middle");
   sheet.setRowHeight(8, 38);
 
+  // ---------- deposits donut (only drawn while revenue is set to "Show") ----------
+  if(revenueMode === "Show"){
+    const collectedAmt = approved.filter(isPaid).length * settings.depositAmount;
+    const awaitingAmt = awaiting.length * settings.depositAmount;
+    if(collectedAmt + awaitingAmt > 0){
+      sheet.getRange("K1").setValue("Collected");
+      sheet.getRange("L1").setValue(collectedAmt);
+      sheet.getRange("K2").setValue("Awaiting");
+      sheet.getRange("L2").setValue(awaitingAmt);
+      const donut = sheet.newChart().setChartType(Charts.ChartType.PIE)
+        .addRange(sheet.getRange("K1:L2"))
+        .setPosition(4, 8, 10, 0)
+        .setOption("title", "Deposits: collected vs. awaiting")
+        .setOption("titleTextStyle", { fontSize: 10 })
+        .setOption("pieHole", 0.45)
+        .setOption("colors", [COLORS.pink, COLORS.grey])
+        .setOption("legend", { position: "bottom", textStyle: { fontSize: 9 } })
+        .setOption("width", 250)
+        .setOption("height", 150)
+        .build();
+      sheet.insertChart(donut);
+      sheet.hideColumns(11, 2);                        // tuck the K:L helper cells out of sight
+    }
+  }else{
+    sheet.getRange("H4").setValue("Deposits chart hidden — pick \"Show\" above to see it.")
+         .setFontSize(9).setFontColor(COLORS.muted).setWrap(true).setVerticalAlignment("middle");
+  }
+
+  // ---------- settings you can tweak right here (no code editing needed) ----------
+  sheet.getRange("A9").setValue("Settings").setFontFamily("Cormorant Garamond").setFontSize(13)
+       .setFontWeight("bold").setFontColor(COLORS.ink).setVerticalAlignment("middle");
+  sheet.getRange("B9").setValue("Deposit $").setFontSize(9).setFontColor(COLORS.muted)
+       .setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.getRange("C9").setValue(settings.depositAmount).setNumberFormat("$#,##0")
+       .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold")
+       .setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange("D9").setValue("Reply promise (hrs)").setFontSize(9).setFontColor(COLORS.muted)
+       .setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.getRange("E9").setValue(settings.responseHours).setNumberFormat("0")
+       .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold")
+       .setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange("F9").setValue("Min gap (min)").setFontSize(9).setFontColor(COLORS.muted)
+       .setHorizontalAlignment("right").setVerticalAlignment("middle");
+  sheet.getRange("G9").setValue(settings.minGapMinutes).setNumberFormat("0")
+       .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold")
+       .setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.getRange("H9:I9").merge().setValue("Edit a pink box — it saves automatically, no code needed.")
+       .setFontSize(9).setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle");
+  sheet.setRowHeight(9, 26);
+
   // ---------- tables ----------
   let row = 10;
 
@@ -829,27 +924,28 @@ function writeDashboardSheet(all, clients){
     return (ta ? ta.getTime() : 9e15) - (tc ? tc.getTime() : 9e15);           // oldest first = most urgent
   }).slice(0, 40);
   const pendingRows = pendingList.map(b => [
-    waitInfo(b).text, b.name, fmtPhone(b.phone), b.serviceLabel, b.dealsUsed || "—",
+    waitInfo(b, settings.responseHours).text, b.name, fmtPhone(b.phone), b.serviceLabel, b.dealsUsed || "—",
     [b.dealAlert, b.checks].filter(Boolean).join(" · ") || "—",
-    (asDate(b.date) + " " + asTime(b.time)).trim() || "—", money(b), messageFor(b)
+    (asDate(b.date) + " " + asTime(b.time)).trim() || "—", money(b), messageFor(b, settings.depositAmount)
   ]);
   row = writeTable(sheet, row, "Needs your attention",
     ["Waiting", "Client", "Phone", "Service", "Deals", "Alerts", "Preferred date", "Total", "Text to send (approval)"], pendingRows,
     "You're all caught up — no pending requests.",
     { boldCol: 2, moneyCol: 8, hl: (r, i) => {
         const out = [];
-        if(waitInfo(pendingList[i]).overdue) out.push([1, COLORS.alertBg, COLORS.alertText]);
+        if(waitInfo(pendingList[i], settings.responseHours).overdue) out.push([1, COLORS.alertBg, COLORS.alertText]);
         if(hasWarning(pendingList[i])) out.push([6, COLORS.alertBg, COLORS.alertText]);
         return out;
     } });
 
+  const kitLabel = b => kitTier(b) === "—" ? "—" : kitTier(b) + (isComp(b) ? " (comp)" : "");
   const scheduleRow = b => [
-    asDate(b.date) || "—", b.name, fmtPhone(b.phone), b.serviceLabel, kitTier(b), isPaid(b) ? "Paid ✓" : "Not paid",
-    asTime(b.time) || "—", money(b), messageFor(b)
+    asDate(b.date) || "—", b.name, fmtPhone(b.phone), b.serviceLabel, kitLabel(b), isPaid(b) ? "Paid ✓" : "Not paid",
+    asTime(b.time) || "—", money(b), messageFor(b, settings.depositAmount)
   ];
   const scheduleOpts = { boldCol: 2, moneyCol: 8, hl: r => {
     const out = [];
-    if(r[4] === "Luxury") out.push([5, COLORS.gold, "#7A5C14"]);
+    if(r[4].indexOf("Luxury") === 0) out.push([5, COLORS.gold, "#7A5C14"]);
     out.push(r[5] === "Paid ✓" ? [6, COLORS.green, "#2F5C2B"] : [6, COLORS.alertBg, COLORS.alertText]);
     return out;
   } };
@@ -860,14 +956,19 @@ function writeDashboardSheet(all, clients){
   row = writeTable(sheet, row, "Awaiting deposit", schedHeaders, awaiting.map(b => scheduleRow(b)),
     "Every approved appointment has its deposit marked paid.", scheduleOpts);
 
+  const refundRows = toRefund.map(b => [b.name, fmtPhone(b.phone), asDate(b.date) || "—", "$" + settings.depositAmount, "Tick \"Deposit refunded\" in Bookings once it's sent back"]);
+  row = writeTable(sheet, row, "Deposits to refund",
+    ["Client", "Phone", "Booking date", "Deposit owed", "Next step"], refundRows,
+    "No refunds owed — you're all caught up.", { boldCol: 1 });
+
   const bundleRows = bundles.map(b => {
     const type = (String(b.serviceLabel).match(/bundle purchase only\s*[—-]\s*(virgin|raw)/i) || [])[1];
     return [asDate(b.date) || "—", b.name, fmtPhone(b.phone), String(b.serviceLabel).replace(/^bundle purchase only\s*[—-]\s*/i, ""),
-            kitTier(b), b.status, type ? type.charAt(0).toUpperCase() + type.slice(1) : "—", money(b), messageFor(b)];
+            kitLabel(b), b.status, type ? type.charAt(0).toUpperCase() + type.slice(1) : "—", money(b), messageFor(b, settings.depositAmount)];
   });
   row = writeTable(sheet, row, "Bundle orders (pickup)",
     ["Pickup date", "Client", "Phone", "Order", "Care kit", "Status", "Hair type", "Total", "Text to send"], bundleRows,
-    "No open bundle orders.", { boldCol: 2, moneyCol: 8, hl: r => r[4] === "Luxury" ? [[5, COLORS.gold, "#7A5C14"]] : [] });
+    "No open bundle orders.", { boldCol: 2, moneyCol: 8, hl: r => r[4].indexOf("Luxury") === 0 ? [[5, COLORS.gold, "#7A5C14"]] : [] });
 
   // deals at a glance
   const counts = dealSummary(all);
@@ -909,17 +1010,21 @@ function writeDashboardSheet(all, clients){
 
 function formatSheet(){
   const repaired = repairLegacyRows();        // 1. rescue rows the old script wrote to the wrong columns
-  if(REORDER_COLUMNS) reorderBookingColumns();// 2. most-used columns first
-  formatBookingsSheet();                      // 3. compact, modern look
-  cleanLegacyValues();                        // 4. readable phones, dates, times
-  refreshViews();                             // 5. Dashboard + Clients
+  const compacted = compactBookingsSheet();   // 2. pull any rows stranded at row 1000+ back to the top
+  if(REORDER_COLUMNS) reorderBookingColumns();// 3. most-used columns first
+  formatBookingsSheet();                      // 4. compact, modern look
+  cleanLegacyValues();                        // 5. readable phones, dates, times
+  refreshViews();                             // 6. Dashboard + Clients
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ["Dashboard", "Clients", "Bookings"].forEach((name, i) => {
     const s = ss.getSheetByName(name);
     if(s){ ss.setActiveSheet(s); ss.moveActiveSheet(i + 1); }
   });
   ss.setActiveSheet(ss.getSheetByName("Dashboard"));
-  ss.toast(repaired ? "Done — repaired " + repaired + " booking row(s) too." : "Done — everything is tidy.", "Ehiffect", 8);
+  const notes = [];
+  if(repaired) notes.push("repaired " + repaired + " booking row(s)");
+  if(compacted) notes.push("moved " + compacted + " row(s) back up from further down the sheet");
+  ss.toast(notes.length ? "Done — " + notes.join(" and ") + " too." : "Done — everything is tidy.", "Ehiffect", 8);
 }
 
 // Before the script found columns by header name, it wrote every booking to fixed positions.
@@ -949,6 +1054,23 @@ function repairLegacyRows(){
   return fixed;
 }
 
+// formatBookingsSheet formats 1000 rows ahead so new bookings inherit the styling — but that
+// makes Sheets treat those blank rows as "used", so bookings can end up stranded way down at
+// row 1000, 1002, etc. instead of near the top with the rest of your data. This pulls every
+// real booking back up so they sit right under the header with no gaps. Safe to re-run.
+function compactBookingsSheet(){
+  const sheet = getSheet();
+  const cols = getColumns(sheet);
+  const lastRow = sheet.getLastRow();
+  if(lastRow < 2) return 0;
+  const data = sheet.getRange(2, 1, lastRow - 1, cols.width).getValues();
+  const kept = data.filter(r => r[cols.map.id] || r[cols.map.name] || r[cols.map.phone]);
+  if(kept.length === data.length) return 0;             // already contiguous, nothing to do
+  sheet.getRange(2, 1, data.length, cols.width).clearContent();
+  if(kept.length) sheet.getRange(2, 1, kept.length, cols.width).setValues(kept);
+  return kept.length;
+}
+
 // Puts the columns you actually use on the left; technical ones go to the right.
 function reorderBookingColumns(){
   const sheet = getSheet();
@@ -968,7 +1090,9 @@ function formatBookingsSheet(){
   const sheet = getSheet();
   const cols = getColumns(sheet);
   const c = cols.map;
-  const ROWS = 1000;                                   // formats ahead so new rows inherit it
+  const ROWS = 300;                                    // formats ahead so new rows inherit it (kept modest — a
+                                                        // bigger number formats/conditional-formats more blank
+                                                        // rows than you need, which is what makes Sheets feel laggy)
 
   // A new sheet only has 1000 rows; make room so formatting 1000 rows ahead can't run off the end.
   if(sheet.getMaxRows() < ROWS + 1) sheet.insertRowsAfter(sheet.getMaxRows(), ROWS + 1 - sheet.getMaxRows());
@@ -983,9 +1107,9 @@ function formatBookingsSheet(){
 
   // compact widths
   const widths = {
-    name: 125, phone: 110, ig: 100, date: 85, time: 80, status: 95, depositPaid: 70, serviceLabel: 200, total: 65,
-    dealsUsed: 150, giftKit: 170, careKitCost: 150, dealAlert: 200, checks: 240, notes: 180, submittedAt: 135,
-    photoUrls: 100, bookingType: 95, partnerName: 115, partnerContact: 125
+    name: 125, phone: 110, ig: 100, date: 85, time: 80, status: 95, depositPaid: 70, depositRefunded: 90,
+    serviceLabel: 200, total: 65, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, dealAlert: 200,
+    checks: 240, notes: 180, submittedAt: 135, photoUrls: 100, bookingType: 95, partnerName: 115, partnerContact: 125
   };
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
 
@@ -1020,9 +1144,10 @@ function formatBookingsSheet(){
   const filter = sheet.getFilter(); if(filter) filter.remove();
   sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), cols.width).createFilter();
 
-  // deposit checkbox (tick it once you've seen the Cash App payment)
-  sheet.getRange(2, c.depositPaid + 1, ROWS, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build())
-       .setHorizontalAlignment("center");
+  // checkboxes: deposit received, deposit sent back, and "this kit was free"
+  [c.depositPaid, c.depositRefunded, c.kitComp].forEach(ci =>
+    sheet.getRange(2, ci + 1, ROWS, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build())
+         .setHorizontalAlignment("center"));
 
   // status dropdown + colors, alert highlights
   const statusRange = sheet.getRange(2, c.status + 1, ROWS, 1);
@@ -1052,6 +1177,16 @@ function formatBookingsSheet(){
   [c.giftKit, c.careKitCost].forEach(ci => rules.push(SpreadsheetApp.newConditionalFormatRule()
     .whenTextContains("Luxury").setBackground(COLORS.gold).setFontColor("#7A5C14").setBold(true)
     .setRanges([sheet.getRange(2, ci + 1, ROWS, 1)]).build()));
+
+  // complimentary kit ticked → gold badge; deposit refunded ticked → green badge
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied("=$" + colLetter(c.kitComp + 1) + "2=TRUE")
+    .setBackground(COLORS.gold).setFontColor("#7A5C14").setBold(true)
+    .setRanges([sheet.getRange(2, c.kitComp + 1, ROWS, 1)]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied("=$" + colLetter(c.depositRefunded + 1) + "2=TRUE")
+    .setBackground(COLORS.green).setFontColor("#2F5C2B").setBold(true)
+    .setRanges([sheet.getRange(2, c.depositRefunded + 1, ROWS, 1)]).build());
 
   sheet.setConditionalFormatRules(rules);
   SpreadsheetApp.flush();
