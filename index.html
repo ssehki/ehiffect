@@ -124,6 +124,23 @@
   .field textarea{ resize:vertical; min-height:64px; }
   .avail-note{ font-size:12px; color:var(--pink); margin-top:6px; background:var(--pink-soft); padding:8px 10px; }
 
+  .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .cal-nav{ background:transparent; border:1px solid var(--line); color:var(--cream); border-radius:2px; width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1; }
+  .cal-nav:disabled{ opacity:0.25; cursor:default; }
+  .cal-month{ font-family:'Cormorant Garamond', serif; font-size:17px; font-weight:600; }
+  .cal-dow{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px; }
+  .cal-dow span{ text-align:center; font-size:9.5px; color:var(--muted); letter-spacing:0.05em; text-transform:uppercase; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:38px; gap:4px; }
+  .cal-day{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:13px; border:1px solid var(--pink); border-radius:3px; cursor:pointer; background:var(--pink); color:#fff; font-weight:600; }
+  .cal-day.empty{ border-color:transparent; background:transparent; cursor:default; }
+  .cal-day.past{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.4; cursor:default; font-weight:400; }
+  .cal-day.blocked{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.6; cursor:not-allowed; font-weight:400; text-decoration:line-through; }
+  .cal-day.selected{ background:var(--cream); border-color:var(--cream); color:var(--bg); font-weight:700; }
+  .cal-day:not(.past):not(.blocked):not(.empty):not(.selected):hover{ filter:brightness(1.12); }
+  .cal-legend{ display:flex; gap:14px; margin-top:10px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
+  .cal-legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .cal-legend i{ width:10px; height:10px; border-radius:2px; display:inline-block; }
+
   .total-bar{ display:flex; justify-content:space-between; align-items:baseline; padding:16px 2px 2px; border-top:1px solid var(--line); margin-top:16px; }
   .total-bar .label{ font-size:13px; color:var(--muted); }
   .total-bar .amount{ font-family:'Cormorant Garamond', serif; font-variant-numeric: lining-nums; font-size:28px; color:var(--pink); font-weight:600; }
@@ -157,6 +174,13 @@
   .kit-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.45; }
   .kit-badge{ font-size:10px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; white-space:nowrap; padding:3px 8px; border:1px solid var(--pink); color:var(--pink); border-radius:2px; margin-top:2px; }
   .kit-badge.solid{ background:var(--pink); color:#241318; }
+  .kit-badge.clickable{ cursor:pointer; font-size:12.5px; padding:8px 16px; border-radius:3px; border-width:1.5px; }
+  .kit-badge.clickable:hover{ background:var(--pink-soft); }
+  .kit-badge.two-line{ display:flex; flex-direction:column; align-items:flex-end; text-align:right; gap:1px; line-height:1.2; }
+  .kit-badge.two-line small{ font-size:9.5px; font-weight:500; opacity:0.75; text-transform:none; letter-spacing:0.02em; }
+  .kit-row.active{ background:var(--pink-soft); margin:0 -8px; padding:9px 8px; border-top-color:transparent; border-radius:3px; }
+  .kit-row.active .kit-name{ color:var(--pink); }
+  .kit-row.active .kit-badge{ background:var(--pink); color:#241318; }
   .kit-more{ margin-top:6px; }
   .kit-more summary{ cursor:pointer; color:var(--pink); font-size:12px; letter-spacing:0.04em; list-style:none; }
   .kit-more summary::-webkit-details-marker{ display:none; }
@@ -249,7 +273,6 @@ const CONFIG = {
   lateFeeAmount: 10,
   lateFeeMinutes: 10,
   lateCancelMinutes: 20,
-  washFee: 20,
   // PASTE your deployed Google Apps Script Web App URL here (see Code.gs instructions):
   apiUrl: "https://script.google.com/macros/s/AKfycbwBeEDZZDNOq_pkL5eW422wCTWIOe0xPfxuVJ0w8hrsbIrl1IV6Ar1a1KWddFR_Du8a/exec",
 };
@@ -262,8 +285,8 @@ const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
     { key:"service", name:"Service only", price:70 },
     { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:100 },
-    { key:"human", name:"+ human hair (2 bundles)", price:160, lengths:true, addBundle:{ "16-20":40, "22+":50 } },
-    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":80, "22+":100 },
+    { key:"human", name:"+ human hair (2 bundles)", price:180, lengths:true, addBundle:{ "16-20":40, "22+":50 } },
+    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":40, "22+":50 },
       note:"starting price — final price varies by the type of hair purchased; you'll get full pricing transparency before your booking is approved" },
     { key:"raw", name:"+ raw hair", price:400, note:"starting price — varies by length/type, final quote after consult" },
   ]},
@@ -271,7 +294,7 @@ const INSTALLS = {
     { key:"service", name:"Service only", price:120 },
     { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:150 },
     { key:"human", name:"+ human hair (2 bundles)", price:180, lengths:true, addBundle:{ "16-20":40, "22+":50 } },
-    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":80, "22+":100 },
+    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":40, "22+":50 },
       note:"starting price — final price varies by the type of hair purchased; you'll get full pricing transparency before your booking is approved" },
     { key:"raw", name:"+ raw hair", price:400, note:"starting price — varies by length/type, final quote after consult" },
   ]}
@@ -290,7 +313,13 @@ const INSTALL_ADDONS = [
   { key:"color", name:"Color (per bundle)", price:30 },
 ];
 
-const BRAID_STYLES = { box:"Box Braids", twist:"Twists", twostrand:"Two Strand Twists" };
+const BRAID_STYLES = { twist:"Twists", marley:"Marley Twists", mini:"Mini Twists", twostrand:"Two Strand Twists", micro:"Micro Twists", box:"Box Braids" };
+// A note shown under the Style picker once a style is chosen, explaining what it's done with.
+const BRAID_STYLE_NOTES = {
+  twist: "Done with normal kanekalon extensions.",
+  marley: "Done with Marley extensions.",
+  mini: "Done with your natural hair — extensions can be added for an extra cost below.",
+};
 const BOX_BRAID_SIZES = [
   { key:"large", name:"Large", price:180 },
   { key:"medium", name:"Medium", price:200 },
@@ -304,7 +333,28 @@ const TWIST_SIZES = [
 const TWO_STRAND_SIZES = [
   { key:"standard", name:"Standard", price:50 },
 ];
-function currentBraidSizes(){ return state.braidStyle==='twostrand' ? TWO_STRAND_SIZES : state.braidStyle==='twist' ? TWIST_SIZES : BOX_BRAID_SIZES; }
+const MARLEY_TWIST_SIZES = [
+  { key:"large", name:"Large", price:100 },
+  { key:"medium", name:"Medium", price:140 },
+  { key:"small", name:"Small", price:180 },
+];
+// Priced by the client's own (natural) hair length — extensions are a separate per-pack add-on.
+const MINI_TWIST_SIZES = [
+  { key:"shortmed", name:"Short/Medium Length", price:85 },
+  { key:"long", name:"Long Length", price:125 },
+  { key:"xlongthick", name:"Extra Long/Thick", price:150 },
+];
+const MICRO_TWIST_SIZES = [
+  { key:"standard", name:"Micro Twists", price:500, note:"starting price — a consultation is required before booking" },
+];
+function currentBraidSizes(){
+  return state.braidStyle==='twostrand' ? TWO_STRAND_SIZES
+    : state.braidStyle==='marley' ? MARLEY_TWIST_SIZES
+    : state.braidStyle==='mini' ? MINI_TWIST_SIZES
+    : state.braidStyle==='micro' ? MICRO_TWIST_SIZES
+    : state.braidStyle==='twist' ? TWIST_SIZES
+    : BOX_BRAID_SIZES;
+}
 const BOHO_PRICE = 40;
 
 const CORNROW_OPTIONS = [
@@ -320,6 +370,34 @@ const TREATMENTS = [
 
 const RAW_HUMAN_TEXTURES = ["straight","body wave","deep wave","water wave","cambodian wavy (raw)","burmese curly","eurasian curly","vietnamese curly","loose deep wave","afro curly","bone straight","indian curly","kinky curly","kinky straight","yaki straight","loose wave","natural wave"];
 const SYNTHETIC_TEXTURES = ["kinky curly","deep wave","water wave","body wave","straight","yaki straight"];
+
+// Groups a flat texture list into a handful of labeled buckets so the dropdown isn't one
+// long overwhelming list. Add new textures to a bucket here, or to RAW_ONLY_TEXTURES below
+// if it's a raw-specific texture waiting on the finalized raw texture list.
+const TEXTURE_GROUPS = {
+  straight: ["straight", "bone straight", "yaki straight"],
+  bodywave: ["body wave", "deep wave", "water wave", "loose deep wave", "loose wave", "natural wave"],
+  curly: ["burmese curly", "eurasian curly", "vietnamese curly", "indian curly", "afro curly"],
+  kinky: ["kinky curly", "kinky straight"],
+};
+const TEXTURE_GROUP_LABELS = { straight: "Straight", bodywave: "Bodywave", curly: "Curly", kinky: "Kinky" };
+// Raw-specific textures not yet sorted into the buckets above — waiting on the finalized
+// raw texture list, so these stay in their own group instead of getting lumped into Bodywave.
+const RAW_ONLY_TEXTURES = ["cambodian wavy (raw)"];
+
+// Turns a flat texture list (RAW_HUMAN_TEXTURES or SYNTHETIC_TEXTURES) into grouped
+// <optgroup> option HTML, in Straight → Bodywave → Curly → Kinky → Raw order.
+function textureOptionsHTML(list, selected){
+  const opt = tx => `<option value="${tx}" ${selected===tx?'selected':''}>${tx}</option>`;
+  let html = '';
+  Object.keys(TEXTURE_GROUPS).forEach(g=>{
+    const items = TEXTURE_GROUPS[g].filter(tx=>list.includes(tx));
+    if(items.length) html += `<optgroup label="${TEXTURE_GROUP_LABELS[g]}">${items.map(opt).join('')}</optgroup>`;
+  });
+  const raw = RAW_ONLY_TEXTURES.filter(tx=>list.includes(tx));
+  if(raw.length) html += `<optgroup label="Raw">${raw.map(opt).join('')}</optgroup>`;
+  return html;
+}
 const CROCHET_PRICES = { own:50, stylist:80 };
 
 const DEALS = [
@@ -337,9 +415,15 @@ const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
 const MINI_KIT_MIN_TOTAL = 200;
 const LUXURY_INCLUDED_MIN = 400;
 const LUXURY_KIT_PRICE = 50;
+const MINI_KIT_PURCHASE_PRICE = 35; // buying the Mini Care Kit on its own, for bookings under $200 that don't otherwise qualify free
 const BRAID_HAIR_PACK_PRICE = 20;
 const TWO_STRAND_HAIR_PACK_PRICE = 10;
-function braidPackPrice(){ return state.braidStyle==='twostrand' ? TWO_STRAND_HAIR_PACK_PRICE : BRAID_HAIR_PACK_PRICE; }
+const MINI_TWIST_HAIR_PACK_PRICE = 15;
+function braidPackPrice(){
+  return state.braidStyle==='twostrand' ? TWO_STRAND_HAIR_PACK_PRICE
+    : state.braidStyle==='mini' ? MINI_TWIST_HAIR_PACK_PRICE
+    : BRAID_HAIR_PACK_PRICE;
+}
 const BOOKING_TYPE_DISCOUNT = { couple: 0.15, bestie: 0.15, bestieSewIn: 0.30 };
 
 function getThanksgivingDate(year){
@@ -373,34 +457,94 @@ const WEEKDAY_WINDOWS = {
   2: [{start:"07:00", end:"10:00"}, {start:"18:10", end:"21:00"}], // Tuesday
   3: [{start:"07:00", end:"14:00"}, {start:"18:45", end:"21:00"}], // Wednesday
   4: [{start:"07:00", end:"10:00"}, {start:"18:10", end:"21:00"}], // Thursday
-  5: [{start:"07:00", end:"12:45"}, {start:"14:00", end:"21:00"}], // Friday
+  5: [{start:"07:00", end:"12:45"}, {start:"15:00", end:"21:00"}], // Friday
   6: null, // Saturday — flexible
 };
-const AVAILABILITY = {
-  0: "Flexible all day.",
-  1: "I can see you 7:00–2:00pm or after 6:45pm.",
-  2: "I can see you 7:00–10:00am (quick services only) or after 6:10pm.",
-  3: "I can see you 7:00–2:00pm or after 6:45pm.",
-  4: "I can see you 7:00–10:00am (quick services only) or after 6:10pm.",
-  5: "I can see you before 12:45pm or after 2:00pm.",
-  6: "Flexible all day.",
-};
-function timeToMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m; }
-function getDayBounds(dateStr){
-  if(!dateStr) return null;
-  const day = new Date(dateStr + 'T12:00:00').getDay();
-  const windows = WEEKDAY_WINDOWS[day];
-  if(!windows) return null;
-  const starts = windows.map(w=>w.start), ends = windows.map(w=>w.end);
-  return { min: starts.sort()[0], max: ends.sort().slice(-1)[0] };
+// Quick-services-only note for the days whose morning window is short (kept as a manual
+// flag here since it's about appointment length, not something derivable from the windows).
+const QUICK_SERVICES_ONLY_MORNING = { 2: true, 4: true };
+// Builds the client-facing availability note straight from effectiveWindows(), so it can
+// never drift out of sync with the actual bookable windows (including the 7pm cutoff) again.
+function availabilityNoteFor(day){
+  const windows = effectiveWindows(day);
+  if(!windows.length) return "Not taking appointments this day.";
+  const parts = windows.map((w,i) => {
+    const label = formatTimeLabel(w.start) + "–" + formatTimeLabel(w.end);
+    return (i===0 && QUICK_SERVICES_ONLY_MORNING[day]) ? label + " (quick services only)" : label;
+  });
+  return "I can see you " + parts.join(" or ") + ".";
 }
+function timeToMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m; }
+function minutesToTime(t){ return String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'); }
+
+// Hard cutoff — nothing is bookable at or after this time, no matter what a day's windows say below.
+const LATEST_BOOKABLE_TIME = "19:00";
+
+// Days with no fixed windows above ("flexible all day") still need a bounded slot list —
+// this is the span used to generate slots for those days.
+const FLEXIBLE_DAY_RANGE = { start: "07:00", end: "21:00" };
+
+// A day's windows, each clipped so it never runs past LATEST_BOOKABLE_TIME (and dropped
+// entirely if it starts at or after the cutoff).
+function effectiveWindows(day){
+  const raw = WEEKDAY_WINDOWS[day] || [FLEXIBLE_DAY_RANGE];
+  const cap = timeToMinutes(LATEST_BOOKABLE_TIME);
+  return raw
+    .map(w => ({ start: w.start, end: minutesToTime(Math.min(timeToMinutes(w.end), cap)) }))
+    .filter(w => timeToMinutes(w.start) < timeToMinutes(w.end));
+}
+
 function isTimeAllowed(dateStr, timeStr){
   if(!dateStr || !timeStr) return true; // nothing to check yet
   const day = new Date(dateStr + 'T12:00:00').getDay();
-  const windows = WEEKDAY_WINDOWS[day];
-  if(!windows) return true; // flexible day
   const t = timeToMinutes(timeStr);
-  return windows.some(w => t >= timeToMinutes(w.start) && t <= timeToMinutes(w.end));
+  return effectiveWindows(day).some(w => t >= timeToMinutes(w.start) && t <= timeToMinutes(w.end));
+}
+
+// Whole days you're not taking ANY bookings, on top of your normal weekly schedule above.
+// Tell me the dates and I'll add them here — either a single day ("2026-10-15") or a run of
+// days inclusive ({start:"2026-10-10", end:"2026-10-12"}). They show pink and can't be picked.
+const BLOCKED_DATES = [
+  { start: "2026-10-09", end: "2026-10-12" }, // Fri Oct 9 – Mon Oct 12 — not taking appointments
+];
+// Whole days that already have an approved appointment, fetched from the sheet so a day
+// closes itself off the moment you approve someone — no manual "block this date" needed for it.
+// Denying/cancelling frees the day back up automatically (it just stops showing up here).
+let takenDates = new Set();
+async function refreshTakenDates(){
+  try{
+    const res = await fetch(CONFIG.apiUrl + "?action=takenDates");
+    const json = await res.json();
+    const next = new Set();
+    (json.dates || []).forEach(d => {
+      const m = String(d).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);       // MM/DD/YYYY -> YYYY-MM-DD
+      if(m) next.add(m[3] + '-' + m[1] + '-' + m[2]);
+    });
+    takenDates = next;
+    render();
+  }catch(err){ /* live sync failed — manual BLOCKED_DATES still works, just no auto-block this load */ }
+}
+function isDateBlocked(dateStr){
+  if(takenDates.has(dateStr)) return true;
+  return BLOCKED_DATES.some(b => typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end));
+}
+
+function timeSlotsFor(dateStr){
+  if(!dateStr) return [];
+  const day = new Date(dateStr + 'T12:00:00').getDay();
+  const windows = effectiveWindows(day);
+  const slots = [];
+  windows.forEach(w=>{
+    for(let t=timeToMinutes(w.start); t<=timeToMinutes(w.end); t+=15){
+      slots.push(String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'));
+    }
+  });
+  return slots;
+}
+function formatTimeLabel(t){
+  const [h,m] = t.split(':').map(Number);
+  const ap = h>=12 ? 'PM' : 'AM', hh = h%12 || 12;
+  return hh + ':' + String(m).padStart(2,'0') + ' ' + ap;
 }
 
 /* ============== helpers ============== */
@@ -503,31 +647,64 @@ const checkSVG = `<svg viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r
 
 // Shared aftercare intro: headline, supporting text, the three kit tiers, and "See what's included".
 function aftercareIntroHTML(){
+  // What this specific booking actually gets, so exactly one row (or none, if nothing's
+  // been chosen yet) gets highlighted — never a row that doesn't apply.
+  const kitOutcome = !kitsApply() ? null
+    : luxuryIncluded() ? 'luxuryIncluded'
+    : state.luxuryKit ? 'luxuryUpgrade'
+    : miniKitEligible() ? 'miniFree'
+    : state.miniKitPurchase ? 'miniPaid'
+    : null;
+  const miniActive = kitOutcome==='miniFree' || kitOutcome==='miniPaid';
+  const luxuryActive = kitOutcome==='luxuryIncluded' || kitOutcome==='luxuryUpgrade';
+
+  // Mini's Add/Added badge is only clickable when it's a genuine $35 choice — not when it's
+  // already free, and not while Luxury (which supersedes it) is included or chosen.
+  const miniPickable = kitsApply() && !luxuryIncluded() && !state.luxuryKit && !miniKitEligible();
+  const miniBadge = kitOutcome==='miniFree'
+      ? `<span class="kit-badge">Complimentary</span>`
+    : miniPickable
+      ? `<span class="kit-badge clickable two-line" data-action="pick-kit-addon" data-key="mini">${state.miniKitPurchase?'<b>✓ Added</b>':`<b>Add</b><small>$${MINI_KIT_PURCHASE_PRICE}</small>`}</span>`
+      : `<span class="kit-badge">Complimentary</span>`;
+  const luxuryBadge = kitOutcome==='luxuryIncluded'
+      ? `<span class="kit-badge solid">Included</span>`
+      : `<span class="kit-badge clickable two-line" data-action="pick-kit-addon" data-key="luxury">${state.luxuryKit?'<b>✓ Upgraded</b>':`<b>Upgrade</b><small>$${LUXURY_KIT_PRICE}</small>`}</span>`;
+
   return `
     <div class="aftercare-title">Your hair doesn't end at the appointment.</div>
     <p class="aftercare-text">Every qualifying appointment comes with thoughtful aftercare essentials to help you care for your hair long after you leave the chair.</p>
-    <div class="kit-row">
-      <div><div class="kit-name">Mini Care Kit</div><div class="kit-sub">Every bundle order · first-time clients with $200+ services</div></div>
-      <span class="kit-badge">Complimentary</span>
-    </div>
-    <div class="kit-row">
-      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">An elevated upgrade to your aftercare routine</div></div>
-      <span class="kit-badge">+${money(LUXURY_KIT_PRICE)}</span>
-    </div>
-    <div class="kit-row">
-      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">Included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages</div></div>
-      <span class="kit-badge solid">Included</span>
+    <div class="kit-row ${miniActive ? 'active' : ''}">
+      <div><div class="kit-name">Mini Care Kit</div><div class="kit-sub">Complimentary with bundle orders and first-time $${MINI_KIT_MIN_TOTAL}+ services, or add it for $${MINI_KIT_PURCHASE_PRICE}</div></div>
+      ${miniBadge}
     </div>
     <details class="kit-more" data-keep="kitOpen" ${state.kitOpen?'open':''}>
       <summary>See what's included</summary>
       <div class="kit-more-body">
-        <div><b>Complimentary Mini Care Kit</b> — a small collection of essentials for maintaining your hair after your appointment. Every bundle order includes a complimentary mini hair-care kit. First-time clients also receive a complimentary mini care kit with qualifying services of $${MINI_KIT_MIN_TOTAL}+.</div>
-        <div style="margin-top:8px;"><b>Luxury Care Kit</b> — upgrade your aftercare experience with our full-size hair-care essentials, satin accessories, detangling tools &amp; personalized aftercare guide. Luxury Care Kit included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages.</div>
+        <div>Complimentary with bundle orders and first-time $${MINI_KIT_MIN_TOTAL}+ services, or $${MINI_KIT_PURCHASE_PRICE} on any booking. Hand-picked from:</div>
         <ul>
           <li>Satin bonnet</li>
           <li>Detangling brush</li>
+          <li>Hair decor</li>
           <li>Aftercare guide</li>
-          <li>Shampoo + conditioner (qualifying luxury kits)</li>
+        </ul>
+      </div>
+    </details>
+
+    <div class="kit-row ${luxuryActive ? 'active' : ''}" style="margin-top:10px;">
+      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">Included with qualifying $${LUXURY_INCLUDED_MIN}+ packages, or upgrade for $${LUXURY_KIT_PRICE}</div></div>
+      ${luxuryBadge}
+    </div>
+    <details class="kit-more" data-keep="kitOpenLuxury" ${state.kitOpenLuxury?'open':''}>
+      <summary>See what's included</summary>
+      <div class="kit-more-body">
+        <div>Included free with qualifying $${LUXURY_INCLUDED_MIN}+ packages, or $${LUXURY_KIT_PRICE} on any booking. Hand-picked from:</div>
+        <ul>
+          <li>Full-size shampoo + conditioner</li>
+          <li>Satin bonnet + scarf</li>
+          <li>Detangling brush</li>
+          <li>Hair oil</li>
+          <li>Hair accessories</li>
+          <li>Personalized aftercare guide</li>
         </ul>
       </div>
     </details>
@@ -536,10 +713,10 @@ function aftercareIntroHTML(){
 
 function fullPolicyHTML(){
   return `
-    <div><b>Deposit:</b> $${CONFIG.depositAmount} required — refunded only if the appointment is cancelled at least 24 hours ahead.</div>
+    <div><b>Deposit:</b> $${CONFIG.depositAmount} required — refunded only if the appointment is cancelled at least 24 hours ahead. Always required unless you've already paid for a consultation, which counts toward it.</div>
     <div style="margin-top:8px;"><b>No call / no show:</b> no rebooking.</div>
     <div style="margin-top:8px;"><b>Late fee:</b> $${CONFIG.lateFeeAmount} after ${CONFIG.lateFeeMinutes} minutes late, appointment cancelled after ${CONFIG.lateCancelMinutes} minutes (exception if communicated at least 2 hours prior).</div>
-    <div style="margin-top:8px;"><b>Hair prep:</b> come with your hair ready to go — an extra $${CONFIG.washFee} applies for washing/drying.</div>
+    <div style="margin-top:8px;"><b>Hair prep:</b> please arrive with your hair already washed and dried — I don't currently offer washing/drying services.</div>
     <div style="margin-top:8px;"><b>Cancellations/rescheduling:</b> must be done at least 24 hours beforehand (special exceptions considered — if you're sick, please reschedule!).</div>
     <div style="margin-top:8px;"><b>Add-ons:</b> please mention add-ons (bundles, color, closures) at booking so I can schedule enough time.</div>
     <div style="margin-top:10px; color:var(--pink);">I'm a student too 💕 — I expect we'll respect each other's time. Thank you for understanding!</div>
@@ -552,7 +729,7 @@ let state = {
   category: null,
   style: "traditional", // traditional | fulani (qw/si only)
   tierKey: null, length: null, addBundleCount: 0, addons: {},
-  braidStyle: null, braidSize: null, ownHair: null, braidBoho: false, braidHairPacks: 1, twistHairType: "",
+  braidStyle: null, braidSize: null, ownHair: null, braidBoho: false, braidHairPacks: 1,
   cornrowKey: null,
   treatmentKeys: {},
   crochetHairSource: null, crochetConfirmed: false, crochetDetails: "",
@@ -563,8 +740,8 @@ let state = {
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
   treatmentGroupSize: 1, treatmentGroupNames: "",
   bookingType: "solo", partnerName: "", partnerContact: "",
-  luxuryKit: false, isFirstTimeClient: null, firstTimePhone: "", dealsOpen: false, policyOpen: false, kitOpen: false, adminSearch: "", copiedKey: "",
-  name:"", phone:"", ig:"", date:"", time:"", notes:"", referenceLink:"",
+  luxuryKit: false, miniKitPurchase: false, isFirstTimeClient: null, firstTimePhone: "", dealsOpen: false, policyOpen: false, kitOpen: false, kitOpenLuxury: false, adminSearch: "", copiedKey: "",
+  name:"", phone:"", ig:"", date:"", time:"", notes:"", referenceLink:"", calendarMonth:null,
   photos: [],
   agreedPolicy: false,
   error: "",
@@ -575,7 +752,7 @@ let state = {
 function resetSelection(){
   state.style="traditional";
   state.tierKey=null; state.length=null; state.addBundleCount=0; state.addons={};
-  state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1; state.twistHairType="";
+  state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1;
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
   state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleKitUpgrade=false;
@@ -585,7 +762,7 @@ function resetSelection(){
   state.loyaltyVisit=""; state.btcFirstConfirmed=false; state.hallohairCostumeConfirmed=false;
   state.treatmentGroupSize=1; state.treatmentGroupNames="";
   state.bookingType="solo"; state.partnerName=""; state.partnerContact="";
-  state.luxuryKit=false;
+  state.luxuryKit=false; state.miniKitPurchase=false;
   state.error='';
 }
 
@@ -617,6 +794,7 @@ function serviceChosen(){
   if(state.category==='treatments') return Object.values(state.treatmentKeys).some(Boolean);
   if(state.category==='bundles') return true;
   if(state.category==='custom') return true;
+  if(state.category==='consult') return true;
   return false;
 }
 function computeBaseTotal(){
@@ -647,6 +825,8 @@ function computeBaseTotal(){
     }
   } else if(state.category==='bundles'){
     total = null; // priced after catalog/quote, not a fixed number
+  } else if(state.category==='consult'){
+    total = CONFIG.depositAmount; // counts toward your deposit if they book a service afterward
   }
 
   // deals only apply to services that aren't bundles or treatments (treatments has its own group rate above)
@@ -688,7 +868,7 @@ function computeBaseTotal(){
 }
 
 // Care kits apply to service bookings only (bundles have their own flow; custom is quote-based).
-function kitsApply(){ return state.category && state.category!=='bundles' && state.category!=='custom'; }
+function kitsApply(){ return state.category && state.category!=='bundles' && state.category!=='custom' && state.category!=='consult'; }
 
 // Luxury Care Kit is included (no +$50) with qualifying $400+ hair packages.
 function luxuryIncluded(){
@@ -704,24 +884,32 @@ function miniKitReasons(){
   const base = computeBaseTotal();
   if(state.isFirstTimeClient===true && base !== null && base >= MINI_KIT_MIN_TOTAL) reasons.push('first-time client, $200+ service');
   if(state.category==='si' && state.tierKey && state.tierKey!=='service' && state.isFirstTimeClient===true) reasons.push('first-time sew-in with hair purchase');
-  if(state.bookingType==='couple') reasons.push("Couple's Deal");
-  if(state.bookingType==='bestie') reasons.push('Bestie Deal');
+  if(state.bookingType==='couple') reasons.push("Couple Booking");
+  if(state.bookingType==='bestie') reasons.push('Bestie Booking');
   return reasons;
 }
 function miniKitEligible(){ return miniKitReasons().length > 0; }
 function bookingTypeNoteText(){
-  if(state.bookingType==='couple') return "Couple's Deal: please book your appointment on a different day than your partner — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
-  if(state.bookingType==='bestie') return "Bestie Deal: please book your appointment on a different day than your bestie — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
+  if(state.bookingType==='couple') return "Couple Booking: please book your appointment on a different day than your partner — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
+  if(state.bookingType==='bestie') return "Bestie Booking: please book your appointment on a different day than your bestie — we can't do both of you in one session. I'll confirm both bookings match before applying your discount.";
   return '';
+}
+// Short one-liner shown right under the Booking type dropdown.
+function bookingTypeShortNote(){
+  if(state.bookingType==='couple') return "You and your partner each book, on different days, for a discount.";
+  if(state.bookingType==='bestie') return "You and your bestie each book, on different days, for a discount.";
+  return "";
 }
 // Client-facing status line under the aftercare section.
 function kitStatusText(){
   if(luxuryIncluded()) return "Your $400+ hair package includes the Luxury Care Kit.";
+  if(state.luxuryKit) return `You've upgraded to the Luxury Care Kit (+${money(LUXURY_KIT_PRICE)}).`;
   if(miniKitEligible()){
-    if(state.bookingType==='couple') return "Your Couple's Deal booking includes a complimentary Mini Care Kit.";
-    if(state.bookingType==='bestie') return "Your Bestie Deal booking includes a complimentary Mini Care Kit.";
+    if(state.bookingType==='couple') return "Your Couple Booking includes a complimentary Mini Care Kit.";
+    if(state.bookingType==='bestie') return "Your Bestie Booking includes a complimentary Mini Care Kit.";
     return "Your booking includes a complimentary Mini Care Kit as a first-time client.";
   }
+  if(state.miniKitPurchase) return `You've added the Mini Care Kit (+${money(MINI_KIT_PURCHASE_PRICE)}).`;
   const base = computeBaseTotal();
   if(state.isFirstTimeClient===null && base !== null && base >= MINI_KIT_MIN_TOTAL)
     return "First-time clients with qualifying $200+ services receive a complimentary Mini Care Kit — we'll confirm once you add your phone number below.";
@@ -735,6 +923,7 @@ function kitLabelText(clientFacing){
   const why = (!clientFacing && reasons.length) ? ` (${reasons.join(', ')})` : '';
   if(state.luxuryKit) return `Luxury Care Kit (+${money(LUXURY_KIT_PRICE)})` + (reasons.length && !clientFacing ? ` — in place of complimentary Mini${why}` : '');
   if(reasons.length) return `Mini Care Kit — complimentary${why}`;
+  if(state.miniKitPurchase) return `Mini Care Kit (+${money(MINI_KIT_PURCHASE_PRICE)})`;
   return '';
 }
 function bundleCareKitCost(){
@@ -744,7 +933,10 @@ function calcTotal(){
   const base = computeBaseTotal();
   if(base === null) return null;
   let total = base;
-  if(kitsApply() && !luxuryIncluded() && state.luxuryKit) total += LUXURY_KIT_PRICE;
+  if(kitsApply() && !luxuryIncluded()){
+    if(state.luxuryKit) total += LUXURY_KIT_PRICE;
+    else if(!miniKitEligible() && state.miniKitPurchase) total += MINI_KIT_PURCHASE_PRICE;
+  }
   return total;
 }
 function dealsLabelText(clientFacing){
@@ -775,7 +967,6 @@ function serviceLabelText(){
   if(state.category==='braids'){
     let s = `${BRAID_STYLES[state.braidStyle]||''} — ${state.braidSize||''} (${state.ownHair==='own'?'client has own hair':'needs hair provided'})`;
     if(state.ownHair==='provide') s += `, ${state.braidHairPacks} pack(s) of hair`;
-    if(state.braidStyle==='twist' && state.twistHairType) s += `, ${state.twistHairType==='marley'?'Marley hair':'normal braiding hair'}`;
     if(state.braidBoho) s += ' + boho pieces';
     return s;
   }
@@ -790,6 +981,7 @@ function serviceLabelText(){
     return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
   }
   if(state.category==='custom') return `Custom style request (approval-based) — ${state.customDetails}`;
+  if(state.category==='consult') return `Consultation`;
   return '';
 }
 
@@ -815,6 +1007,7 @@ function renderLanding(){
     <div style="margin-top:40px;">
       <button class="cta-btn" data-action="landing-pick" data-key="service">Book a Service</button>
       <button class="cta-btn secondary" data-action="landing-pick" data-key="bundles">Bundles</button>
+      <button class="cta-btn secondary" data-action="landing-pick" data-key="consult">Consultation</button>
     </div>
 
     <div class="back-link" data-action="go-questions" style="display:block; text-align:center; margin-top:8px;">Questions about your appointment? ›</div>
@@ -822,9 +1015,61 @@ function renderLanding(){
   </div>`;
 }
 
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DOW_LETTERS = ["S","M","T","W","T","F","S"];
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+// Visual month calendar for picking an appointment date — past days are dimmed, whole
+// days you've blocked out (BLOCKED_DATES) show pink and can't be clicked.
+function renderCalendar(){
+  if(!state.calendarMonth){
+    const n = new Date();
+    state.calendarMonth = { y: n.getFullYear(), m: n.getMonth() };
+  }
+  const { y, m } = state.calendarMonth;
+  const first = new Date(y, m, 1);
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const startOffset = first.getDay();
+  const today = todayStr();
+  const canGoBack = !(y === new Date().getFullYear() && m === new Date().getMonth());
+
+  const cells = [];
+  for(let i=0; i<startOffset; i++) cells.push('<div class="cal-day empty"></div>');
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const isPast = dateStr < today;
+    const isBlocked = isDateBlocked(dateStr);
+    const isSelected = state.date === dateStr;
+    const cls = ['cal-day'];
+    if(isPast) cls.push('past');
+    else if(isBlocked) cls.push('blocked');
+    else if(isSelected) cls.push('selected');
+    const clickable = !isPast && !isBlocked;
+    cells.push(`<div class="${cls.join(' ')}" ${clickable ? `data-action="pick-cal-day" data-key="${dateStr}"` : ''}>${d}</div>`);
+  }
+
+  return `
+    <div class="cal-wrap">
+      <div class="cal-head">
+        <button type="button" class="cal-nav" data-action="cal-prev" ${canGoBack?'':'disabled'}>‹</button>
+        <span class="cal-month">${MONTH_NAMES[m]} ${y}</span>
+        <button type="button" class="cal-nav" data-action="cal-next">›</button>
+      </div>
+      <div class="cal-dow">${DOW_LETTERS.map(l=>`<span>${l}</span>`).join('')}</div>
+      <div class="cal-grid">${cells.join('')}</div>
+      <div class="cal-legend">
+        <span><i style="background:var(--pink);"></i>available</span>
+        <span><i style="background:var(--cream);"></i>selected</span>
+        <span><i style="background:var(--panel-2); border:1px solid var(--line);"></i>not available</span>
+      </div>
+    </div>`;
+}
+
 function renderBook(){
   const showDetails = serviceChosen();
-  const dayNote = state.date ? AVAILABILITY[new Date(state.date + 'T12:00:00').getDay()] : null;
+  const dayNote = state.date ? availabilityNoteFor(new Date(state.date + 'T12:00:00').getDay()) : null;
 
   return `
   <div class="wrap">
@@ -836,19 +1081,24 @@ function renderBook(){
 
     <div class="card">
       <span class="back-link" data-action="go-landing">&lsaquo; back</span>
+      ${state.category==='consult' ? `
+      <div class="step-label"><span class="step-num">1</span><span class="step-title">Consultation</span></div>
+      <p class="aftercare-text" style="margin:0;">Not sure a style will work for your hair, or just have questions before committing? A consultation is time set aside just to talk through it — whether it's a specific concern about your hair, making sure a service is possible, or anything else you'd like to ask. I'll confirm the consultation once it's booked.</p>
+      ` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat ${c.key==='custom'?'cat-wide':''} ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
-      </div>
+      </div>`}
 
-      ${state.category ? `
-      <div style="margin-top:14px;">
-        <div class="opt-sub" style="margin-bottom:6px;">Booking type</div>
-        <div class="length-row">
-          <div class="length-btn ${state.bookingType==='solo'?'selected':''}" data-action="pick-booking-type" data-key="solo">Solo</div>
-          <div class="length-btn ${state.bookingType==='couple'?'selected':''}" data-action="pick-booking-type" data-key="couple">Couple's Deal</div>
-          <div class="length-btn ${state.bookingType==='bestie'?'selected':''}" data-action="pick-booking-type" data-key="bestie">Bestie Deal</div>
-        </div>
+      ${state.category && state.category!=='consult' ? `
+      <div class="field" style="margin-top:14px; text-align:center;">
+        <label style="display:block;">Booking type</label>
+        <select data-action="pick-booking-type" style="text-align:center; text-align-last:center;">
+          <option value="solo" ${state.bookingType==='solo'?'selected':''}>Solo</option>
+          <option value="couple" ${state.bookingType==='couple'?'selected':''}>Couple Booking</option>
+          <option value="bestie" ${state.bookingType==='bestie'?'selected':''}>Bestie Booking</option>
+        </select>
+        ${bookingTypeShortNote() ? `<div class="opt-sub" style="margin-top:5px;">${bookingTypeShortNote()}</div>` : ''}
         ${state.bookingType!=='solo' ? `
         <div class="field" style="margin-top:12px;">
           <label>${state.bookingType==='couple' ? "Partner's name" : "Bestie's name"}</label>
@@ -862,13 +1112,6 @@ function renderBook(){
       </div>` : ''}
 
       ${(state.category==='qw'||state.category==='si') ? `
-        <div style="margin-top:14px;">
-          <div class="opt-sub" style="margin-bottom:6px;">Style</div>
-          <div class="length-row">
-            <div class="length-btn ${state.style==='traditional'?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
-            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling (+${money(FULANI_SURCHARGE[state.category])})</div>
-          </div>
-        </div>
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
@@ -878,10 +1121,10 @@ function renderBook(){
             ${(state.tierKey===t.key && t.key!=='service') ? `
               <div style="padding:0 2px; margin-top:8px;">
                 <div class="field" style="margin-bottom:0;">
-                  <label>Texture</label>
+                  <label>Texture <span style="color:var(--pink);">*required</span></label>
                   <select id="install-texture-${t.key}" data-action="pick-install-texture">
                     <option value="">choose a texture</option>
-                    ${(t.key==='synthetic' ? SYNTHETIC_TEXTURES : RAW_HUMAN_TEXTURES).map(tx=>`<option value="${tx}" ${state.installTexture===tx?'selected':''}>${tx}</option>`).join('')}
+                    ${textureOptionsHTML(t.key==='synthetic' ? SYNTHETIC_TEXTURES : RAW_HUMAN_TEXTURES, state.installTexture)}
                   </select>
                 </div>
               </div>` : ''}
@@ -899,26 +1142,28 @@ function renderBook(){
                 </div>` : ''}
               </div>` : ''}
           `).join('')}
+        </div>
+        <div style="margin-top:14px;">
+          <div class="opt-sub" style="margin-bottom:6px;">Style</div>
+          <div class="length-row">
+            <div class="length-btn ${state.style==='traditional'?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
+            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling (+${money(FULANI_SURCHARGE[state.category])})</div>
+          </div>
         </div>` : ''}
 
       ${state.category==='braids' ? `
         <div class="opt-group" style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:2px;">Style</div>
           <div class="cat-grid">${Object.entries(BRAID_STYLES).map(([k,name])=>`<div class="cat ${state.braidStyle===k?'selected':''}" data-action="pick-braid-style" data-key="${k}"><div class="cat-name">${name}</div></div>`).join('')}</div>
-          ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${currentBraidSizes().map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><span class="opt-name">${s.name}</span><span class="opt-price">${money(s.price)}</span></div>`).join('')}` : ''}
+          ${state.braidStyle && BRAID_STYLE_NOTES[state.braidStyle] ? `<div class="opt-sub" style="margin-top:6px;">${BRAID_STYLE_NOTES[state.braidStyle]}</div>` : ''}
+          ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${currentBraidSizes().map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><div><div class="opt-name">${s.name}</div>${s.note ? `<div class="opt-sub">${s.note}</div>` : ''}</div><span class="opt-price">${money(s.price)}${s.note?'+':''}</span></div>`).join('')}` : ''}
           ${state.braidSize ? `<div class="opt-sub" style="margin:12px 0 2px;">Hair</div><div class="length-row"><div class="length-btn ${state.ownHair==='own'?'selected':''}" data-action="pick-own-hair" data-key="own">I have my own hair</div><div class="length-btn ${state.ownHair==='provide'?'selected':''}" data-action="pick-own-hair" data-key="provide">Please provide hair</div></div>` : ''}
-          ${state.braidStyle==='twist' && state.braidSize ? `
-            <div class="opt-sub" style="margin:12px 0 2px;">Twist hair type</div>
-            <div class="length-row">
-              <div class="length-btn ${state.twistHairType==='normal'?'selected':''}" data-action="pick-twist-hair-type" data-key="normal">Normal braiding hair</div>
-              <div class="length-btn ${state.twistHairType==='marley'?'selected':''}" data-action="pick-twist-hair-type" data-key="marley">Marley hair</div>
-            </div>` : ''}
           ${state.ownHair==='provide' ? `
             <div class="bundle-row" style="margin-top:10px;">
               <span class="opt-sub">Hair packs needed (${money(braidPackPrice())}/pack)</span>
               <div class="stepper"><button data-action="braid-packs-minus" ${state.braidHairPacks<=1?'disabled':''}>−</button><span>${state.braidHairPacks}</span><button data-action="braid-packs-plus">+</button></div>
             </div>
-            <div class="opt-sub">Pick as many packs as you'll need — ${money(state.braidHairPacks*braidPackPrice())} total.</div>` : ''}
+            <div class="opt-sub">Pick as many packs as you'll need — ${money(state.braidHairPacks*braidPackPrice())} total.${state.braidStyle==='mini' ? ' Please specify your hair color in the notes when booking.' : ''}</div>` : ''}
           ${state.ownHair ? `
             <div class="addon-row" style="margin-top:6px;">
               <label><input type="checkbox" data-action="toggle-boho" ${state.braidBoho?'checked':''}/>Add boho pieces</label>
@@ -971,21 +1216,13 @@ function renderBook(){
       <div class="total-bar"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
-    ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' ? `
+    ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' && state.category!=='consult' ? `
     <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
     ${showDetails && kitsApply() ? `
     <div class="card">
       ${aftercareIntroHTML()}
       ${kitStatusText() ? `<div class="avail-note" style="margin-top:10px;">${kitStatusText()}</div>` : ''}
-      ${luxuryIncluded() ? '' : (miniKitEligible() ? `
-      <div class="length-row" style="margin-top:10px;">
-        <div class="length-btn ${!state.luxuryKit?'selected':''}" data-action="pick-luxury-kit" data-key="normal">Keep Mini Care Kit</div>
-        <div class="length-btn ${state.luxuryKit?'selected':''}" data-action="pick-luxury-kit" data-key="luxury">Upgrade to Luxury (+${money(LUXURY_KIT_PRICE)})</div>
-      </div>` : `
-      <div class="length-row" style="margin-top:10px;">
-        <div class="length-btn ${state.luxuryKit?'selected':''}" data-action="pick-luxury-kit" data-key="${state.luxuryKit?'normal':'luxury'}">${state.luxuryKit?'✓ ':''}Add the Luxury Care Kit (+${money(LUXURY_KIT_PRICE)})</div>
-      </div>`)}
     </div>` : ''}
 
     ${showDetails && state.category!=='bundles' ? `
@@ -993,12 +1230,17 @@ function renderBook(){
       <div class="step-label"><span class="step-num">•</span><span class="step-title">When would you like your appointment?</span></div>
       <div class="field">
         <label>Preferred date <span style="color:var(--pink);">*required</span></label>
-        <input type="date" id="f-date" value="${state.date}"/>
-        ${dayNote ? `<div class="avail-note">${dayNote}</div>` : ''}
+        ${renderCalendar()}
+        ${dayNote ? `<div class="avail-note" style="margin-top:10px;">${dayNote}</div>` : ''}
       </div>
-      <div class="field"><label>Preferred time</label><input type="time" id="f-time" value="${state.time}" step="900" ${(()=>{ const b=getDayBounds(state.date); return b ? `min="${b.min}" max="${b.max}"` : ''; })()}/><div class="opt-sub" style="margin-top:5px;">Times snap to :00 / :15 / :30 / :45</div>
-        ${state.time && state.date ? (isTimeAllowed(state.date, state.time) ? `<div class="avail-note" style="margin-top:6px;">✓ that time works</div>` : `<div class="avail-note" style="margin-top:6px; color:var(--pink);">That time isn't available on this date. ${AVAILABILITY[new Date(state.date + 'T12:00:00').getDay()]}</div>`) : ''}
-      </div>
+      ${state.date ? `
+      <div class="field">
+        <label>Preferred time</label>
+        <select data-action="pick-time-slot">
+          <option value="">choose a time</option>
+          ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}
+        </select>
+      </div>` : ''}
       ${state.bookingType!=='solo' ? `<div class="avail-note">${bookingTypeNoteText()}</div>` : ''}
     </div>` : ''}
 
@@ -1020,7 +1262,7 @@ function renderBook(){
       ` : ''}
     </div>` : ''}
 
-    ${showDetails && state.category!=='bundles' && state.category!=='treatments' ? `
+    ${showDetails && state.category!=='bundles' && state.category!=='treatments' && state.category!=='consult' ? `
     <div class="card">
       <details class="drop" data-keep="dealsOpen" ${state.dealsOpen?'open':''}>
       <summary><span class="step-num">•</span>Using a deal?${state.dealsSelected.length ? `<span class="drop-count">${state.dealsSelected.length} selected</span>` : ''}</summary>
@@ -1065,7 +1307,16 @@ function renderBook(){
       ${isThanksgivingWeek(state.date) ? `<div class="avail-note" style="margin-top:12px;">🦃 Thanksgiving week discount (15% off) is automatically applied to your total — no need to select it.</div>` : ''}
     </div>` : ''}
 
-    ${showDetails ? `
+    ${showDetails && state.category==='consult' ? `
+    <div class="card">
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
+      <div class="opt-sub" style="margin-bottom:10px;">This will be a phone call — just need a way to reach you.</div>
+      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can call you"/></div>
+      <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
+      <div class="opt-sub">Add at least one — phone or Instagram.</div>
+    </div>` : ''}
+
+    ${showDetails && state.category!=='consult' ? `
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
       <div class="field"><label>Name <span style="color:var(--pink);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
@@ -1084,14 +1335,20 @@ function renderBook(){
       </div>
 
       <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
+    </div>` : ''}
 
+    ${showDetails ? `
+    <div class="card">
+      ${state.category!=='consult' ? `
       <details class="policy-box" data-keep="policyOpen" ${state.policyOpen?'open':''}>
         <summary>Read the full policy</summary>
         <div class="policy-body">${fullPolicyHTML()}</div>
-      </details>
+      </details>` : ''}
 
       <div class="deposit-note">
-        Your appointment isn't confirmed until a <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. Deposit comes off your total at your appointment.
+        ${state.category==='consult'
+          ? `Your consultation isn't confirmed until a <b>${money(CONFIG.depositAmount)} fee</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. If you end up booking a service, this goes toward your deposit — no separate deposit needed.`
+          : `Your appointment isn't confirmed until a <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. Deposit comes off your total at your appointment. A deposit is always required — unless you've already paid for a consultation, which counts toward it.`}
       </div>
 
       <div class="agree-row">
@@ -1100,7 +1357,7 @@ function renderBook(){
       </div>
 
       ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
-      <button class="submit-btn" data-action="submit">Send Booking Request</button>
+      <button class="submit-btn" data-action="submit">${state.category==='consult' ? 'Send Consultation Request' : 'Send Booking Request'}</button>
     </div>` : ''}
 
     <div class="footer-note">up to 2 deals per booking, confirmed at approval<br/>bloomington · dm @ehiffect with any questions</div>
@@ -1127,12 +1384,7 @@ function renderBundles(){
         <label>Hair type</label>
         <select id="f-bundle-texture" data-action="pick-bundle-texture">
           <option value="">choose a texture</option>
-          <optgroup label="Raw / Human">
-            ${RAW_HUMAN_TEXTURES.map(tx=>`<option value="${tx}" ${state.bundleTexture===tx?'selected':''}>${tx}</option>`).join('')}
-          </optgroup>
-          <optgroup label="Synthetic">
-            ${SYNTHETIC_TEXTURES.map(tx=>`<option value="${tx}" ${state.bundleTexture===tx?'selected':''}>${tx}</option>`).join('')}
-          </optgroup>
+          ${textureOptionsHTML(Array.from(new Set([...RAW_HUMAN_TEXTURES, ...SYNTHETIC_TEXTURES])), state.bundleTexture)}
         </select>
       </div>
       <div class="opt-sub" style="margin-bottom:6px;">How many bundles?</div>
@@ -1207,10 +1459,13 @@ function renderConfirm(){
     ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
     ${giftLabel ? `<div style="margin-top:4px;"><b>Aftercare:</b> ${giftLabel}</div>` : ''}
     ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)'}</div>` : ''}
-    <div style="margin-top:4px;"><b>Price:</b> ${displayTotal(calcTotal())}</div>
+    <div style="margin-top:4px;"><b>${state.category==='consult'?'Fee':'Price'}:</b> ${displayTotal(calcTotal())}</div>
   </div>
   ${state.category==='bundles' ? `
   <p style="margin-top:16px;">I'll review your bundle request and <b>text you to confirm your final price</b> — have it ready for pickup on ${state.date||'your selected date'}.</p>
+  ` : state.category==='consult' ? `
+  <p style="margin-top:16px;">Your consultation request is <b>waiting for confirmation</b> — you'll get a text within <b>24 hours</b> confirming your time.</p>
+  <p>Send your <b>${money(CONFIG.depositAmount)}</b> fee to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to lock in your time — it'll go toward your deposit if you book a service after.</p>
   ` : `
   <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get a text within <b>24 hours</b> letting you know if it's approved or not.</p>
   <p>Once approved, send your <b>${money(CONFIG.depositAmount)}</b> deposit to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to hold your spot.</p>
@@ -1370,6 +1625,7 @@ function attachHandlers(){
       if(action==='landing-pick'){
         resetSelection();
         if(key === 'bundles'){ state.view = 'bundles'; state.category = 'bundles'; }
+        else if(key === 'consult'){ state.view = 'book'; state.category = 'consult'; }
         else { state.view = 'book'; state.category = null; }
       }
       else if(action==='go-landing'){ state.view = 'landing'; }
@@ -1387,11 +1643,10 @@ function attachHandlers(){
       else if(action==='bundle-plus'){ state.addBundleCount++; }
       else if(action==='bundle-minus'){ state.addBundleCount = Math.max(0,state.addBundleCount-1); }
       else if(action==='toggle-addon'){ state.addons[key] = !state.addons[key]; }
-      else if(action==='pick-braid-style'){ state.braidStyle = key; state.braidSize = key==='twostrand' ? 'standard' : null; state.ownHair=null; state.braidBoho=false; state.twistHairType=""; state.braidHairPacks=1; }
+      else if(action==='pick-braid-style'){ state.braidStyle = key; state.braidSize = key==='twostrand' ? 'standard' : null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1; }
       else if(action==='pick-braid-size'){ state.braidSize = key; }
       else if(action==='pick-own-hair'){ state.ownHair = key; }
       else if(action==='toggle-boho'){ state.braidBoho = !state.braidBoho; }
-      else if(action==='pick-twist-hair-type'){ state.twistHairType = key; }
       else if(action==='braid-packs-plus'){ state.braidHairPacks++; }
       else if(action==='braid-packs-minus'){ state.braidHairPacks = Math.max(1, state.braidHairPacks-1); }
       else if(action==='pick-cornrow'){ state.cornrowKey = key; }
@@ -1399,10 +1654,23 @@ function attachHandlers(){
       else if(action==='pick-crochet-source'){ state.crochetHairSource = key; }
       else if(action==='pick-group-size'){ state.treatmentGroupSize = parseInt(key); }
       else if(action==='pick-loyalty-visit'){ state.loyaltyVisit = el.value; }
+      else if(action==='pick-cal-day'){ state.date = key; state.time = ''; }
+      else if(action==='cal-prev'){
+        let { y, m } = state.calendarMonth; m--; if(m<0){ m=11; y--; }
+        state.calendarMonth = { y, m };
+      }
+      else if(action==='cal-next'){
+        let { y, m } = state.calendarMonth; m++; if(m>11){ m=0; y++; }
+        state.calendarMonth = { y, m };
+      }
+      else if(action==='pick-time-slot'){ state.time = el.value; }
       else if(action==='toggle-btc-confirm'){ state.btcFirstConfirmed = !state.btcFirstConfirmed; }
       else if(action==='toggle-hallohair-confirm'){ state.hallohairCostumeConfirmed = !state.hallohairCostumeConfirmed; }
-      else if(action==='pick-booking-type'){ state.bookingType = key; }
-      else if(action==='pick-luxury-kit'){ state.luxuryKit = (key==='luxury'); }
+      else if(action==='pick-booking-type'){ state.bookingType = el.value; }
+      else if(action==='pick-kit-addon'){        // clicking the badge itself toggles it on/off
+        if(key==='mini'){ state.miniKitPurchase = !state.miniKitPurchase; if(state.miniKitPurchase) state.luxuryKit = false; }
+        else if(key==='luxury'){ state.luxuryKit = !state.luxuryKit; if(state.luxuryKit) state.miniKitPurchase = false; }
+      }
       else if(action==='toggle-bundle-kit-upgrade'){ state.bundleKitUpgrade = !state.bundleKitUpgrade; }
       else if(action==='toggle-crochet-confirm'){ state.crochetConfirmed = !state.crochetConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
@@ -1413,13 +1681,14 @@ function attachHandlers(){
       else if(action==='remove-photo'){ state.photos.splice(parseInt(key),1); }
       else if(action==='view-photo'){ window.open(el.getAttribute('data-src'), '_blank'); return; }
       else if(action==='submit'){
-        state.name = document.getElementById('f-name').value.trim();
+        const nameEl = document.getElementById('f-name');           // consult flow has no name field
+        if(nameEl) state.name = nameEl.value.trim();
         state.phone = document.getElementById('f-phone').value.trim();
         state.ig = document.getElementById('f-ig').value.trim();
-        state.date = document.getElementById('f-date').value;
-        const timeEl = document.getElementById('f-time');
-        state.time = timeEl ? timeEl.value : '';
-        state.notes = document.getElementById('f-notes').value.trim();
+        const dateEl = document.getElementById('f-date');           // only the bundles pickup-date flow still has this input
+        if(dateEl) state.date = dateEl.value;                       // the appointment flow's calendar sets state.date directly
+        const notesEl = document.getElementById('f-notes');          // consult flow has no notes field
+        if(notesEl) state.notes = notesEl.value.trim();
         const referenceLinkEl = document.getElementById('f-reference-link');
         if(referenceLinkEl) state.referenceLink = referenceLinkEl.value.trim();
         const groupNamesEl = document.getElementById('f-group-names');
@@ -1429,13 +1698,20 @@ function attachHandlers(){
         const partnerContactEl = document.getElementById('f-partner-contact');
         if(partnerContactEl) state.partnerContact = partnerContactEl.value.trim();
 
-        if(!state.name || !state.phone){ state.error = "Please add your name and phone number so I can confirm your appt."; render(); return; }
+        if(state.category==='consult'){
+          if(!state.phone && !state.ig){ state.error = "Please add a phone number or Instagram so I can reach you."; render(); return; }
+        } else if(!state.name || !state.phone){
+          state.error = "Please add your name and phone number so I can confirm your appt."; render(); return;
+        }
+        if((state.category==='qw'||state.category==='si') && state.tierKey && state.tierKey!=='service' && !state.installTexture){
+          state.error = "Please choose a texture for your hair."; render(); return;
+        }
         if(state.category !== 'bundles' && !state.date){ state.error = "Please add your preferred appointment date."; render(); return; }
         if(state.bookingType !== 'solo' && !state.partnerName && !state.partnerContact){
-          state.error = "Please add your partner's name or contact info for the " + (state.bookingType==='couple' ? "Couple's" : "Bestie") + " Deal."; render(); return;
+          state.error = "Please add your partner's name or contact info for the " + (state.bookingType==='couple' ? "Couple" : "Bestie") + " Booking."; render(); return;
         }
         if(state.category !== 'bundles' && state.date && state.time && !isTimeAllowed(state.date, state.time)){
-          const dayNoteNow = AVAILABILITY[new Date(state.date + 'T12:00:00').getDay()];
+          const dayNoteNow = availabilityNoteFor(new Date(state.date + 'T12:00:00').getDay());
           state.error = `That time isn't available on this date. ${dayNoteNow}`; render(); return;
         }
         if(!state.agreedPolicy){
@@ -1481,7 +1757,7 @@ function attachHandlers(){
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1, twistHairType:"", cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
@@ -1527,7 +1803,7 @@ function attachHandlers(){
         // feedback instead of a stuck, unresponsive button.
         console.error('Action failed:', action, err);
         state.error = "Something went wrong — please try again.";
-        if(action==='submit'){ el.disabled = false; el.textContent = (state.category==='bundles' ? 'Send Bundle Request' : 'Send Booking Request'); }
+        if(action==='submit'){ el.disabled = false; el.textContent = (state.category==='bundles' ? 'Send Bundle Request' : state.category==='consult' ? 'Send Consultation Request' : 'Send Booking Request'); }
       }
       render();
     });
@@ -1544,10 +1820,8 @@ function attachHandlers(){
   const passInput = document.getElementById('admin-pass');
   if(passInput) passInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.querySelector('[data-action="admin-login"]').click(); });
 
-  const dateInput = document.getElementById('f-date');
+  const dateInput = document.getElementById('f-date');              // bundles pickup-date input only
   if(dateInput) dateInput.addEventListener('change', (e)=>{ state.date = e.target.value; render(); });
-  const timeInput = document.getElementById('f-time');
-  if(timeInput) timeInput.addEventListener('change', (e)=>{ state.time = e.target.value; render(); });
 
   // keep text/textarea fields synced live so a re-render triggered by another
   // control (checkbox, select, date/time) never wipes what's already been typed
@@ -1601,6 +1875,7 @@ function checkRoute(){ if(window.location.hash === '#admin'){ state.view = (stat
 window.addEventListener('hashchange', ()=>{ checkRoute(); render(); });
 checkRoute();
 render();
+refreshTakenDates();
 </script>
 </body>
 </html>

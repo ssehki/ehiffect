@@ -337,7 +337,7 @@ function computeChecks(all, minGapMinutes){
 
   // Couple's / Bestie Deal: has the partner booked, and on a different day?
   live.filter(b => b.bookingType === "couple" || b.bookingType === "bestie").forEach(a => {
-    const label = a.bookingType === "couple" ? "Couple's Deal" : "Bestie Deal";
+    const label = a.bookingType === "couple" ? "Couple Booking" : "Bestie Booking";
     const partner = findPartner(a, live);
     if(!partner) add(a.row, "⚠ " + label + ": " + (a.partnerName || a.partnerContact || "partner") + " hasn't booked yet");
     else if(asDate(partner.date) && asDate(partner.date) === asDate(a.date)) add(a.row, "⚠ " + label + ": same day as " + partner.name + " (must be different days)");
@@ -382,7 +382,7 @@ function messageFor(b, depositAmount){
   if(b.status === "approved" && !isPaid(b))
     return hi + "Just a reminder to send your $" + depositAmount + " deposit to " + CASHTAG + " on Cash App to keep your spot on " + whenText(b) + ". Thank you!";
   if(b.status === "approved")
-    return hi + "Reminder: your appointment is " + whenText(b) + ". Please come with your hair ready to go (an extra $20 applies for washing/drying) and let me know ASAP if anything changes. See you soon!";
+    return hi + "Reminder: your appointment is " + whenText(b) + ". Please come with your hair already washed and dried (I don't currently offer washing/drying services) and let me know ASAP if anything changes. See you soon!";
   return "";
 }
 
@@ -570,6 +570,17 @@ function doGet(e){
   if(action === "checkVisits"){
     const count = approvedCount(readBookings(), e.parameter.phone || "", -1);
     return json({ approvedCount: count, isFirstTime: count === 0 });
+  }
+
+  // Whole days already spoken for — just dates, no names/phones, so the site's calendar can
+  // grey them out for new bookers. Denied/no-show/cancelled don't block; only approved does,
+  // and bundle orders (pickup, not a chair slot) never block a day.
+  if(action === "takenDates"){
+    const dates = readBookings()
+      .filter(b => b.status === "approved" && !isBundle(b))
+      .map(b => asDate(b.date))
+      .filter(Boolean);
+    return json({ dates: Array.from(new Set(dates)) });
   }
 
   if(action === "create" || action === "updateStatus" || action === "setDeposit"){
