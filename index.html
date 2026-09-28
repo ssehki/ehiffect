@@ -96,6 +96,8 @@
   .opt:hover{ border-color:var(--pink); }
   .opt.selected{ background:var(--pink); border-color:var(--pink); }
   .opt.selected .opt-name, .opt.selected .opt-sub, .opt.selected .opt-price{ color:#241318; }
+  .opt.disabled{ opacity:0.5; cursor:pointer; }
+  .opt.disabled .opt-price{ color:var(--muted); text-transform:none; font-size:12px; }
   .opt-name{ font-size:14.5px; font-weight:500; }
   .opt-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
   .opt-price{ font-size:14px; color:var(--pink); font-weight:600; white-space:nowrap; margin-left:10px;}
@@ -364,7 +366,7 @@ const CORNROW_OPTIONS = [
 ];
 
 const TREATMENTS = [
-  { key:"washdc", name:"Wash & deep condition", price:40 },
+  { key:"washdc", name:"Wash & deep condition", unavailable:true },
   { key:"massage", name:"Hair massage", price:60 },
 ];
 
@@ -731,7 +733,7 @@ let state = {
   tierKey: null, length: null, addBundleCount: 0, addons: {},
   braidStyle: null, braidSize: null, ownHair: null, braidBoho: false, braidHairPacks: 1,
   cornrowKey: null,
-  treatmentKeys: {},
+  treatmentKeys: {}, unavailableNoteKey: "",
   crochetHairSource: null, crochetConfirmed: false, crochetDetails: "",
   bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "", bundleKitUpgrade: false,
   customDetails: "",
@@ -821,7 +823,7 @@ function computeBaseTotal(){
     if(state.treatmentGroupSize > 1 && GROUP_TREATMENT_PRICES[state.treatmentGroupSize]){
       total = GROUP_TREATMENT_PRICES[state.treatmentGroupSize];
     } else {
-      for(const t of TREATMENTS){ if(state.treatmentKeys[t.key]) total += t.price; }
+      for(const t of TREATMENTS){ if(!t.unavailable && state.treatmentKeys[t.key]) total += t.price; }
     }
   } else if(state.category==='bundles'){
     total = null; // priced after catalog/quote, not a fixed number
@@ -1195,7 +1197,11 @@ function renderBook(){
           <div class="opt-sub">You'll be able to upload inspo photos of the style in the next step.</div>
         </div>` : ''}
 
-      ${state.category==='treatments' ? `<div class="opt-group" style="margin-top:14px;">${TREATMENTS.map(t=>`<div class="opt ${state.treatmentKeys[t.key]?'selected':''}" data-action="toggle-treatment" data-key="${t.key}"><div><div class="opt-name">${t.name}</div>${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div><span class="opt-price">${money(t.price)}</span></div>`).join('')}</div>` : ''}
+      ${state.category==='treatments' ? `<div class="opt-group" style="margin-top:14px;">${TREATMENTS.map(t=>`
+        <div class="opt ${state.treatmentKeys[t.key]?'selected':''} ${t.unavailable?'disabled':''}" data-action="${t.unavailable?'treatment-unavailable':'toggle-treatment'}" data-key="${t.key}">
+          <div><div class="opt-name">${t.name}</div>${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}${(t.unavailable && state.unavailableNoteKey===t.key) ? `<div class="opt-sub" style="color:var(--pink);">Not currently offering this — check back soon!</div>` : ''}</div>
+          <span class="opt-price">${t.unavailable ? 'Not offered' : money(t.price)}</span>
+        </div>`).join('')}</div>` : ''}
 
       ${state.category==='custom' ? `
         <div class="opt-group" style="margin-top:14px;">
@@ -1651,6 +1657,7 @@ function attachHandlers(){
       else if(action==='braid-packs-minus'){ state.braidHairPacks = Math.max(1, state.braidHairPacks-1); }
       else if(action==='pick-cornrow'){ state.cornrowKey = key; }
       else if(action==='toggle-treatment'){ state.treatmentKeys[key] = !state.treatmentKeys[key]; }
+      else if(action==='treatment-unavailable'){ state.unavailableNoteKey = key; }
       else if(action==='pick-crochet-source'){ state.crochetHairSource = key; }
       else if(action==='pick-group-size'){ state.treatmentGroupSize = parseInt(key); }
       else if(action==='pick-loyalty-visit'){ state.loyaltyVisit = el.value; }
