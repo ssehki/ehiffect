@@ -459,13 +459,13 @@ async function saveBooking(data){
   return true;
 }
 async function listBookings(){
-  const res = await fetch(CONFIG.apiUrl + "?action=list");
+  const res = await fetch(CONFIG.apiUrl + "?action=list&key=" + encodeURIComponent(CONFIG.adminPasscode));
   const json = await res.json();
   const bookings = json.bookings || [];
   return bookings;
 }
 async function updateStatus(key, status){
-  await submitViaGet('updateStatus', { key, status });
+  await submitViaGet('updateStatus', { key, status, adminKey: CONFIG.adminPasscode });
 }
 // Looks up only whether this one phone number has any approved bookings before —
 // doesn't expose the rest of the client list, unlike a full listBookings() call.
@@ -1501,7 +1501,7 @@ function attachHandlers(){
       else if(action==='toggle-deposit'){
         const b = state.bookings.find(x=>x.key===key);
         if(b){ b.depositPaid = !b.depositPaid; render(); }
-        await submitViaGet('setDeposit', { key, paid: b ? b.depositPaid : true });
+        await submitViaGet('setDeposit', { key, paid: b ? b.depositPaid : true, adminKey: CONFIG.adminPasscode });
         try{ state.bookings = await listBookings(); }catch(err){}
       }
       else if(action==='copy-text'){

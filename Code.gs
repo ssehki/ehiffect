@@ -59,10 +59,15 @@ const DEAL_NAMES = {
 // Add or remove keys from the list above to change which deals count.
 const ONE_TIME_DEALS = ["btc", "hallohair"];
 
-const VALID_STATUSES = ["pending", "approved", "denied", "no-show"];
+const VALID_STATUSES = ["pending", "approved", "denied", "no-show", "cancelled"];
 
 // Used in the ready-to-send text messages.
 const CASHTAG = "$ehiixs";
+
+// Must exactly match CONFIG.adminPasscode in index.html. Without this check, anyone who found
+// your Apps Script URL (visible in the site's network requests) could pull your whole client
+// list or approve/deny/mark-paid bookings with no login at all — this is what actually blocks that.
+const ADMIN_KEY = "ehiffect26";
 
 // These three are just the starting defaults — once the sheet exists, edit them from the
 // "Settings" row on the Dashboard tab instead (row 9) and they'll stick; no need to touch code.
@@ -556,6 +561,7 @@ function doGet(e){
   const action = e.parameter.action;
 
   if(action === "list"){
+    if(e.parameter.key !== ADMIN_KEY) return json({ error: "unauthorized" });
     const settings = getSettings();
     return json({ bookings: readBookings().map(b => toWebsiteShape(b, settings)) });
   }
@@ -570,6 +576,7 @@ function doGet(e){
     let body;
     try{ body = JSON.parse(e.parameter.payload); }
     catch(err){ return json({ error: "bad payload" }); }
+    if(action !== "create" && body.adminKey !== ADMIN_KEY) return json({ error: "unauthorized" });
     if(action === "create") return json(handleCreate(body));
     if(action === "updateStatus") return json(handleUpdateStatus(body));
     return json(handleSetDeposit(body));
@@ -585,7 +592,10 @@ function doPost(e){
   else if(e.postData && e.postData.contents) body = JSON.parse(e.postData.contents);
   else return json({ error: "no data received" });
   if(body.action === "create") return json(handleCreate(body));
-  if(body.action === "updateStatus") return json(handleUpdateStatus(body));
+  if(body.action === "updateStatus"){
+    if(body.adminKey !== ADMIN_KEY) return json({ error: "unauthorized" });
+    return json(handleUpdateStatus(body));
+  }
   return json({ error: "unknown action" });
 }
 
@@ -814,7 +824,7 @@ function writeDashboardSheet(all, clients){
   const overdue = pending.filter(b => waitInfo(b, settings.responseHours).overdue);
   const upcoming = approved.filter(b => { const d = parseDay(b); return !isBundle(b) && d && d >= today && d < in7; }).sort(byDay);
   const awaiting = approved.filter(b => !isBundle(b) && !isPaid(b)).sort(byDay);
-  const toRefund = all.filter(b => b.status === "denied" && isPaid(b) && !isRefunded(b));
+  const toRefund = all.filter(b => (b.status === "denied" || b.status === "cancelled") && isPaid(b) && !isRefunded(b));
   const bundles = all.filter(b => isBundle(b) && isActive(b)).sort(byDay);
   const alertCount = all.filter(b => isActive(b) && hasWarning(b)).length;
   const toPack = approved.filter(b => isBundle(b) || upcoming.indexOf(b) !== -1);
@@ -838,7 +848,7 @@ function writeDashboardSheet(all, clients){
     { label: "LUXURY KITS TO PACK",  value: luxury,           cap: mini + " mini  ·  next 7 days + bundle orders" },
     { label: "ALERTS",               value: alertCount,       cap: "deals, no-shows, scheduling", alert: alertCount > 0 },
     { label: "CLIENTS",              value: clients.length,   cap: returning + " returning" },
-    { label: "TO REFUND",            value: toRefund.length,  cap: "denied, deposit not sent back yet", alert: toRefund.length > 0 }
+    { label: "TO REFUND",            value: toRefund.length,  cap: "denied/cancelled, deposit not sent back yet", alert: toRefund.length > 0 }
   ];
   tiles.forEach((t, i) => {
     const col = i + 1;
@@ -1155,10 +1165,11 @@ function formatBookingsSheet(){
     .requireValueInList(VALID_STATUSES, true).setAllowInvalid(false).build());
 
   const rules = [
-    { text: "approved", bg: "#C9E3C6", fg: "#2F5C2B" },
-    { text: "denied",   bg: "#E9C9C9", fg: "#7A2F2F" },
-    { text: "no-show",  bg: "#D6C9F0", fg: "#4A3670" },
-    { text: "pending",  bg: "#F5E3B3", fg: "#7A5C14" }
+    { text: "approved",  bg: "#C9E3C6", fg: "#2F5C2B" },
+    { text: "denied",    bg: "#E9C9C9", fg: "#7A2F2F" },
+    { text: "no-show",   bg: "#D6C9F0", fg: "#4A3670" },
+    { text: "pending",   bg: "#F5E3B3", fg: "#7A5C14" },
+    { text: "cancelled", bg: COLORS.grey, fg: COLORS.muted }
   ].map(r => SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(r.text)
       .setBackground(r.bg).setFontColor(r.fg).setBold(true).setRanges([statusRange]).build());
 
