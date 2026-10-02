@@ -402,12 +402,14 @@ function textureOptionsHTML(list, selected){
 }
 const CROCHET_PRICES = { own:50, stylist:80 };
 
+// Paused deals are kept here (not deleted) so they're easy to bring back later — just
+// remove the `paused` flag. They still won't show up for clients to pick while paused.
 const DEALS = [
-  { key:"btc", name:"Back to Campus", desc:"$20 off your first appointment of the semester", type:"flat", value:20 },
+  { key:"btc", name:"Back to Campus", desc:"$20 off your first appointment of the semester", type:"flat", value:20, paused:true },
   { key:"hallohair", name:"Hallohair", desc:"Free curls/crimps with any Quick Weave or Sew-In — bring a costume hair inspo for 20% off your style too (Halloween week, Oct 25–31, only)", type:"freeAddon" },
-  { key:"campuscutie", name:"Campus Cutie", desc:"$15 off — Wednesdays & Sundays only (ID required)", type:"flat", value:15, dayGated:true },
-  { key:"loyalty", name:"Loyalty Love", desc:"Your 5th install or more is 50% off", type:"percent", value:50 },
-  { key:"flash", name:"Flash Deal", desc:"A random discount announced on my IG stories — mention it and I'll confirm", type:"custom" },
+  { key:"campuscutie", name:"Campus Cutie", desc:"$15 off — Wednesdays & Sundays only (ID required)", type:"flat", value:15, dayGated:true, paused:true },
+  { key:"loyalty", name:"Loyalty Love", desc:"Your 5th install or more is 50% off", type:"percent", value:50, paused:true },
+  { key:"flash", name:"Flash Deal", desc:"A random discount announced on my IG stories — mention it and I'll confirm", type:"custom", paused:true },
 ];
 // Bestie Bonus (flat $20 off) was replaced by the Couple's/Bestie Deal booking-type
 // selector below — percentage-based, tracks partner info, and grants an automatic gift.
@@ -1275,7 +1277,7 @@ function renderBook(){
       <div class="drop-body">
       <div class="opt-sub" style="margin-bottom:10px;">Select up to ${MAX_DEALS} — I'll confirm eligibility when I approve your request.</div>
       <div class="opt-group">
-        ${DEALS.map(d=>{
+        ${DEALS.filter(d=>!d.paused).map(d=>{
           let extraNote = '';
           if(d.key==='campuscutie'){
             extraNote = state.date ? (isCampusCutieDay(state.date) ? `<div class="opt-sub" style="color:var(--pink);">✓ valid for your selected date</div>` : `<div class="opt-sub" style="color:var(--pink);">date must be a Wed or Sun — pick your date above first</div>`) : `<div class="opt-sub">pick your date above to check eligibility</div>`;

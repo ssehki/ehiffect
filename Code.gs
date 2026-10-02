@@ -551,13 +551,38 @@ function handleUpdateStatus(body){
 
 // Emails the client once you approve their booking — only if they gave an email (it's optional
 // on the site). Reuses the same approval wording as the copy-paste text on your Dashboard.
+// A spaced-out, email-shaped version of the approval message — messageFor() is written as one
+// dense sentence for a text message, which reads as a cramped wall of text in an email inbox.
+function approvalEmailBody(b, depositAmount){
+  const lines = [
+    "Hi " + firstName(b) + ",",
+    "",
+    isBundle(b) ? "Good news — I'm confirming your bundle order!" : "Good news — your appointment is approved!",
+    "",
+    "Service: " + b.serviceLabel,
+    "When: " + whenText(b),
+    ""
+  ];
+  if(isBundle(b)){
+    lines.push("I'll text you shortly to confirm your final price and pickup date.");
+  }else{
+    lines.push("To lock in your spot, please send a $" + depositAmount + " deposit to " + CASHTAG + " on Cash App.");
+    lines.push("This comes off your total at your appointment.");
+  }
+  lines.push("");
+  lines.push("Questions? Just reply to this email or DM @ehiffect on Instagram.");
+  lines.push("");
+  lines.push("See you soon!");
+  return lines.join("\n");
+}
+
 function sendApprovalEmail(b){
   if(!b.email) return;
   try{
     MailApp.sendEmail({
       to: b.email,
       subject: "Your Ehiffect appointment is approved!",
-      body: messageFor(b, getSettings().depositAmount) + "\n\nQuestions? Just reply here or DM @ehiffect on Instagram."
+      body: approvalEmailBody(b, getSettings().depositAmount)
     });
   }catch(err){
     // Never let an email hiccup block the status update — but tell you about it instead of
