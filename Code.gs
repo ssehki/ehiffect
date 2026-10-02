@@ -102,7 +102,7 @@ function saveSetting(key, value){
 // technical ones on the right (hidden). Set to false to keep your own column order.
 const REORDER_COLUMNS = true;
 const DISPLAY_ORDER = [
-  "id", "name", "phone", "ig", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "dealsUsed",
+  "id", "name", "phone", "ig", "email", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "dealsUsed",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
   "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys"
 ];
@@ -121,7 +121,7 @@ const COLORS = {
 // Every field this script reads/writes. Order only matters for a brand-new sheet;
 // any field missing from your sheet is added on the far right automatically.
 const HEADERS = [
-  "id", "name", "phone", "ig", "date", "time", "notes", "serviceLabel", "total", "status",
+  "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
   "depositPaid", "depositRefunded", "checks"
@@ -477,7 +477,7 @@ function handleCreate(body){
     const id = "b_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
 
     const values = {
-      id: id, name: body.name || "", phone: fmtPhone(body.phone), ig: body.ig || "",
+      id: id, name: body.name || "", phone: fmtPhone(body.phone), ig: body.ig || "", email: String(body.email || "").trim(),
       date: formatDateStr(body.date), time: formatTimeStr(body.time), notes: body.notes || "",
       serviceLabel: body.serviceLabel || "", total: body.total || 0, status: "pending",
       submittedAt: formatTimestamp(Date.now()), photoUrls: photoUrls.join("|"),
@@ -539,10 +539,26 @@ function handleUpdateStatus(body){
     const target = readBookings().find(b => b.id === body.key);
     if(!target) return { ok: false };
     setCell(sheet, cols, "status", target.row, body.status);
-    if(body.status === "approved") applyApproval(sheet, cols, target.row);
+    if(body.status === "approved"){
+      applyApproval(sheet, cols, target.row);
+      sendApprovalEmail(target);          // target.status is still "pending" here, which is exactly
+    }                                      // the wording messageFor() needs for the approval message
     refreshViews();
     return { ok: true };
   });
+}
+
+// Emails the client once you approve their booking — only if they gave an email (it's optional
+// on the site). Reuses the same approval wording as the copy-paste text on your Dashboard.
+function sendApprovalEmail(b){
+  if(!b.email) return;
+  try{
+    MailApp.sendEmail({
+      to: b.email,
+      subject: "Your Ehiffect appointment is approved!",
+      body: messageFor(b, getSettings().depositAmount) + "\n\nQuestions? Just reply here or DM @ehiffect on Instagram."
+    });
+  }catch(err){ /* an email hiccup must never block the status update */ }
 }
 
 
@@ -1270,7 +1286,7 @@ function formatBookingsSheet(){
 
   // compact widths
   const widths = {
-    name: 125, phone: 110, ig: 100, date: 85, time: 80, status: 95, depositPaid: 70, depositRefunded: 90,
+    name: 125, phone: 110, ig: 100, email: 170, date: 85, time: 80, status: 95, depositPaid: 70, depositRefunded: 90,
     serviceLabel: 200, total: 65, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, kitPacked: 85, dealAlert: 200,
     checks: 240, notes: 180, submittedAt: 135, photoUrls: 100, bookingType: 95, partnerName: 115, partnerContact: 125
   };

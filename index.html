@@ -743,7 +743,7 @@ let state = {
   treatmentGroupSize: 1, treatmentGroupNames: "",
   bookingType: "solo", partnerName: "", partnerContact: "",
   luxuryKit: false, miniKitPurchase: false, isFirstTimeClient: null, firstTimePhone: "", dealsOpen: false, policyOpen: false, kitOpen: false, kitOpenLuxury: false, adminSearch: "", copiedKey: "",
-  name:"", phone:"", ig:"", date:"", time:"", notes:"", referenceLink:"", calendarMonth:null,
+  name:"", phone:"", ig:"", email:"", date:"", time:"", notes:"", referenceLink:"", calendarMonth:null,
   photos: [],
   agreedPolicy: false,
   error: "",
@@ -1320,6 +1320,7 @@ function renderBook(){
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can call you"/></div>
       <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="opt-sub">Add at least one — phone or Instagram.</div>
+      <div class="field" style="margin-top:12px;"><label>Email (optional)</label><input type="email" id="f-email" value="${state.email}" placeholder="to get an email once it's confirmed"/></div>
     </div>` : ''}
 
     ${showDetails && state.category!=='consult' ? `
@@ -1328,6 +1329,7 @@ function renderBook(){
       <div class="field"><label>Name <span style="color:var(--pink);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number <span style="color:var(--pink);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
+      <div class="field"><label>Email (optional)</label><input type="email" id="f-email" value="${state.email}" placeholder="to get an email once you're approved"/></div>
 
       <div class="field">
         <label>Reference photos (optional, up to 3)</label>
@@ -1422,6 +1424,7 @@ function renderBundles(){
       <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
+      <div class="field"><label>Email (optional)</label><input type="email" id="f-email" value="${state.email}" placeholder="to get an email once you're approved"/></div>
       <div class="field">
         <label>Preferred pickup date</label>
         <input type="date" id="f-date" value="${state.date}"/>
@@ -1692,6 +1695,8 @@ function attachHandlers(){
         if(nameEl) state.name = nameEl.value.trim();
         state.phone = document.getElementById('f-phone').value.trim();
         state.ig = document.getElementById('f-ig').value.trim();
+        const emailEl = document.getElementById('f-email');
+        if(emailEl) state.email = emailEl.value.trim();
         const dateEl = document.getElementById('f-date');           // only the bundles pickup-date flow still has this input
         if(dateEl) state.date = dateEl.value;                       // the appointment flow's calendar sets state.date directly
         const notesEl = document.getElementById('f-notes');          // consult flow has no notes field
@@ -1749,7 +1754,7 @@ function attachHandlers(){
         const rawTotal = calcTotal();
         const notesWithLink = state.referenceLink ? `${state.notes}${state.notes ? ' | ' : ''}Reference link: ${state.referenceLink}` : state.notes;
         const booking = {
-          name: state.name, phone: state.phone, ig: state.ig, date: state.date, time: state.time, notes: notesWithLink,
+          name: state.name, phone: state.phone, ig: state.ig, email: state.email, date: state.date, time: state.time, notes: notesWithLink,
           photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(), dealKeys: state.dealsSelected.join(", "),
           bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
@@ -1764,7 +1769,7 @@ function attachHandlers(){
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
@@ -1833,7 +1838,7 @@ function attachHandlers(){
   // keep text/textarea fields synced live so a re-render triggered by another
   // control (checkbox, select, date/time) never wipes what's already been typed
   const liveFieldMap = {
-    'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-notes':'notes', 'f-reference-link':'referenceLink',
+    'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-email':'email', 'f-notes':'notes', 'f-reference-link':'referenceLink',
     'f-bundle-details':'bundleDetails', 'f-crochet-details':'crochetDetails',
     'f-group-names':'treatmentGroupNames',
     'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',
