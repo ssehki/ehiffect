@@ -245,10 +245,11 @@ function dealAlertFor(all, phone, dealKeys, excludeRow){
 function applyApproval(sheet, cols, row){
   const all = readBookings();
   const me = all.find(b => b.row === row);
-  if(!me) return;
+  if(!me) return null;
   const visits = approvedCount(all, me.phone, row) + 1;
   setCell(sheet, cols, "visitCount", row, visits);
   setCell(sheet, cols, "loyaltyFlag", row, visits % LOYALTY_SURPRISE_EVERY === 0);
+  return me;
 }
 
 
@@ -682,7 +683,10 @@ function onEdit(e){
     const cols = getColumns(sheet).map;
     const col = e.range.getColumn();
     if([cols.status, cols.depositPaid, cols.depositRefunded, cols.kitComp, cols.kitPacked, cols.date, cols.time].map(i => i + 1).indexOf(col) === -1) return;
-    if(col === cols.status + 1 && String(e.value).trim() === "approved") applyApproval(sheet, cols, e.range.getRow());
+    if(col === cols.status + 1 && String(e.value).trim() === "approved"){
+      const approvedBooking = applyApproval(sheet, cols, e.range.getRow());
+      if(approvedBooking) sendApprovalEmail(approvedBooking);
+    }
     refreshViews();
   }catch(err){ /* never interrupt your editing */ }
 }
