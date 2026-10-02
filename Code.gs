@@ -559,7 +559,17 @@ function sendApprovalEmail(b){
       subject: "Your Ehiffect appointment is approved!",
       body: messageFor(b, getSettings().depositAmount) + "\n\nQuestions? Just reply here or DM @ehiffect on Instagram."
     });
-  }catch(err){ /* an email hiccup must never block the status update */ }
+  }catch(err){
+    // Never let an email hiccup block the status update — but tell you about it instead of
+    // failing completely silently, so a bad address or quota issue doesn't go unnoticed.
+    try{
+      MailApp.sendEmail({
+        to: NOTIFY_EMAIL,
+        subject: "⚠ Approval email to " + (b.name || "a client") + " failed to send",
+        body: "Tried to email " + (b.email || "(no email)") + " when approving this booking, but it failed:\n\n" + err.message
+      });
+    }catch(err2){ /* truly nothing more we can do here */ }
+  }
 }
 
 
@@ -958,13 +968,25 @@ function writeDashboardSheet(all, clients){
     weeks.push({ label: Utilities.formatDate(start, tz, "MMM d") + " – " + Utilities.formatDate(new Date(end.getTime() - 86400000), tz, "MMM d"), sum: sum });
   }
 
-  // ---------- header band ----------
-  sheet.getRange("A1:" + LAST + "1").merge().setValue("Bookings Overview").setBackground(COLORS.ink).setFontColor(COLORS.cream)
-       .setFontFamily("Cormorant Garamond").setFontSize(26).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("left");
+  // ---------- header band: wordmark + tagline, with a purely-visual row of section labels ----------
+  sheet.getRange("A1:" + LAST + "1").merge().setValue("EHIFFECT").setBackground(COLORS.cream).setFontColor(COLORS.ink)
+       .setFontFamily("Cormorant Garamond").setFontSize(30).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("center");
   sheet.getRange("A2:" + LAST + "2").merge()
-       .setValue("Updated " + Utilities.formatDate(now, tz, "MMM d, h:mm a") + "  ·  change a Status or tick a Deposit in the Bookings tab and this refreshes on its own")
-       .setBackground(COLORS.ink).setFontColor(COLORS.pink).setFontSize(10).setHorizontalAlignment("left");
-  sheet.setRowHeight(1, 54); sheet.setRowHeight(2, 24); sheet.setRowHeight(3, 14);
+       .setValue("UNCOMPLICATED & AT YOUR SERVICE   ·   updated " + Utilities.formatDate(now, tz, "MMM d, h:mm a") + "   ·   change a Status or tick a Deposit in Bookings and this refreshes itself")
+       .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 50); sheet.setRowHeight(2, 22);
+
+  // Plain colored labels, not links — Sheets won't let HYPERLINK() text be recolored, and you've
+  // already got real clickable sheet tabs for Clients/Kits/Bookings at the bottom of the screen.
+  const navLabels = [{ t: "DASHBOARD", active: true }, { t: "CLIENTS" }, { t: "KITS" }, { t: "BOOKINGS" }];
+  const navSpans = [[1, 2], [3, 4], [5, 6], [7, 9]];
+  navLabels.forEach((n, i) => {
+    const [c1, c2] = navSpans[i];
+    sheet.getRange(3, c1, 1, c2 - c1 + 1).merge().setValue(n.t)
+         .setBackground(n.active ? COLORS.ink : COLORS.blush).setFontColor(n.active ? COLORS.cream : COLORS.pink)
+         .setFontSize(10).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  });
+  sheet.setRowHeight(3, 30);
 
   // ---------- stat tiles (A–G) ----------
   const tiles = [
@@ -978,13 +1000,13 @@ function writeDashboardSheet(all, clients){
   ];
   tiles.forEach((t, i) => {
     const col = i + 1;
-    sheet.getRange(4, col, 3, 1).setBackground(t.alert ? COLORS.alertBg : COLORS.cream).setHorizontalAlignment("left").setVerticalAlignment("middle")
-         .setBorder(true, true, false, true, false, false, "#FFFFFF", SpreadsheetApp.BorderStyle.SOLID_THICK);
+    const frameColor = t.alert ? COLORS.alertText : COLORS.pink;
+    sheet.getRange(4, col, 3, 1).setBackground(t.alert ? COLORS.alertBg : "#FFFFFF").setHorizontalAlignment("center").setVerticalAlignment("middle")
+         .setBorder(true, true, true, true, false, false, frameColor, SpreadsheetApp.BorderStyle.SOLID);
     sheet.getRange(4, col).setValue(t.label).setFontSize(9).setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.muted);
     sheet.getRange(5, col).setValue(t.value).setNumberFormat("0").setFontFamily("Cormorant Garamond").setFontSize(30)
-         .setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.ink);
-    sheet.getRange(6, col).setValue(t.cap).setFontSize(9).setFontColor(t.alert ? COLORS.alertText : COLORS.muted).setWrap(true);
-    sheet.getRange(4, col).setBorder(true, null, null, null, null, null, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
+         .setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.pink);
+    sheet.getRange(6, col).setValue(t.cap).setFontSize(9).setFontColor(t.alert ? COLORS.alertText : COLORS.muted).setWrap(true).setHorizontalAlignment("center");
   });
   sheet.setRowHeight(4, 26); sheet.setRowHeight(5, 50); sheet.setRowHeight(6, 34); sheet.setRowHeight(7, 18);
 
@@ -1034,6 +1056,7 @@ function writeDashboardSheet(all, clients){
     range.setValues(rows);
     return range;
   };
+  // The bordered backgroundColor gives every chart its own clean "panel" card look.
   const pieChart = (range, title, colors, anchorCol, xOffset, anchorRow) =>
     sheet.newChart().setChartType(Charts.ChartType.PIE)
       .addRange(range)
@@ -1041,6 +1064,7 @@ function writeDashboardSheet(all, clients){
       .setOption("title", title).setOption("titleTextStyle", { fontSize: 11, bold: true })
       .setOption("pieHole", 0.4).setOption("colors", colors)
       .setOption("legend", { position: "bottom", textStyle: { fontSize: 9 } })
+      .setOption("backgroundColor", { fill: "#FFFFFF", stroke: COLORS.pink, strokeWidth: 1 })
       .setOption("width", 270).setOption("height", 210)
       .build();
 
@@ -1056,6 +1080,7 @@ function writeDashboardSheet(all, clients){
       .setOption("title", "Revenue by week").setOption("titleTextStyle", { fontSize: 11, bold: true })
       .setOption("legend", "none").setOption("colors", [COLORS.pink])
       .setOption("hAxis", { textStyle: { fontSize: 8 }, slantedText: true, slantedTextAngle: 30 })
+      .setOption("backgroundColor", { fill: "#FFFFFF", stroke: COLORS.pink, strokeWidth: 1 })
       .setOption("width", 300).setOption("height", 210)
       .build();
     sheet.insertChart(revChart);
@@ -1068,8 +1093,9 @@ function writeDashboardSheet(all, clients){
       sheet.insertChart(pieChart(depRange, "Deposits: collected vs. awaiting", [COLORS.pink, COLORS.grey], 1, 320, 11));
     }
   }else{
-    sheet.getRange(11, 1).setValue("Revenue & deposit charts hidden — pick \"Show\" above to see them.")
-         .setFontSize(9).setFontColor(COLORS.muted).setWrap(true).setVerticalAlignment("middle");
+    sheet.getRange(11, 1, 9, 5).merge().setValue("Revenue & deposit charts hidden — pick \"Show\" above to see them.")
+         .setFontSize(9).setFontColor(COLORS.muted).setWrap(true).setVerticalAlignment("middle").setHorizontalAlignment("center")
+         .setBackground("#FFFFFF").setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
   }
 
   // Service popularity — which services actually get booked (active bookings only)
