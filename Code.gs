@@ -954,13 +954,35 @@ function writeDashboardSheet(all, clients){
     weeks.push({ label: Utilities.formatDate(start, tz, "MMM d") + " – " + Utilities.formatDate(new Date(end.getTime() - 86400000), tz, "MMM d"), sum: sum });
   }
 
-  // ---------- header band ----------
-  sheet.getRange("A1:" + LAST + "1").merge().setValue("Bookings Overview").setBackground(COLORS.ink).setFontColor(COLORS.cream)
-       .setFontFamily("Cormorant Garamond").setFontSize(26).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("left");
+  // ---------- header band: wordmark + tagline, with a row of nav tabs to jump sheets ----------
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  sheet.getRange("A1:" + LAST + "1").merge().setValue("EHIFFECT").setBackground(COLORS.cream).setFontColor(COLORS.ink)
+       .setFontFamily("Cormorant Garamond").setFontSize(30).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("center");
   sheet.getRange("A2:" + LAST + "2").merge()
-       .setValue("Updated " + Utilities.formatDate(now, tz, "MMM d, h:mm a") + "  ·  change a Status or tick a Deposit in the Bookings tab and this refreshes on its own")
-       .setBackground(COLORS.ink).setFontColor(COLORS.pink).setFontSize(10).setHorizontalAlignment("left");
-  sheet.setRowHeight(1, 54); sheet.setRowHeight(2, 24); sheet.setRowHeight(3, 14);
+       .setValue("UNCOMPLICATED & AT YOUR SERVICE   ·   updated " + Utilities.formatDate(now, tz, "MMM d, h:mm a") + "   ·   change a Status or tick a Deposit in Bookings and this refreshes itself")
+       .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 50); sheet.setRowHeight(2, 22);
+
+  // Nav tabs — click one to jump straight to that sheet (Dashboard shown as the active tab).
+  const navTargets = [
+    { label: "DASHBOARD", gid: sheet.getSheetId() },
+    { label: "CLIENTS", sheetName: "Clients" },
+    { label: "KITS", sheetName: "Kits" },
+    { label: "BOOKINGS", sheetName: "Bookings" }
+  ];
+  const navSpans = [[1, 2], [3, 4], [5, 6], [7, 9]];     // column spans (1-indexed, inclusive) across A–I
+  navTargets.forEach((t, i) => {
+    const targetSheet = t.sheetName ? ss.getSheetByName(t.sheetName) : null;
+    const gid = t.gid !== undefined ? t.gid : (targetSheet ? targetSheet.getSheetId() : null);
+    const [c1, c2] = navSpans[i];
+    const range = sheet.getRange(3, c1, 1, c2 - c1 + 1).merge();
+    const active = t.label === "DASHBOARD";
+    if(gid !== null) range.setFormula('=HYPERLINK("#gid=' + gid + '","' + t.label + '")');
+    else range.setValue(t.label);
+    range.setBackground(active ? COLORS.ink : COLORS.blush).setFontColor(active ? COLORS.cream : COLORS.pink)
+         .setFontSize(10).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
+  });
+  sheet.setRowHeight(3, 30);
 
   // ---------- stat tiles (A–G) ----------
   const tiles = [
@@ -974,13 +996,13 @@ function writeDashboardSheet(all, clients){
   ];
   tiles.forEach((t, i) => {
     const col = i + 1;
-    sheet.getRange(4, col, 3, 1).setBackground(t.alert ? COLORS.alertBg : COLORS.cream).setHorizontalAlignment("left").setVerticalAlignment("middle")
-         .setBorder(true, true, false, true, false, false, "#FFFFFF", SpreadsheetApp.BorderStyle.SOLID_THICK);
+    const frameColor = t.alert ? COLORS.alertText : COLORS.pink;
+    sheet.getRange(4, col, 3, 1).setBackground(t.alert ? COLORS.alertBg : "#FFFFFF").setHorizontalAlignment("center").setVerticalAlignment("middle")
+         .setBorder(true, true, true, true, false, false, frameColor, SpreadsheetApp.BorderStyle.SOLID);
     sheet.getRange(4, col).setValue(t.label).setFontSize(9).setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.muted);
     sheet.getRange(5, col).setValue(t.value).setNumberFormat("0").setFontFamily("Cormorant Garamond").setFontSize(30)
-         .setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.ink);
-    sheet.getRange(6, col).setValue(t.cap).setFontSize(9).setFontColor(t.alert ? COLORS.alertText : COLORS.muted).setWrap(true);
-    sheet.getRange(4, col).setBorder(true, null, null, null, null, null, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID_THICK);
+         .setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.pink);
+    sheet.getRange(6, col).setValue(t.cap).setFontSize(9).setFontColor(t.alert ? COLORS.alertText : COLORS.muted).setWrap(true).setHorizontalAlignment("center");
   });
   sheet.setRowHeight(4, 26); sheet.setRowHeight(5, 50); sheet.setRowHeight(6, 34); sheet.setRowHeight(7, 18);
 
