@@ -511,7 +511,7 @@ function isTimeAllowed(dateStr, timeStr){
 // Tell me the dates and I'll add them here — either a single day ("2026-10-15") or a run of
 // days inclusive ({start:"2026-10-10", end:"2026-10-12"}). They show pink and can't be picked.
 const BLOCKED_DATES = [
-  { start: "2026-10-09", end: "2026-10-12" }, // Fri Oct 9 – Mon Oct 12 — not taking appointments
+  { start: "2026-10-06", end: "2026-10-12" }, // Tue Oct 6 – Mon Oct 12 — booked out, not taking appointments
 ];
 // Whole days that already have a booking (pending or approved), fetched from the sheet so a day
 // closes itself off the moment someone books it — no manual "block this date" needed for it.
