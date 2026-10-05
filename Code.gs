@@ -52,6 +52,14 @@
 const NOTIFY_EMAIL = "ehivoltk@gmail.com";           // where new-booking emails go
 const PHOTO_FOLDER_NAME = "Ehiffect Booking Photos";  // Drive folder for reference photos
 
+// GOOGLE CALENDAR: every APPROVED booking becomes a calendar event (moved if you change the date/time,
+// removed if it's denied / rescheduled / cancelled). Leave CALENDAR_ID blank to use the calendar of the
+// Google account that owns this sheet. To use your OTHER Google account instead, put its email here AND
+// share that account's calendar with this account ("Make changes to events") — steps are in the chat.
+const CALENDAR_SYNC = true;
+const CALENDAR_ID = "";
+const CALENDAR_HOURS = 3;                             // how long a styling appointment blocks on the calendar
+
 // Every Nth approved visit gets flagged for a surprise loyalty gift.
 const LOYALTY_SURPRISE_EVERY = 5;
 
@@ -127,7 +135,7 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail"
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "calendarEvent", "calendarEvent"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -762,6 +770,7 @@ function onOpen(){
     .addItem("Refresh dashboard & clients", "refreshViews")
     .addItem("Set up / restyle all sheets", "formatSheet")
     .addItem("Sort Bookings newest first", "sortBookingsNewestFirst")
+    .addItem("Sync approved bookings to Google Calendar", "syncCalendarNow")
     .addItem("Turn on approval emails", "setupApprovalEmails")
     .addToUi();
 }
@@ -1022,6 +1031,72 @@ function refreshViews(prefetched){
     writeMovedSheet(all);
     writeDashboardSheet(all, clients);
   }catch(err){ console.error("refreshViews failed: " + err); }
+  try{ syncCalendar(prefetched || undefined); }catch(err){ console.error("calendar sync failed: " + err); }   // after the sheets, so a calendar hiccup never blocks them
+}
+
+// Keeps your Google Calendar matching the approved bookings. Cheap on repeat runs: each booking stores a
+// fingerprint of what its event looks like, and the calendar is only touched when that changes.
+// Returns { added, updated, removed } or { error } so the menu item can tell you what went wrong.
+function syncCalendar(prefetched){
+  if(!CALENDAR_SYNC) return { added: 0, updated: 0, removed: 0 };
+  let cal;
+  try{ cal = CALENDAR_ID ? CalendarApp.getCalendarById(CALENDAR_ID) : CalendarApp.getDefaultCalendar(); }
+  catch(err){ return { error: "can't open the calendar: " + err.message }; }
+  if(!cal) return { error: "couldn't find that calendar — share it with this Google account (Make changes to events) and check CALENDAR_ID" };
+
+  const all = readBookings();                                   // fresh read: the event column may have just changed
+  const sheet = getSheet(), cm = getColumns(sheet).map;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const out = { added: 0, updated: 0, removed: 0 };
+
+  all.forEach(b => {
+    const stored = String(b.calendarEvent || "");
+    const eventId = stored.split("|")[0], oldSig = stored.split("|")[1] || "";
+    const day = parseDay(b), mins = parseMinutes(b);
+    const want = b.status === "approved" && day && day >= today;
+    try{
+      if(!want){
+        if(eventId && b.status !== "approved"){                   // no longer approved → take it off the calendar
+          const ev = cal.getEventById(eventId);
+          if(ev) ev.deleteEvent();
+          setCell(sheet, cm, "calendarEvent", b.row, "");
+          out.removed++;
+        }
+        return;
+      }
+      const short = isBundle(b) || isConsult(b);
+      const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, mins === null ? 9 * 60 : mins);
+      const end = new Date(start.getTime() + (short ? 30 : CALENDAR_HOURS * 60) * 60000);
+      const title = (isBundle(b) ? "📦 " : isConsult(b) ? "📞 " : "💗 ") + (b.name || "Client") + " — " + (b.serviceLabel || "Ehiffect");
+      const description = [
+        "Phone: " + fmtPhone(b.phone), b.ig ? "IG: " + b.ig : "", b.email ? "Email: " + b.email : "",
+        "Total: $" + (b.total === "" ? "?" : b.total) + "  ·  Deposit: " + (isPaid(b) ? "paid" : "NOT paid yet"),
+        b.dealsUsed ? "Deals: " + b.dealsUsed : "", kitTier(b) !== "—" ? "Care kit: " + kitTier(b) : "",
+        b.notes ? "Notes: " + b.notes : "", "(Bookings row " + b.row + ")"
+      ].filter(Boolean).join("\n");
+      const sig = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [title, start.getTime(), end.getTime(), description].join("§"))).slice(0, 12);
+      let ev = null;
+      if(eventId){ try{ ev = cal.getEventById(eventId); }catch(e){} }
+      if(ev && sig === oldSig) return;                            // already up to date
+      if(ev){
+        ev.setTitle(title); ev.setTime(start, end); ev.setDescription(description);
+        out.updated++;
+      }else{
+        ev = cal.createEvent(title, start, end, { description: description });
+        out.added++;
+      }
+      setCell(sheet, cm, "calendarEvent", b.row, ev.getId() + "|" + sig);
+    }catch(err){ out.error = "row " + b.row + ": " + err.message; }
+  });
+  return out;
+}
+
+// Menu item: runs the calendar sync now and tells you what happened.
+function syncCalendarNow(){
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const r = syncCalendar();
+  ss.toast(r.error ? "⚠ Calendar: " + r.error
+    : "Calendar updated — " + r.added + " added, " + r.updated + " changed, " + r.removed + " removed.", "Ehiffect", 10);
 }
 
 function getOrCreateSheet(name){
@@ -1987,7 +2062,7 @@ function formatBookingsSheet(){
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
 
   // technical columns stay out of sight (their info lives on the Clients tab)
-  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed"].forEach(f => sheet.hideColumns(c[f] + 1));
+  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed", "calendarEvent"].forEach(f => sheet.hideColumns(c[f] + 1));
 
   // Partner details fold into a group you can open with the small [+] above the headers.
   if(c.partnerContact - c.bookingType === 2){
