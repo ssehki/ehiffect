@@ -106,7 +106,7 @@ function saveSetting(key, value){
 const REORDER_COLUMNS = true;
 const DISPLAY_ORDER = [
   "id", "name", "phone", "ig", "email", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "dealsUsed",
-  "giftKit", "careKitCost", "kitComp", "kitPacked", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
+  "giftKit", "careKitCost", "kitComp", "kitPacked", "shipped", "serviced", "servicedOn", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
   "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed"
 ];
 
@@ -127,7 +127,7 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks", "approvalEmailed"
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -271,6 +271,10 @@ function isPaid(b){ return b.depositPaid === true || String(b.depositPaid).toUpp
 function isRefunded(b){ return b.depositRefunded === true || String(b.depositRefunded).toUpperCase() === "TRUE"; }
 
 function isComp(b){ return b.kitComp === true || String(b.kitComp).toUpperCase() === "TRUE"; }
+
+function isShipped(b){ return isTrue(b.shipped); }
+
+function isServiced(b){ return isTrue(b.serviced); }
 
 function isPacked(b){ return b.kitPacked === true || String(b.kitPacked).toUpperCase() === "TRUE"; }
 
@@ -516,7 +520,8 @@ function handleCreate(body){
       partnerName: body.partnerName || "", partnerContact: body.partnerContact || "",
       giftKit: body.giftKit || "", careKitCost: body.careKitCost || "", kitComp: false, kitPacked: false,
       visitCount: visitCount, loyaltyFlag: loyaltyFlag, dealKeys: dealKeys.join(", "), dealAlert: dealAlert,
-      depositPaid: false, depositRefunded: false, checks: "", approvalEmailed: false
+      depositPaid: false, depositRefunded: false, checks: "", approvalEmailed: false,
+      shipped: false, serviced: false, servicedOn: ""
     };
     const row = new Array(cols.width).fill("");           // each value goes under its own header
     Object.keys(values).forEach(f => { row[cols.map[f]] = values[f]; });
@@ -737,6 +742,7 @@ function onOpen(){
   SpreadsheetApp.getUi().createMenu("Ehiffect")
     .addItem("Refresh dashboard & clients", "refreshViews")
     .addItem("Set up / restyle all sheets", "formatSheet")
+    .addItem("Sort Bookings newest first", "sortBookingsNewestFirst")
     .addItem("Turn on approval emails", "setupApprovalEmails")
     .addToUi();
 }
@@ -762,19 +768,82 @@ function handleSheetEdit(e){
         refreshViews();
       }else if(a1 === "B8"){
         refreshViews();                   // the revenue charts only draw while this is set to Show
+      }else if(a1 === "B21" || a1 === "H22" || a1 === "H23"){
+        handleKitEdit(sheet, a1);
+      }else if(a1 === "B12" || a1 === "H18"){
+        handleServicedEdit(sheet, a1);
       }
       return;                             // the "Open a booking" picker is formula-driven, no refresh needed
     }
     if(sheet.getName() !== "Bookings" || e.range.getRow() < 2) return;
     const cols = getColumns(sheet).map;
     const col = e.range.getColumn();
-    if([cols.status, cols.depositPaid, cols.depositRefunded, cols.kitComp, cols.kitPacked, cols.date, cols.time].map(i => i + 1).indexOf(col) === -1) return;
+    if([cols.status, cols.depositPaid, cols.depositRefunded, cols.kitComp, cols.kitPacked, cols.shipped, cols.serviced, cols.date, cols.time].map(i => i + 1).indexOf(col) === -1) return;
+    if(col === cols.serviced + 1) stampServiced(sheet, cols, e.range.getRow(), e.range.getValue() === true);
     if(col === cols.status + 1 && String(e.value).trim() === "approved"){
       const approvedBooking = applyApproval(sheet, cols, e.range.getRow());
       if(approvedBooking) sendApprovalEmail(approvedBooking);
     }
     refreshViews();
   }catch(err){ console.error("handleSheetEdit failed: " + err); }
+}
+
+// Writes the Serviced tick and its date (stamped for you the first time it's ticked, cleared on untick).
+function stampServiced(sheet, cols, row, on){
+  const dateCell = sheet.getRange(row, cols.servicedOn + 1);
+  if(on){ if(!String(dateCell.getValue()).trim()) dateCell.setNumberFormat("@").setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy")); }
+  else dateCell.setValue("");
+}
+
+// Kits section on the Dashboard. Choosing someone (B21) loads their current Packed / Shipped state into the
+// checkboxes (H22 / H23); ticking one saves it to that booking's box in Bookings.
+function handleKitEdit(dash, a1){
+  const m = String(dash.getRange("B21").getValue()).match(/^#(\d+)/);
+  if(!m) return;
+  const row = Number(m[1]);
+  const bookings = getSheet();
+  const cols = getColumns(bookings).map;
+  if(a1 === "B21"){
+    dash.getRange("H22").setValue(isTrue(bookings.getRange(row, cols.kitPacked + 1).getValue()));
+    dash.getRange("H23").setValue(isTrue(bookings.getRange(row, cols.shipped + 1).getValue()));
+    return;
+  }
+  setCell(bookings, cols, a1 === "H22" ? "kitPacked" : "shipped", row, dash.getRange(a1).getValue() === true);
+  refreshViews();
+}
+
+// "Open a booking" box: choosing someone (B12) loads their Serviced tick (H18); ticking it saves it
+// (and the date) to that booking in Bookings.
+function handleServicedEdit(dash, a1){
+  const m = String(dash.getRange("B12").getValue()).match(/^#(\d+)/);
+  if(!m) return;
+  const row = Number(m[1]);
+  const bookings = getSheet();
+  const colMap = getColumns(bookings).map;
+  if(a1 === "B12"){
+    dash.getRange("H18").setValue(isTrue(bookings.getRange(row, colMap.serviced + 1).getValue()));
+    return;
+  }
+  const on = dash.getRange("H18").getValue() === true;
+  setCell(bookings, colMap, "serviced", row, on);
+  stampServiced(bookings, colMap, row, on);
+  refreshViews();
+}
+
+// Menu item: puts the newest booking at the top of the Bookings tab (newest = largest id, which is
+// a timestamp). New bookings still land at the bottom, so run this again whenever you want it re-sorted.
+function sortBookingsNewestFirst(){
+  const sheet = getSheet();
+  const cols = getColumns(sheet);
+  const all = readBookings();
+  if(all.length < 2) return;
+  const last = Math.max.apply(null, all.map(b => b.row));
+  sheet.getRange(2, 1, last - 1, cols.width).sort({ column: cols.map.id + 1, ascending: false });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dash = ss.getSheetByName("Dashboard");
+  if(dash){ try{ dash.getRange("B12").clearContent(); dash.getRange("B21").clearContent(); }catch(e){} }   // row numbers just changed
+  refreshViews();
+  ss.toast("Bookings sorted — newest at the top.", "Ehiffect", 6);
 }
 
 // Makes sure the installable edit trigger exists (safe to run any time; never makes a duplicate).
@@ -937,7 +1006,7 @@ function writeKitsSheet(all){
   sheet.clear();
   sheet.setHiddenGridlines(true);
 
-  const headers = ["Client", "Phone", "Date", "Service", "Kit", "Comp", "Packed", "Status"];
+  const headers = ["Client", "Phone", "Date", "Service", "Kit", "Comp", "Packed", "Shipped", "Status"];
   const W = headers.length, HEAD = 3;
 
   sheet.getRange(1, 1, 1, W).merge().setValue("Kits").setBackground(COLORS.ink).setFontColor(COLORS.cream)
@@ -965,7 +1034,8 @@ function writeKitsSheet(all){
     sheet.getRange(first, 1, n, W).setValues(rows.map(b => {
       const tier = kitTier(b);
       return [b.name, fmtPhone(b.phone), asDate(b.date) || "—", b.serviceLabel, tier,
-              isComp(b) ? "Yes" : "—", tier === "—" ? "—" : (isPacked(b) ? "Yes" : "No"), b.status];
+              isComp(b) ? "Yes" : "—", tier === "—" ? "—" : (isPacked(b) ? "Yes" : "No"),
+              tier === "—" ? "—" : (isShipped(b) ? "Yes" : "No"), b.status];
     }));
     sheet.getRange(first, 1, n, W).setFontSize(10).setVerticalAlignment("middle").setWrap(true)
          .setBackgrounds(rows.map((b, i) => new Array(W).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
@@ -980,7 +1050,7 @@ function writeKitsSheet(all){
   }else{
     sheet.getRange(HEAD + 1, 1).setValue("No pending or approved bookings right now.").setFontColor(COLORS.muted).setFontStyle("italic");
   }
-  [150, 120, 100, 200, 90, 70, 90, 100].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  [150, 120, 100, 200, 90, 70, 90, 90, 100].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
   sheet.setTabColor(COLORS.gold);
 }
 
@@ -1071,12 +1141,14 @@ function writeDashboardSheet(all, clients){
   let prevPick = "";                                   // …and which booking you had open
   try{ if(sheet.getRange("B8").getValue() === "Show") revenueMode = "Show"; }catch(e){}
   try{ prevPick = String(sheet.getRange("B12").getValue()); }catch(e){}
+  let prevKit = "";                                    // …and which kit order you had open
+  try{ prevKit = String(sheet.getRange("B21").getValue()); }catch(e){}
   sheet.getCharts().forEach(c => sheet.removeChart(c));  // rebuilt below so refreshes don't stack duplicates
   sheet.setFrozenRows(0); sheet.setFrozenColumns(0);   // leftovers from older versions block merged banners
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.clear();
   sheet.setHiddenGridlines(true);
-  if(sheet.getMaxColumns() < LOOK_COL + 24) sheet.insertColumnsAfter(sheet.getMaxColumns(), LOOK_COL + 24 - sheet.getMaxColumns());
+  if(sheet.getMaxColumns() < LOOK_COL + 34) sheet.insertColumnsAfter(sheet.getMaxColumns(), LOOK_COL + 34 - sheet.getMaxColumns());
   if(sheet.getMaxRows() < LOOKUP_LIMIT + 5) sheet.insertRowsAfter(sheet.getMaxRows(), LOOKUP_LIMIT + 5 - sheet.getMaxRows());
   sheet.setRowHeights(1, sheet.getMaxRows(), 21);       // clear() keeps old row heights, which would distort the new layout
   DASH_WIDTHS.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
@@ -1115,6 +1187,8 @@ function writeDashboardSheet(all, clients){
     weeks.push({ label: Utilities.formatDate(start, tz, "MMM d") + " – " + Utilities.formatDate(new Date(end.getTime() - 86400000), tz, "MMM d"), sum: sum });
   }
   const kitLabel = b => kitTier(b) === "—" ? "—" : kitTier(b) + (isComp(b) ? " (comp)" : "");
+  const kitDetail = b => kitTier(b) === "—" ? "—" : kitLabel(b) + "  ·  " + (isPacked(b) ? "packed" : "not packed") + "  ·  " + (isShipped(b) ? "shipped" : "not shipped");
+  const servicedText = b => isServiced(b) ? "Serviced" + (b.servicedOn ? " on " + asDate(b.servicedOn) : " ✓") : "Not serviced yet";
 
   // ---------- header ----------
   sheet.getRange("A1:" + LAST + "1").merge().setValue("EHIFFECT").setBackground(COLORS.cream).setFontColor(COLORS.ink)
@@ -1198,14 +1272,14 @@ function writeDashboardSheet(all, clients){
     sheet.getRange("B12:I12").merge().setValue("No bookings yet — they'll show up here as soon as one comes in.")
          .setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle");
   }else{
-    const lookHeaders = ["label", "name", "phone", "ig", "email", "service", "when", "deals", "kit", "notes", "status", "total", "deposit", "grand", "booked", "banner"];
+    const lookHeaders = ["label", "name", "phone", "ig", "email", "service", "when", "deals", "kit", "notes", "status", "total", "deposit", "grand", "booked", "banner", "serviced"];
     const lookRows = lookList.map(b => [
       "#" + b.row + " · " + (b.name || "?") + " · " + (asDate(b.date) || "no date") + " · " + b.status,
       b.name || "—", fmtPhone(b.phone) || "—", b.ig || "—", b.email || "—", b.serviceLabel || "—", whenOf(b),
-      b.dealsUsed || "None", kitLabel(b), b.notes || "—", b.status || "—", money(b), depositText(b, dep), grandTotalOf(b, dep),
-      asText(b.submittedAt) || "—", bannerFor(b, dep)
+      b.dealsUsed || "None", kitDetail(b), b.notes || "—", b.status || "—", money(b), depositText(b, dep), grandTotalOf(b, dep),
+      asText(b.submittedAt) || "—", bannerFor(b, dep), servicedText(b)
     ]);
-    const textCols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15];      // everything except the two money columns
+    const textCols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16];      // everything except the two money columns
     textCols.forEach(off => sheet.getRange(2, LOOK_COL + off, n, 1).setNumberFormat("@"));
     sheet.getRange(1, LOOK_COL, 1, lookHeaders.length).setValues([lookHeaders]);
     sheet.getRange(2, LOOK_COL, n, lookHeaders.length).setValues(lookRows);
@@ -1214,7 +1288,8 @@ function writeDashboardSheet(all, clients){
     const prevRow = (prevPick.match(/^#(\d+)/) || [])[1];
     const kept = prevRow ? lookRows.map(r => r[0]).filter(l => l.indexOf("#" + prevRow + " ·") === 0)[0] : "";
     const labelRange = sheet.getRange(2, LOOK_COL, n, 1);
-    sheet.getRange("B12:E12").merge().setValue(kept || lookRows[0][0])
+    const openLabel = kept || lookRows[0][0];
+    sheet.getRange("B12:E12").merge().setValue(openLabel)
          .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInRange(labelRange, true).setAllowInvalid(true).build())
          .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold").setFontSize(11)
          .setVerticalAlignment("middle").setHorizontalAlignment("left")
@@ -1238,9 +1313,9 @@ function writeDashboardSheet(all, clients){
     const fieldRows = [
       [["Client", 1], ["Hairstyle", 5], ["Total (deals already applied)", 11]],
       [["Phone", 2], ["Date & time", 6], ["Deposit", 12]],
-      [["Instagram", 3], ["Deals applied", 7], ["GRAND TOTAL — still due", 13]],
+      [["Instagram", 3], ["Deals applied", 7], ["GRAND TOTAL (total − deposit)", 13]],
       [["Email", 4], ["Care kit", 8], ["Status", 10]],
-      [["Booked on", 14], ["Notes", 9], ["", -1]]
+      [["Booked on", 14], ["Notes", 9], ["Serviced?  ▸", -2]]
     ];
     const blocks = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];          // [label column, value from, value to]
     fieldRows.forEach((fr, i) => {
@@ -1249,6 +1324,7 @@ function writeDashboardSheet(all, clients){
         const [lc, v1, v2] = blocks[k];
         const labelCell = sheet.getRange(r, lc).setValue(f[0]).setFontSize(9).setFontWeight("bold").setFontColor(COLORS.muted)
           .setVerticalAlignment("middle").setBackground("#FFFFFF");
+        if(f[1] === -2) return;                                  // the Serviced checkbox is built below
         if(f[1] < 0){ sheet.getRange(r, v1, 1, v2 - v1 + 1).merge().setBackground("#FFFFFF"); return; }
         const val = sheet.getRange(r, v1, 1, v2 - v1 + 1).merge().setFormula(pull(f[1]))
           .setFontSize(11).setFontColor(COLORS.ink).setVerticalAlignment("middle").setHorizontalAlignment("left").setWrap(true).setBackground("#FFFFFF");
@@ -1261,9 +1337,15 @@ function writeDashboardSheet(all, clients){
       });
       sheet.setRowHeight(r, i === 2 ? 40 : 26);
     });
-    sheet.setRowHeight(18, 44);
-    sheet.getRange("H18:I18").setValue("Grand total = booking total (deals already applied) − deposit paid. Collect it at the appointment.")
-         .setFontSize(8).setFontColor(COLORS.muted).setFontStyle("italic").setWrap(true).setVerticalAlignment("middle");
+    sheet.setRowHeight(18, 34);
+    // "Serviced?" — tick once you've done their hair; the date is stamped for you (and shows next to it).
+    const openRow = Number((openLabel.match(/^#(\d+)/) || [])[1]);
+    const openBooking = lookList.filter(b => b.row === openRow)[0];
+    sheet.getRange("G18").setFontSize(10).setFontWeight("bold").setFontColor(COLORS.pink).setHorizontalAlignment("right");
+    sheet.getRange("H18").insertCheckboxes().setValue(!!(openBooking && isServiced(openBooking)))
+         .setHorizontalAlignment("center").setVerticalAlignment("middle").setBackground(COLORS.blush);
+    sheet.getRange("I18").setFormula(pull(16)).setFontSize(10).setFontColor(COLORS.ink).setFontWeight("bold")
+         .setVerticalAlignment("middle").setHorizontalAlignment("left").setBackground("#FFFFFF");
     sheet.getRange("A14:" + LAST + "18").setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
 
     // color the banner + the Status field by the opened booking's status
@@ -1276,8 +1358,78 @@ function writeDashboardSheet(all, clients){
   }
   sheet.setRowHeight(19, 14);
 
+  // ---------- KITS (rows 20–24): pick someone who ordered a kit; tick Packed / Shipped ----------
+  // Picker = B21, checkboxes = H22 (packed) and H23 (shipped). Ticking one writes straight to that
+  // booking's box in Bookings (handleSheetEdit does this), then the whole sheet refreshes.
+  const kitOrders = all.filter(b => isActive(b) && kitTier(b) !== "—").sort((a, c) => {
+    const ap = isPacked(a), cp = isPacked(c);
+    if(ap !== cp) return ap ? 1 : -1;                                  // unpacked kits first
+    const da = parseDay(a), dc = parseDay(c);
+    return (da ? da.getTime() : 9e15) - (dc ? dc.getTime() : 9e15);    // then soonest appointment
+  }).slice(0, 200);
+  const unpackedKits = kitOrders.filter(b => !isPacked(b)).length;
+  const unshippedKits = kitOrders.filter(b => !isShipped(b)).length;
+  const KC = LOOK_COL + 22, KL = off => colLetter(KC + off);
+  const KMATCH = "$" + KL(8) + "$1";
+
+  sheet.getRange("A20").setValue("Kits" + (kitOrders.length ? "  —  " + unpackedKits + " to pack  ·  " + unshippedKits + " not shipped" : ""))
+       .setFontFamily("Cormorant Garamond").setFontSize(18).setFontWeight("bold").setFontColor(COLORS.ink);
+  sheet.setRowHeight(20, 34);
+  sheet.getRange("A21").setValue("Pick a kit order ▸").setFontSize(10).setFontWeight("bold").setFontColor(COLORS.muted).setVerticalAlignment("middle");
+  sheet.setRowHeight(21, 34);
+
+  if(!kitOrders.length){
+    sheet.getRange("B21:I21").merge().setValue("No pending or approved bookings have a care kit right now.")
+         .setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle");
+  }else{
+    const kitRows = kitOrders.map(b => [
+      "#" + b.row + " · " + (b.name || "?") + " · " + kitLabel(b) + " · " + (asDate(b.date) || "no date") + " · " +
+        (isPacked(b) ? "packed ✓" : "TO PACK") + (isShipped(b) ? " · shipped ✓" : ""),
+      b.name || "—", kitLabel(b), whenOf(b), b.serviceLabel || "—", b.status
+    ]);
+    sheet.getRange(2, KC, kitRows.length, 6).setNumberFormat("@");
+    sheet.getRange(2, KC, kitRows.length, 6).setValues(kitRows);
+    const prevKitRow = (prevKit.match(/^#(\d+)/) || [])[1];
+    const keptKit = prevKitRow ? kitRows.map(r => r[0]).filter(l => l.indexOf("#" + prevKitRow + " ·") === 0)[0] : "";
+    const pickedLabel = keptKit || kitRows[0][0];
+    sheet.getRange("B21:E21").merge().setValue(pickedLabel)
+         .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInRange(sheet.getRange(2, KC, kitRows.length, 1), true).setAllowInvalid(true).build())
+         .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold").setFontSize(11)
+         .setVerticalAlignment("middle").setHorizontalAlignment("left")
+         .setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange("F21:I21").merge().setValue("Kits still to pack come first · only pending/approved bookings that have a kit are listed")
+         .setFontSize(9).setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle").setWrap(true);
+
+    const kref = off => "$" + KL(off) + "$2:$" + KL(off) + "$" + (kitRows.length + 1);
+    sheet.getRange(1, KC + 8).setFormula("=IFERROR(MATCH($B$21," + kref(0) + ",0),0)");
+    const kpull = off => "=IF(" + KMATCH + "=0,\"—\",INDEX(" + kref(off) + "," + KMATCH + "))";
+    const kfield = (r, lc, v1, v2, label, off) => {
+      sheet.getRange(r, lc).setValue(label).setFontSize(9).setFontWeight("bold").setFontColor(COLORS.muted).setVerticalAlignment("middle").setBackground("#FFFFFF");
+      sheet.getRange(r, v1, 1, v2 - v1 + 1).merge().setFormula(kpull(off)).setFontSize(11).setFontColor(COLORS.ink)
+           .setVerticalAlignment("middle").setHorizontalAlignment("left").setWrap(true).setBackground("#FFFFFF");
+    };
+    kfield(22, 1, 2, 3, "Client", 1);   kfield(22, 4, 5, 6, "Kit", 2);
+    kfield(23, 1, 2, 3, "Service", 4);  kfield(23, 4, 5, 6, "Appointment", 3);
+    sheet.getRange("B22").setFontWeight("bold");
+    sheet.getRange("E22").setFontWeight("bold").setFontColor(COLORS.pink);
+    const pickedRow = Number((pickedLabel.match(/^#(\d+)/) || [])[1]);
+    const pickedBooking = kitOrders.filter(b => b.row === pickedRow)[0];
+    [[22, "Packed?  ▸", pickedBooking && isPacked(pickedBooking), "◂ tick when this kit is packed"],
+     [23, "Shipped?  ▸", pickedBooking && isShipped(pickedBooking), "◂ tick once the order is shipped / handed over"]].forEach(c => {
+      sheet.getRange(c[0], 7).setValue(c[1]).setFontSize(10).setFontWeight("bold").setFontColor(COLORS.pink)
+           .setVerticalAlignment("middle").setHorizontalAlignment("right").setBackground("#FFFFFF");
+      sheet.getRange(c[0], 8).insertCheckboxes().setValue(!!c[2])
+           .setHorizontalAlignment("center").setVerticalAlignment("middle").setBackground(COLORS.blush);
+      sheet.getRange(c[0], 9).setValue(c[3] + " — saves to Bookings by itself").setFontSize(9)
+           .setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle").setBackground("#FFFFFF");
+    });
+    sheet.setRowHeight(22, 30); sheet.setRowHeight(23, 30);
+    sheet.getRange("A22:I23").setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
+  }
+  sheet.setRowHeight(24, 14);
+
   // ---------- tables ----------
-  let row = 20;
+  let row = 25;
 
   // Newest bookings first, so the most recent client is always at the top.
   const latest = newest.slice(0, 15);
@@ -1447,7 +1599,7 @@ function writeDashboardSheet(all, clients){
   if(kitRows.length)
     sheet.insertChart(pieChart(chartBlock(4, [["Kit", "Count"]].concat(kitRows)), "Kit usage", [COLORS.grey, COLORS.blush, COLORS.gold]));
 
-  sheet.hideColumns(CHART_DATA_COL, LOOK_COL + 24 - CHART_DATA_COL);   // chart helper cells + the booking lookup table
+  sheet.hideColumns(CHART_DATA_COL, LOOK_COL + 34 - CHART_DATA_COL);   // chart helper cells + the booking lookup table
   sheet.setTabColor(COLORS.pink);
 }
 
@@ -1615,7 +1767,7 @@ function formatBookingsSheet(){
   // compact widths
   const widths = {
     name: 125, phone: 110, ig: 100, email: 170, date: 85, time: 80, status: 95, depositPaid: 70, depositRefunded: 90,
-    serviceLabel: 200, total: 65, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, kitPacked: 85, dealAlert: 200,
+    serviceLabel: 200, total: 65, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, kitPacked: 85, shipped: 75, serviced: 75, servicedOn: 95, dealAlert: 200,
     checks: 240, notes: 180, submittedAt: 135, photoUrls: 100, bookingType: 95, partnerName: 115, partnerContact: 125
   };
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
@@ -1638,7 +1790,7 @@ function formatBookingsSheet(){
     sheet.getRange(2, c[f] + 1, ROWS, 1).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP));
 
   // Plain text for phone/date/time/submittedAt so Sheets can't reinterpret them; tidy price format.
-  ["phone", "date", "time", "submittedAt"].forEach(f =>
+  ["phone", "date", "time", "submittedAt", "servicedOn"].forEach(f =>
     sheet.getRange(2, c[f] + 1, ROWS, 1).setNumberFormat("@"));
   sheet.getRange(2, c.total + 1, ROWS, 1).setNumberFormat("$#,##0");
 
@@ -1652,7 +1804,7 @@ function formatBookingsSheet(){
   sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), cols.width).createFilter();
 
   // checkboxes: deposit received, deposit sent back, "this kit was free", and "kit packed"
-  [c.depositPaid, c.depositRefunded, c.kitComp, c.kitPacked].forEach(ci =>
+  [c.depositPaid, c.depositRefunded, c.kitComp, c.kitPacked, c.shipped, c.serviced].forEach(ci =>
     sheet.getRange(2, ci + 1, ROWS, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build())
          .setHorizontalAlignment("center"));
 
@@ -1696,10 +1848,10 @@ function formatBookingsSheet(){
     .whenFormulaSatisfied("=$" + colLetter(c.depositRefunded + 1) + "2=TRUE")
     .setBackground(COLORS.green).setFontColor("#2F5C2B").setBold(true)
     .setRanges([sheet.getRange(2, c.depositRefunded + 1, ROWS, 1)]).build());
-  rules.push(SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied("=$" + colLetter(c.kitPacked + 1) + "2=TRUE")
+  [c.kitPacked, c.shipped, c.serviced].forEach(ci => rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied("=$" + colLetter(ci + 1) + "2=TRUE")
     .setBackground(COLORS.green).setFontColor("#2F5C2B").setBold(true)
-    .setRanges([sheet.getRange(2, c.kitPacked + 1, ROWS, 1)]).build());
+    .setRanges([sheet.getRange(2, ci + 1, ROWS, 1)]).build()));
 
   sheet.setConditionalFormatRules(rules);
   SpreadsheetApp.flush();
