@@ -212,6 +212,15 @@ function fmtPhone(p){
   return d.length === 10 ? d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6) : raw;
 }
 
+// When a booking was made (its id is a timestamp), so "newest" stays right even after you re-sort the Bookings tab.
+function bookedAt(b){
+  const m = String(b.id).match(/^b_(d{10,})/);
+  if(m) return Number(m[1]);
+  const t = parseSubmitted(b.submittedAt);
+  return t ? t.getTime() : b.row;
+}
+function byNewest(a, c){ return bookedAt(c) - bookedAt(a) || c.row - a.row; }
+
 function isActive(b){ return b.status === "pending" || b.status === "approved"; }
 
 // Deal keys on a booking. Older bookings (before deals were tracked by key) are
@@ -1062,6 +1071,7 @@ function buildClients(all){
   });
   return Object.keys(groups).map(key => {
     const bs = groups[key];
+    bs.sort((a, c) => bookedAt(a) - bookedAt(c));           // oldest → newest, however the Bookings tab is sorted
     const last = bs[bs.length - 1];
     const visits = bs.filter(b => b.status === "approved").length;
     const counts = dealSummary(bs);
@@ -1069,7 +1079,7 @@ function buildClients(all){
     const oneTime = ONE_TIME_DEALS.filter(d => counts[d]).map(d => DEAL_NAMES[d]);
     const ig = bs.map(b => b.ig).filter(Boolean).pop() || "";
     return {
-      lastRow: last.row, name: last.name, phone: fmtPhone(last.phone), ig: ig,
+      lastRow: bookedAt(last), name: last.name, phone: fmtPhone(last.phone), ig: ig,
       type: visits === 0 ? "Awaiting first visit" : visits === 1 ? "New client" : visits < LOYALTY_SURPRISE_EVERY ? "Returning" : "Regular",
       visits: visits, bookings: bs.length,
       deals: used.join(", ") || "—", oneTime: oneTime.join(", ") || "—",
@@ -1321,7 +1331,7 @@ function writeDashboardSheet(all, clients){
   const unshipped = kitOrdersAll.filter(b => !isShipped(b)).length;
   const luxury = toPack.filter(b => kitTier(b) === "Luxury").length;
   const mini = toPack.filter(b => kitTier(b) === "Mini").length;
-  const newest = all.slice().sort((a, c) => c.row - a.row);   // newest booking first
+  const newest = all.slice().sort(byNewest);   // newest booking first
 
   // What you actually received counts, when you've typed it in; otherwise the booking total.
   const numeric = b => hasReceived(b) ? Number(b.amountPaid) : (isNaN(Number(b.total)) ? 0 : Number(b.total));
@@ -1825,7 +1835,7 @@ function writeMovedSheet(all){
   sheet.setRowHeight(HEAD, 32);
   sheet.setFrozenRows(HEAD);
 
-  const rows = all.filter(isMoved).sort((a, c) => c.row - a.row);
+  const rows = all.filter(isMoved).sort(byNewest);
   if(rows.length){
     const n = rows.length, first = HEAD + 1;
     sheet.getRange(first, 1, n, W).setNumberFormat("@");
