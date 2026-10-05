@@ -105,7 +105,7 @@ function saveSetting(key, value){
 // technical ones on the right (hidden). Set to false to keep your own column order.
 const REORDER_COLUMNS = true;
 const DISPLAY_ORDER = [
-  "id", "name", "phone", "ig", "email", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "dealsUsed",
+  "id", "name", "phone", "ig", "email", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "amountPaid", "dealsUsed",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "shipped", "serviced", "servicedOn", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
   "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed"
 ];
@@ -127,7 +127,7 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn"
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -271,6 +271,9 @@ function isPaid(b){ return b.depositPaid === true || String(b.depositPaid).toUpp
 function isRefunded(b){ return b.depositRefunded === true || String(b.depositRefunded).toUpperCase() === "TRUE"; }
 
 function isComp(b){ return b.kitComp === true || String(b.kitComp).toUpperCase() === "TRUE"; }
+
+// Money actually received from the client (typed in by you). Blank = not recorded, so the booking total is used.
+function hasReceived(b){ return String(b.amountPaid).trim() !== "" && !isNaN(Number(b.amountPaid)); }
 
 function isShipped(b){ return isTrue(b.shipped); }
 
@@ -770,7 +773,7 @@ function handleSheetEdit(e){
         refreshViews();                   // the revenue charts only draw while this is set to Show
       }else if(a1 === "B21" || a1 === "H22" || a1 === "H23"){
         handleKitEdit(sheet, a1);
-      }else if(a1 === "B12" || a1 === "H18"){
+      }else if(a1 === "B12" || a1 === "H18" || a1 === "B18"){
         handleServicedEdit(sheet, a1);
       }
       return;                             // the "Open a booking" picker is formula-driven, no refresh needed
@@ -778,7 +781,7 @@ function handleSheetEdit(e){
     if(sheet.getName() !== "Bookings" || e.range.getRow() < 2) return;
     const cols = getColumns(sheet).map;
     const col = e.range.getColumn();
-    if([cols.status, cols.depositPaid, cols.depositRefunded, cols.kitComp, cols.kitPacked, cols.shipped, cols.serviced, cols.date, cols.time].map(i => i + 1).indexOf(col) === -1) return;
+    if([cols.status, cols.depositPaid, cols.depositRefunded, cols.kitComp, cols.kitPacked, cols.shipped, cols.serviced, cols.amountPaid, cols.date, cols.time].map(i => i + 1).indexOf(col) === -1) return;
     if(col === cols.serviced + 1) stampServiced(sheet, cols, e.range.getRow(), e.range.getValue() === true);
     if(col === cols.status + 1 && String(e.value).trim() === "approved"){
       const approvedBooking = applyApproval(sheet, cols, e.range.getRow());
@@ -822,6 +825,13 @@ function handleServicedEdit(dash, a1){
   const colMap = getColumns(bookings).map;
   if(a1 === "B12"){
     dash.getRange("H18").setValue(isTrue(bookings.getRange(row, colMap.serviced + 1).getValue()));
+    dash.getRange("B18").setValue(bookings.getRange(row, colMap.amountPaid + 1).getValue());
+    return;
+  }
+  if(a1 === "B18"){
+    const typed = dash.getRange("B18").getValue();
+    setCell(bookings, colMap, "amountPaid", row, typed === "" || isNaN(Number(typed)) ? "" : Number(typed));
+    refreshViews();
     return;
   }
   const on = dash.getRange("H18").getValue() === true;
@@ -1177,7 +1187,7 @@ function writeDashboardSheet(all, clients){
   const newest = all.slice().sort((a, c) => c.row - a.row);   // newest booking first
 
   // Shared by the revenue chart below and the weekly revenue table further down.
-  const numeric = b => (isNaN(Number(b.total)) ? 0 : Number(b.total));
+  const numeric = b => hasReceived(b) ? Number(b.amountPaid) : (isNaN(Number(b.total)) ? 0 : Number(b.total));   // what you actually got, if recorded
   const monday = new Date(today.getTime() - ((today.getDay() + 6) % 7) * 86400000);
   const weeks = [];
   for(let k = 7; k >= 0; k--){
@@ -1224,12 +1234,13 @@ function writeDashboardSheet(all, clients){
   const allTime = approved.reduce((s, b) => s + numeric(b), 0);
   const thisMonth = approved.filter(b => { const d = parseDay(b); return d && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear(); })
                             .reduce((s, b) => s + numeric(b), 0);
+  const extras = approved.filter(hasReceived).reduce((sum, b) => sum + Math.max(0, Number(b.amountPaid) - (isNaN(Number(b.total)) ? 0 : Number(b.total))), 0);
   sheet.getRange("A8").setValue("Revenue").setFontFamily("Cormorant Garamond").setFontSize(18).setFontWeight("bold").setFontColor(COLORS.ink).setVerticalAlignment("middle");
   sheet.getRange("B8").setValue(revenueMode)
        .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(["Hidden", "Show"], true).setAllowInvalid(false).build())
        .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
   sheet.getRange("C8:F8").merge()
-       .setFormula('=IF($B$8="Show","All-time approved: $"&TEXT(' + allTime + ',"#,##0")&"     ·     This month: $"&TEXT(' + thisMonth + ',"#,##0"),"Hidden — choose Show in the dropdown to see revenue")')
+       .setFormula('=IF($B$8="Show","All-time approved: $"&TEXT(' + allTime + ',"#,##0")&"     ·     This month: $"&TEXT(' + thisMonth + ',"#,##0")&"     ·     Of which extra/tips: $"&TEXT(' + extras + ',"#,##0"),"Hidden — choose Show in the dropdown to see revenue")')
        .setFontColor(COLORS.muted).setFontSize(11).setVerticalAlignment("middle");
   sheet.setRowHeight(8, 38);
 
@@ -1315,7 +1326,7 @@ function writeDashboardSheet(all, clients){
       [["Phone", 2], ["Date & time", 6], ["Deposit", 12]],
       [["Instagram", 3], ["Deals applied", 7], ["GRAND TOTAL (total − deposit)", 13]],
       [["Email", 4], ["Care kit", 8], ["Status", 10]],
-      [["Booked on", 14], ["Notes", 9], ["Serviced?  ▸", -2]]
+      [["Money received ▸", -3], ["Notes", 9], ["Serviced?  ▸", -2]]
     ];
     const blocks = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];          // [label column, value from, value to]
     fieldRows.forEach((fr, i) => {
@@ -1324,7 +1335,7 @@ function writeDashboardSheet(all, clients){
         const [lc, v1, v2] = blocks[k];
         const labelCell = sheet.getRange(r, lc).setValue(f[0]).setFontSize(9).setFontWeight("bold").setFontColor(COLORS.muted)
           .setVerticalAlignment("middle").setBackground("#FFFFFF");
-        if(f[1] === -2) return;                                  // the Serviced checkbox is built below
+        if(f[1] === -2 || f[1] === -3) return;                   // the Serviced checkbox and Money received box are built below
         if(f[1] < 0){ sheet.getRange(r, v1, 1, v2 - v1 + 1).merge().setBackground("#FFFFFF"); return; }
         const val = sheet.getRange(r, v1, 1, v2 - v1 + 1).merge().setFormula(pull(f[1]))
           .setFontSize(11).setFontColor(COLORS.ink).setVerticalAlignment("middle").setHorizontalAlignment("left").setWrap(true).setBackground("#FFFFFF");
@@ -1346,6 +1357,19 @@ function writeDashboardSheet(all, clients){
          .setHorizontalAlignment("center").setVerticalAlignment("middle").setBackground(COLORS.blush);
     sheet.getRange("I18").setFormula(pull(16)).setFontSize(10).setFontColor(COLORS.ink).setFontWeight("bold")
          .setVerticalAlignment("middle").setHorizontalAlignment("left").setBackground("#FFFFFF");
+
+    // "Money received" — type what the client actually paid you in total (deposit + everything else).
+    // The cell beside it says how that compares to the booking total: extra / short / exact.
+    sheet.getRange("A18").setFontColor(COLORS.pink).setFontSize(10);
+    sheet.getRange("B18").setValue(openBooking && hasReceived(openBooking) ? Number(openBooking.amountPaid) : "")
+         .setNumberFormat("$#,##0.00")
+         .setDataValidation(SpreadsheetApp.newDataValidation().requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
+           .setHelpText("Type the total you actually received from this client (deposit + everything else). Clear the cell to remove it.").build())
+         .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold").setFontSize(11)
+         .setHorizontalAlignment("center").setVerticalAlignment("middle");
+    const totalAt = "INDEX(" + colRef(11) + "," + MATCH_CELL + ")";
+    sheet.getRange("C18").setFormula("=IFERROR(IF(OR(" + MATCH_CELL + "=0,$B$18=\"\"),\"\",IF($B$18>" + totalAt + ",\"+$\"&TEXT($B$18-" + totalAt + ",\"#,##0.##\")&\" extra\",IF($B$18<" + totalAt + ",\"$\"&TEXT(" + totalAt + "-$B$18,\"#,##0.##\")&\" short\",\"✓ exact\"))),\"\")")
+         .setFontSize(9).setFontWeight("bold").setFontColor(COLORS.pink).setVerticalAlignment("middle").setHorizontalAlignment("center").setWrap(true).setBackground("#FFFFFF");
     sheet.getRange("A14:" + LAST + "18").setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
 
     // color the banner + the Status field by the opened booking's status
@@ -1767,7 +1791,7 @@ function formatBookingsSheet(){
   // compact widths
   const widths = {
     name: 125, phone: 110, ig: 100, email: 170, date: 85, time: 80, status: 95, depositPaid: 70, depositRefunded: 90,
-    serviceLabel: 200, total: 65, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, kitPacked: 85, shipped: 75, serviced: 75, servicedOn: 95, dealAlert: 200,
+    serviceLabel: 200, total: 65, amountPaid: 85, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, kitPacked: 85, shipped: 75, serviced: 75, servicedOn: 95, dealAlert: 200,
     checks: 240, notes: 180, submittedAt: 135, photoUrls: 100, bookingType: 95, partnerName: 115, partnerContact: 125
   };
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
@@ -1793,6 +1817,7 @@ function formatBookingsSheet(){
   ["phone", "date", "time", "submittedAt", "servicedOn"].forEach(f =>
     sheet.getRange(2, c[f] + 1, ROWS, 1).setNumberFormat("@"));
   sheet.getRange(2, c.total + 1, ROWS, 1).setNumberFormat("$#,##0");
+  sheet.getRange(2, c.amountPaid + 1, ROWS, 1).setNumberFormat("$#,##0.00");
 
   // soft alternating row colors
   sheet.getBandings().forEach(b => b.remove());
