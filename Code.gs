@@ -4,26 +4,29 @@
  * This one file powers three things:
  *   1. The booking website  (saves bookings, looks up clients)
  *   2. The "Bookings" sheet (your raw list of every request)
- *   3. Three auto-updating tabs: "Dashboard", "Clients", and "Kits"
+ *   3. Auto-updating tabs: "Dashboard", "Clients", "Kits", and "Denied & Rescheduled"
  *
  * SETUP (first time, or after pasting an update)
  *   1. Extensions → Apps Script → delete everything → paste this whole file → Save.
- *   2. Pick "formatSheet" in the function dropdown at the top → Run → approve permissions.
+ *   2. Pick "formatSheet" in the function dropdown at the top → Run → approve permissions
+ *      (it also turns on approval emails when you change a Status in the sheet).
  *   3. Deploy → Manage deployments → pencil icon → Version: New version → Deploy.
  *      (Editing the existing deployment keeps your website URL the same.)
  *   After that, a menu called "Ehiffect" appears in your sheet with a Refresh button.
  *
  * HOW YOUR SHEET WORKS
- *   • Dashboard = your daily view: stat tiles up top, a chart gallery ("At a Glance" — revenue
- *     by week, deposits collected vs. awaiting, service popularity, client breakdown, kit usage),
- *     then the detailed tables: pending requests (oldest first, with a ready-to-send text),
- *     overdue replies, the next 7 days, deposits still owed/to refund, bundle pickups, deal
- *     usage, and a weekly revenue table (hidden until you pick "Show" in the dropdown).
- *     Warnings marked ⚠ come from checks the sheet runs for you: double-bookings, a partner
- *     who hasn't booked (or booked the same day), a no-show client rebooking, one-time deals reused.
- *     Updates by itself. Charts are regular Sheets charts once inserted — drag/resize them
- *     like any chart if you want them laid out differently; your changes just get rebuilt
- *     fresh (back to the default layout) on the next refresh.
+ *   • Dashboard = your daily view. Stat tiles on top, then "Open a booking": pick any client from
+ *     the dropdown (newest first) and see exactly what they booked — hairstyle, date and time, deals
+ *     applied, deposit status — plus a GRAND TOTAL (booking total after deals, minus the deposit
+ *     once paid). Denied / rescheduled / cancelled bookings show a coloured banner there. Below that:
+ *     the newest 15 bookings, requests needing a reply (oldest first, with a ready-to-send text),
+ *     the next 7 days, then tables that only appear when they have something in them (awaiting
+ *     deposit, refunds owed, bundle pickups), deal usage, weekly revenue (hidden until you pick
+ *     "Show"), and a row of charts at the bottom. Warnings marked ⚠ come from checks the sheet
+ *     runs for you: double-bookings, a partner who hasn't booked, a no-show client rebooking,
+ *     one-time deals reused. Updates by itself.
+ *   • Denied & Rescheduled = every booking that did not go ahead as booked, with what is left to do
+ *     about its deposit. Their date opens up again on the website automatically.
  *   • Tick "Deposit" on a booking once you've seen the Cash App payment. Change the numbers
  *     you care about at the top (deposit amount, response hours, gap between appointments).
  *   • Clients   = one row per person: visits, deals they've used, loyalty countdown.
@@ -66,7 +69,7 @@ const DEAL_NAMES = {
 // Add or remove keys from the list above to change which deals count.
 const ONE_TIME_DEALS = ["btc", "hallohair"];
 
-const VALID_STATUSES = ["pending", "approved", "denied", "no-show", "cancelled"];
+const VALID_STATUSES = ["pending", "approved", "denied", "rescheduled", "no-show", "cancelled"];
 
 // Used in the ready-to-send text messages.
 const CASHTAG = "$ehiixs";
@@ -104,7 +107,7 @@ const REORDER_COLUMNS = true;
 const DISPLAY_ORDER = [
   "id", "name", "phone", "ig", "email", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "dealsUsed",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
-  "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys"
+  "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed"
 ];
 
 // Brand colors used to style the sheet.
@@ -124,7 +127,7 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks"
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -258,6 +261,10 @@ function applyApproval(sheet, cols, row){
    ================================================================ */
 
 function isBundle(b){ return /^bundle/i.test(String(b.serviceLabel)); }
+
+function isConsult(b){ return /^consultation/i.test(String(b.serviceLabel)); }
+
+function isTrue(v){ return v === true || String(v).toUpperCase() === "TRUE"; }
 
 function isPaid(b){ return b.depositPaid === true || String(b.depositPaid).toUpperCase() === "TRUE"; }
 
@@ -430,6 +437,26 @@ function formatTimestamp(ms){
   return Utilities.formatDate(new Date(ms), Session.getScriptTimeZone(), "MM/dd/yyyy hh:mm a");
 }
 
+const PHOTO_MAX_CHUNKS = 100;                           // 100 pieces of ~2.4 KB = ~240 KB per photo
+
+// Stitches the uploaded pieces of each photo back into a data URL. Skips any photo with a missing piece.
+function photosFromCache(refs){
+  const cache = CacheService.getScriptCache();
+  const out = [];
+  (refs || []).slice(0, 3).forEach(r => {
+    const n = Number(r && r.n), id = String(r && r.id || "");
+    if(!/^[A-Za-z0-9_]{6,60}$/.test(id) || !(n > 0 && n <= PHOTO_MAX_CHUNKS)) return;
+    const keys = [];
+    for(let i = 0; i < n; i++) keys.push("ph_" + id + "_" + i);
+    const got = cache.getAll(keys);
+    const parts = keys.map(k => got[k]);
+    if(parts.some(p => p === undefined || p === null)) return;
+    cache.removeAll(keys);
+    out.push(parts.join(""));
+  });
+  return out;
+}
+
 function savePhotos(photos){
   if(!photos || !photos.length) return [];
   const folders = DriveApp.getFoldersByName(PHOTO_FOLDER_NAME);
@@ -474,7 +501,10 @@ function handleCreate(body){
     const dealAlert = dealAlertFor(all, body.phone, dealKeys, -1);
     const visitCount = approvedCount(all, body.phone, -1) + 1;        // their Nth visit IF approved
     const loyaltyFlag = visitCount % LOYALTY_SURPRISE_EVERY === 0;
-    const photoUrls = savePhotos(body.photos);
+    const sentRefs = (body.photoIds || []).length;
+    const photoUrls = savePhotos((body.photos || []).concat(photosFromCache(body.photoIds)));
+    if(sentRefs && photoUrls.length < sentRefs)
+      body.notes = (body.notes ? body.notes + " " : "") + "(" + (sentRefs - photoUrls.length) + " reference photo(s) failed to save — ask the client to DM them on IG)";
     const id = "b_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
 
     const values = {
@@ -486,7 +516,7 @@ function handleCreate(body){
       partnerName: body.partnerName || "", partnerContact: body.partnerContact || "",
       giftKit: body.giftKit || "", careKitCost: body.careKitCost || "", kitComp: false, kitPacked: false,
       visitCount: visitCount, loyaltyFlag: loyaltyFlag, dealKeys: dealKeys.join(", "), dealAlert: dealAlert,
-      depositPaid: false, depositRefunded: false, checks: ""
+      depositPaid: false, depositRefunded: false, checks: "", approvalEmailed: false
     };
     const row = new Array(cols.width).fill("");           // each value goes under its own header
     Object.keys(values).forEach(f => { row[cols.map[f]] = values[f]; });
@@ -577,13 +607,14 @@ function approvalEmailBody(b, depositAmount){
 }
 
 function sendApprovalEmail(b){
-  if(!b.email) return;
+  if(!b.email || isTrue(b.approvalEmailed)) return;      // no address, or they already got this email
   try{
     MailApp.sendEmail({
       to: b.email,
       subject: "Your Ehiffect appointment is approved!",
       body: approvalEmailBody(b, getSettings().depositAmount)
     });
+    try{ const sh = getSheet(); setCell(sh, getColumns(sh).map, "approvalEmailed", b.row, true); }catch(markErr){}
   }catch(err){
     // Never let an email hiccup block the status update — but tell you about it instead of
     // failing completely silently, so a bad address or quota issue doesn't go unnoticed.
@@ -650,14 +681,24 @@ function doGet(e){
   }
 
   // Whole days already spoken for — just dates, no names/phones, so the site's calendar can
-  // grey them out for new bookers. Denied/no-show/cancelled don't block; only approved does,
-  // and bundle orders (pickup, not a chair slot) never block a day.
+  // grey them out for new bookers. A day closes the moment someone books it (pending or
+  // approved) and reopens as soon as that booking is denied, cancelled, rescheduled, or no-show.
+  // Bundle orders (pickup, not a chair slot) and consultations (a phone call) never block a day.
   if(action === "takenDates"){
     const dates = readBookings()
-      .filter(b => b.status === "approved" && !isBundle(b))
+      .filter(b => isActive(b) && !isBundle(b) && !isConsult(b))
       .map(b => asDate(b.date))
       .filter(Boolean);
     return json({ dates: Array.from(new Set(dates)) });
+  }
+
+  // One small piece of a reference photo (photos are too big for the booking request itself).
+  // Held briefly in the script cache until the booking arrives and stitches them together.
+  if(action === "photoChunk"){
+    const id = String(e.parameter.id || ""), i = Number(e.parameter.i), data = String(e.parameter.data || "");
+    if(!/^[A-Za-z0-9_]{6,60}$/.test(id) || !(i >= 0 && i < PHOTO_MAX_CHUNKS) || !data) return json({ error: "bad chunk" });
+    CacheService.getScriptCache().put("ph_" + id + "_" + i, data, 1800);
+    return json({ ok: true });
   }
 
   if(action === "create" || action === "updateStatus" || action === "setDeposit"){
@@ -696,23 +737,33 @@ function onOpen(){
   SpreadsheetApp.getUi().createMenu("Ehiffect")
     .addItem("Refresh dashboard & clients", "refreshViews")
     .addItem("Set up / restyle all sheets", "formatSheet")
+    .addItem("Turn on approval emails", "setupApprovalEmails")
     .addToUi();
 }
 
-// Changing a Status dropdown in the Bookings tab keeps everything else in sync. Editing a pink
-// Settings box on the Dashboard (row 9) saves it so every part of the script picks it up.
-function onEdit(e){
+// Changing a Status dropdown in the Bookings tab keeps everything else in sync, and emails the
+// client when it becomes "approved". Editing a pink Settings box on the Dashboard (row 9) saves
+// it so every part of the script picks it up.
+//
+// This is deliberately NOT named onEdit: Google runs a plain onEdit() with restricted permissions,
+// and one thing it blocks is sending email — so approving from the dropdown silently never emailed
+// anyone (approving from the website worked because that runs differently). Running it as an
+// installable trigger (set up by ensureEditTrigger below) gives it permission to send.
+function handleSheetEdit(e){
   try{
     const sheet = e.range.getSheet();
     if(sheet.getName() === "Dashboard"){
       const settingCells = { C9: "depositAmount", E9: "responseHours", G9: "minGapMinutes" };
-      const key = settingCells[e.range.getA1Notation()];
+      const a1 = e.range.getA1Notation();
+      const key = settingCells[a1];
       if(key){
         const n = Number(e.value);
         if(!isNaN(n) && n > 0) saveSetting(key, n);
         refreshViews();
+      }else if(a1 === "B8"){
+        refreshViews();                   // the revenue charts only draw while this is set to Show
       }
-      return;
+      return;                             // the "Open a booking" picker is formula-driven, no refresh needed
     }
     if(sheet.getName() !== "Bookings" || e.range.getRow() < 2) return;
     const cols = getColumns(sheet).map;
@@ -723,7 +774,21 @@ function onEdit(e){
       if(approvedBooking) sendApprovalEmail(approvedBooking);
     }
     refreshViews();
-  }catch(err){ /* never interrupt your editing */ }
+  }catch(err){ console.error("handleSheetEdit failed: " + err); }
+}
+
+// Makes sure the installable edit trigger exists (safe to run any time; never makes a duplicate).
+// formatSheet calls this, so re-running it after pasting an update is enough.
+function ensureEditTrigger(){
+  const exists = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "handleSheetEdit");
+  if(!exists) ScriptApp.newTrigger("handleSheetEdit").forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onEdit().create();
+  return !exists;
+}
+
+function setupApprovalEmails(){
+  const created = ensureEditTrigger();
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    created ? "Done — approving from the Status dropdown will now email the client." : "Already on — nothing to change.", "Ehiffect", 8);
 }
 
 
@@ -738,6 +803,7 @@ function refreshViews(prefetched){
     const clients = buildClients(all);
     writeClientsSheet(clients);
     writeKitsSheet(all);
+    writeMovedSheet(all);
     writeDashboardSheet(all, clients);
   }catch(err){ console.error("refreshViews failed: " + err); }
 }
@@ -948,16 +1014,71 @@ function writeTable(sheet, startRow, title, headers, rows, emptyText, opts){
 
 function money(b){ return (b.total === "" || isNaN(Number(b.total))) ? String(b.total || "—") : Number(b.total); }
 
+// Where the hidden "Open a booking" lookup data lives: far to the right, clear of the visible
+// tables (A–I) and the chart helper cells (T onward).
+const LOOK_COL = 40;
+const LOOKUP_LIMIT = 500;
+
+// Status pill colors (background, text) — same palette as the Bookings tab dropdown.
+const STATUS_STYLE = {
+  "pending": ["#F5E3B3", "#7A5C14"], "approved": ["#C9E3C6", "#2F5C2B"], "denied": ["#E9C9C9", "#7A2F2F"],
+  "rescheduled": ["#D3E3F4", "#2F4C6E"], "no-show": ["#D6C9F0", "#4A3670"], "cancelled": ["#ECE7E4", "#8C7B7E"]
+};
+
+function isMoved(b){ return b.status === "denied" || b.status === "rescheduled" || b.status === "cancelled"; }
+
+function whenOf(b){ return (asDate(b.date) + " " + asTime(b.time)).trim() || "—"; }
+
+// What happened to the $ deposit on this booking, in plain words.
+function depositText(b, dep){
+  if(isRefunded(b)) return "Refunded ✓";
+  if(isPaid(b)){
+    if(b.status === "denied" || b.status === "cancelled") return "Paid $" + dep + " — refund owed";
+    if(b.status === "rescheduled") return "Paid $" + dep + " — carries to the new date";
+    return "Paid ✓  $" + dep;
+  }
+  return "Not paid yet";
+}
+
+// "Grand total" = what the client still owes at the appointment: the booking total (the website
+// already applied every deal) minus the deposit if it's been paid and not refunded.
+// Denied / cancelled / rescheduled bookings owe nothing, so they show blank.
+function grandTotalOf(b, dep){
+  if(isMoved(b) || b.total === "" || isNaN(Number(b.total))) return "";
+  const paidIn = isPaid(b) && !isRefunded(b) ? dep : 0;
+  return Math.max(0, Number(b.total) - paidIn);
+}
+
+function bannerFor(b, dep){
+  const owed = isPaid(b) && !isRefunded(b);
+  if(b.status === "denied")
+    return "✖ DENIED — that day is open again on the website.  " + (owed ? "Deposit of $" + dep + " is owed back — tick \"Deposit refunded\" in Bookings once sent." : isRefunded(b) ? "Deposit already refunded ✓" : "No deposit was taken.");
+  if(b.status === "rescheduled")
+    return "↻ RESCHEDULED — the original day is open again on the website.  " + (owed ? "Their $" + dep + " deposit carries over to the new booking." : "No deposit was taken yet.");
+  if(b.status === "cancelled")
+    return "✖ CANCELLED — that day is open again on the website.  " + (owed ? "Deposit of $" + dep + " is owed back." : isRefunded(b) ? "Deposit refunded ✓" : "No deposit was taken.");
+  if(b.status === "no-show") return "⚠ NO-SHOW — client didn't arrive.  " + (owed ? "$" + dep + " deposit kept." : "");
+  if(b.status === "pending") return "⏳ PENDING — waiting on your reply.  That day is held for them on the website until you decide.";
+  if(b.status === "approved") return "✓ APPROVED — " + (isPaid(b) ? "deposit paid, they're all set." : "deposit not marked paid yet.");
+  return "";
+}
+
 function writeDashboardSheet(all, clients){
   const sheet = getOrCreateSheet("Dashboard");
   const settings = getSettings();
+  const dep = settings.depositAmount;
   let revenueMode = "Hidden";                          // remember your dropdown choice across refreshes
+  let prevPick = "";                                   // …and which booking you had open
   try{ if(sheet.getRange("B8").getValue() === "Show") revenueMode = "Show"; }catch(e){}
+  try{ prevPick = String(sheet.getRange("B12").getValue()); }catch(e){}
   sheet.getCharts().forEach(c => sheet.removeChart(c));  // rebuilt below so refreshes don't stack duplicates
   sheet.setFrozenRows(0); sheet.setFrozenColumns(0);   // leftovers from older versions block merged banners
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.clear();
   sheet.setHiddenGridlines(true);
+  if(sheet.getMaxColumns() < LOOK_COL + 24) sheet.insertColumnsAfter(sheet.getMaxColumns(), LOOK_COL + 24 - sheet.getMaxColumns());
+  if(sheet.getMaxRows() < LOOKUP_LIMIT + 5) sheet.insertRowsAfter(sheet.getMaxRows(), LOOKUP_LIMIT + 5 - sheet.getMaxRows());
+  sheet.setRowHeights(1, sheet.getMaxRows(), 21);       // clear() keeps old row heights, which would distort the new layout
   DASH_WIDTHS.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
   const tz = Session.getScriptTimeZone();
   const LAST = colLetter(DASH_WIDTHS.length);
@@ -975,12 +1096,13 @@ function writeDashboardSheet(all, clients){
   const upcoming = approved.filter(b => { const d = parseDay(b); return !isBundle(b) && d && d >= today && d < in7; }).sort(byDay);
   const awaiting = approved.filter(b => !isBundle(b) && !isPaid(b)).sort(byDay);
   const toRefund = all.filter(b => (b.status === "denied" || b.status === "cancelled") && isPaid(b) && !isRefunded(b));
+  const moved = all.filter(isMoved);
   const bundles = all.filter(b => isBundle(b) && isActive(b)).sort(byDay);
   const alertCount = all.filter(b => isActive(b) && hasWarning(b)).length;
   const toPack = all.filter(b => isActive(b) && kitTier(b) !== "—" && !isPacked(b));
   const luxury = toPack.filter(b => kitTier(b) === "Luxury").length;
   const mini = toPack.filter(b => kitTier(b) === "Mini").length;
-  const returning = clients.filter(c => c.visits >= 2).length;
+  const newest = all.slice().sort((a, c) => c.row - a.row);   // newest booking first
 
   // Shared by the revenue chart below and the weekly revenue table further down.
   const numeric = b => (isNaN(Number(b.total)) ? 0 : Number(b.total));
@@ -992,35 +1114,24 @@ function writeDashboardSheet(all, clients){
     const sum = approved.filter(b => { const d = parseDay(b); return d && d >= start && d < end; }).reduce((s, b) => s + numeric(b), 0);
     weeks.push({ label: Utilities.formatDate(start, tz, "MMM d") + " – " + Utilities.formatDate(new Date(end.getTime() - 86400000), tz, "MMM d"), sum: sum });
   }
+  const kitLabel = b => kitTier(b) === "—" ? "—" : kitTier(b) + (isComp(b) ? " (comp)" : "");
 
-  // ---------- header band: wordmark + tagline, with a purely-visual row of section labels ----------
+  // ---------- header ----------
   sheet.getRange("A1:" + LAST + "1").merge().setValue("EHIFFECT").setBackground(COLORS.cream).setFontColor(COLORS.ink)
        .setFontFamily("Cormorant Garamond").setFontSize(30).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("center");
   sheet.getRange("A2:" + LAST + "2").merge()
        .setValue("UNCOMPLICATED & AT YOUR SERVICE   ·   updated " + Utilities.formatDate(now, tz, "MMM d, h:mm a") + "   ·   change a Status or tick a Deposit in Bookings and this refreshes itself")
        .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
-  sheet.setRowHeight(1, 50); sheet.setRowHeight(2, 22);
-
-  // Plain colored labels, not links — Sheets won't let HYPERLINK() text be recolored, and you've
-  // already got real clickable sheet tabs for Clients/Kits/Bookings at the bottom of the screen.
-  const navLabels = [{ t: "DASHBOARD", active: true }, { t: "CLIENTS" }, { t: "KITS" }, { t: "BOOKINGS" }];
-  const navSpans = [[1, 2], [3, 4], [5, 6], [7, 9]];
-  navLabels.forEach((n, i) => {
-    const [c1, c2] = navSpans[i];
-    sheet.getRange(3, c1, 1, c2 - c1 + 1).merge().setValue(n.t)
-         .setBackground(n.active ? COLORS.ink : COLORS.blush).setFontColor(n.active ? COLORS.cream : COLORS.pink)
-         .setFontSize(10).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle");
-  });
-  sheet.setRowHeight(3, 30);
+  sheet.setRowHeight(1, 50); sheet.setRowHeight(2, 22); sheet.setRowHeight(3, 10);
 
   // ---------- stat tiles (A–G) ----------
   const tiles = [
     { label: "PENDING",              value: pending.length,   cap: "waiting on you" },
     { label: "OVER " + settings.responseHours + "H",   value: overdue.length,   cap: "reply is overdue", alert: overdue.length > 0 },
     { label: "AWAITING DEPOSIT",     value: awaiting.length,  cap: "approved, deposit not marked paid" },
-    { label: "LUXURY KITS TO PACK",  value: luxury,           cap: mini + " mini  ·  see the Kits tab, tick Packed when done" },
+    { label: "LUXURY KITS TO PACK",  value: luxury,           cap: mini + " mini  ·  see the Kits tab" },
     { label: "ALERTS",               value: alertCount,       cap: "deals, no-shows, scheduling", alert: alertCount > 0 },
-    { label: "CLIENTS",              value: clients.length,   cap: returning + " returning" },
+    { label: "DENIED / MOVED",       value: moved.length,     cap: "denied, rescheduled or cancelled — own tab" },
     { label: "TO REFUND",            value: toRefund.length,  cap: "denied/cancelled, deposit not sent back yet", alert: toRefund.length > 0 }
   ];
   tiles.forEach((t, i) => {
@@ -1033,9 +1144,9 @@ function writeDashboardSheet(all, clients){
          .setFontWeight("bold").setFontColor(t.alert ? COLORS.alertText : COLORS.pink);
     sheet.getRange(6, col).setValue(t.cap).setFontSize(9).setFontColor(t.alert ? COLORS.alertText : COLORS.muted).setWrap(true).setHorizontalAlignment("center");
   });
-  sheet.setRowHeight(4, 26); sheet.setRowHeight(5, 50); sheet.setRowHeight(6, 34); sheet.setRowHeight(7, 18);
+  sheet.setRowHeight(4, 26); sheet.setRowHeight(5, 50); sheet.setRowHeight(6, 34); sheet.setRowHeight(7, 14);
 
-  // ---------- revenue summary (hidden until you pick "Show") ----------
+  // ---------- revenue summary (hidden until you pick "Show") — row 8, dropdown in B8 ----------
   const allTime = approved.reduce((s, b) => s + numeric(b), 0);
   const thisMonth = approved.filter(b => { const d = parseDay(b); return d && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear(); })
                             .reduce((s, b) => s + numeric(b), 0);
@@ -1048,7 +1159,7 @@ function writeDashboardSheet(all, clients){
        .setFontColor(COLORS.muted).setFontSize(11).setVerticalAlignment("middle");
   sheet.setRowHeight(8, 38);
 
-  // ---------- settings you can tweak right here (no code editing needed) ----------
+  // ---------- settings you can tweak right here — row 9 (C9, E9, G9) ----------
   sheet.getRange("A9").setValue("Settings").setFontFamily("Cormorant Garamond").setFontSize(13)
        .setFontWeight("bold").setFontColor(COLORS.ink).setVerticalAlignment("middle");
   sheet.getRange("B9").setValue("Deposit $").setFontSize(9).setFontColor(COLORS.muted)
@@ -1068,98 +1179,122 @@ function writeDashboardSheet(all, clients){
        .setHorizontalAlignment("center").setVerticalAlignment("middle");
   sheet.getRange("H9:I9").merge().setValue("Edit a pink box — it saves automatically, no code needed.")
        .setFontSize(9).setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle");
-  sheet.setRowHeight(9, 26);
+  sheet.setRowHeight(9, 26); sheet.setRowHeight(10, 14);
 
-  // ---------- charts gallery — a visual snapshot before the detailed tables below ----------
-  sheet.getRange(10, 1).setValue("At a Glance").setFontFamily("Cormorant Garamond").setFontSize(18).setFontWeight("bold").setFontColor(COLORS.ink);
-  sheet.setRowHeight(10, 34);
+  // ---------- OPEN A BOOKING (rows 11–18): pick a booking, see everything about it ----------
+  // The picker (B12) is a plain dropdown; everything below it is formulas reading a hidden table,
+  // so choosing a name updates instantly without waiting for the script.
+  const lookList = newest.slice(0, LOOKUP_LIMIT);
+  const n = lookList.length;
+  const L = off => colLetter(LOOK_COL + off);
+  const MATCH_CELL = "$" + L(18) + "$1", STATUS_CELL = "$" + L(19) + "$1";
 
-  const CHART_DATA_COL = 20;                             // column T onward — hidden helper cells, clear of A–I
-  const chartBlock = (offset, rows) => {
-    const col = CHART_DATA_COL + offset * 3;
-    const range = sheet.getRange(1, col, rows.length, 2);
-    range.setValues(rows);
-    return range;
-  };
-  // The bordered backgroundColor gives every chart its own clean "panel" card look.
-  const pieChart = (range, title, colors, anchorCol, xOffset, anchorRow) =>
-    sheet.newChart().setChartType(Charts.ChartType.PIE)
-      .addRange(range)
-      .setPosition(anchorRow, anchorCol, xOffset, 0)
-      .setOption("title", title).setOption("titleTextStyle", { fontSize: 11, bold: true })
-      .setOption("pieHole", 0.4).setOption("colors", colors)
-      .setOption("legend", { position: "bottom", textStyle: { fontSize: 9 } })
-      .setOption("backgroundColor", { fill: "#FFFFFF", stroke: COLORS.pink, strokeWidth: 1 })
-      .setOption("width", 270).setOption("height", 210)
-      .build();
+  sheet.getRange("A11").setValue("Open a booking").setFontFamily("Cormorant Garamond").setFontSize(18).setFontWeight("bold").setFontColor(COLORS.ink);
+  sheet.setRowHeight(11, 34);
+  sheet.getRange("A12").setValue("Pick a client ▸").setFontSize(10).setFontWeight("bold").setFontColor(COLORS.muted).setVerticalAlignment("middle");
+  sheet.setRowHeight(12, 34);
 
-  let maxDataCol = CHART_DATA_COL - 1;
-
-  // Revenue by week + deposits donut — only drawn while revenue is "Show" (same privacy rule as above)
-  if(revenueMode === "Show"){
-    const revRange = chartBlock(0, [["Week", "Revenue"]].concat(weeks.map(w => [w.label, w.sum])));
-    maxDataCol = Math.max(maxDataCol, CHART_DATA_COL + 1);
-    const revChart = sheet.newChart().setChartType(Charts.ChartType.COLUMN)
-      .addRange(revRange)
-      .setPosition(11, 1, 0, 0)
-      .setOption("title", "Revenue by week").setOption("titleTextStyle", { fontSize: 11, bold: true })
-      .setOption("legend", "none").setOption("colors", [COLORS.pink])
-      .setOption("hAxis", { textStyle: { fontSize: 8 }, slantedText: true, slantedTextAngle: 30 })
-      .setOption("backgroundColor", { fill: "#FFFFFF", stroke: COLORS.pink, strokeWidth: 1 })
-      .setOption("width", 300).setOption("height", 210)
-      .build();
-    sheet.insertChart(revChart);
-
-    const collectedAmt = approved.filter(isPaid).length * settings.depositAmount;
-    const awaitingAmt = awaiting.length * settings.depositAmount;
-    if(collectedAmt + awaitingAmt > 0){
-      const depRange = chartBlock(1, [["Status", "Amount"], ["Collected", collectedAmt], ["Awaiting", awaitingAmt]]);
-      maxDataCol = Math.max(maxDataCol, CHART_DATA_COL + 4);
-      sheet.insertChart(pieChart(depRange, "Deposits: collected vs. awaiting", [COLORS.pink, COLORS.grey], 1, 320, 11));
-    }
+  if(n === 0){
+    sheet.getRange("B12:I12").merge().setValue("No bookings yet — they'll show up here as soon as one comes in.")
+         .setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle");
   }else{
-    sheet.getRange(11, 1, 9, 5).merge().setValue("Revenue & deposit charts hidden — pick \"Show\" above to see them.")
-         .setFontSize(9).setFontColor(COLORS.muted).setWrap(true).setVerticalAlignment("middle").setHorizontalAlignment("center")
-         .setBackground("#FFFFFF").setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
-  }
+    const lookHeaders = ["label", "name", "phone", "ig", "email", "service", "when", "deals", "kit", "notes", "status", "total", "deposit", "grand", "booked", "banner"];
+    const lookRows = lookList.map(b => [
+      "#" + b.row + " · " + (b.name || "?") + " · " + (asDate(b.date) || "no date") + " · " + b.status,
+      b.name || "—", fmtPhone(b.phone) || "—", b.ig || "—", b.email || "—", b.serviceLabel || "—", whenOf(b),
+      b.dealsUsed || "None", kitLabel(b), b.notes || "—", b.status || "—", money(b), depositText(b, dep), grandTotalOf(b, dep),
+      asText(b.submittedAt) || "—", bannerFor(b, dep)
+    ]);
+    const textCols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15];      // everything except the two money columns
+    textCols.forEach(off => sheet.getRange(2, LOOK_COL + off, n, 1).setNumberFormat("@"));
+    sheet.getRange(1, LOOK_COL, 1, lookHeaders.length).setValues([lookHeaders]);
+    sheet.getRange(2, LOOK_COL, n, lookHeaders.length).setValues(lookRows);
 
-  // Service popularity — which services actually get booked (active bookings only)
-  const serviceCounts = {};
-  all.filter(isActive).forEach(b => {
-    const label = isBundle(b) ? "Bundle" : String(b.serviceLabel || "Other").split(" — ")[0].trim() || "Other";
-    serviceCounts[label] = (serviceCounts[label] || 0) + 1;
-  });
-  const serviceRows = Object.keys(serviceCounts).map(k => [k, serviceCounts[k]]);
-  if(serviceRows.length){
-    const svcRange = chartBlock(2, [["Service", "Count"]].concat(serviceRows));
-    maxDataCol = Math.max(maxDataCol, CHART_DATA_COL + 7);
-    sheet.insertChart(pieChart(svcRange, "Service popularity", [COLORS.pink, COLORS.gold, COLORS.green, COLORS.grey, COLORS.blush], 1, 0, 22));
-  }
+    // Keep the booking that was open before this refresh (matched by its #row, since the label includes status).
+    const prevRow = (prevPick.match(/^#(\d+)/) || [])[1];
+    const kept = prevRow ? lookRows.map(r => r[0]).filter(l => l.indexOf("#" + prevRow + " ·") === 0)[0] : "";
+    const labelRange = sheet.getRange(2, LOOK_COL, n, 1);
+    sheet.getRange("B12:E12").merge().setValue(kept || lookRows[0][0])
+         .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInRange(labelRange, true).setAllowInvalid(true).build())
+         .setBackground(COLORS.blush).setFontColor(COLORS.pink).setFontWeight("bold").setFontSize(11)
+         .setVerticalAlignment("middle").setHorizontalAlignment("left")
+         .setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange("F12:I12").merge().setValue("Newest booking first · the # matches the row number in the Bookings tab · includes denied & rescheduled ones")
+         .setFontSize(9).setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle").setWrap(true);
 
-  // Client breakdown — same categories as the Clients tab
-  const clientTypeCounts = { "Awaiting first visit": 0, "New client": 0, "Returning": 0, "Regular": 0 };
-  clients.forEach(c => { if(clientTypeCounts[c.type] !== undefined) clientTypeCounts[c.type]++; });
-  const clientRows = Object.keys(clientTypeCounts).filter(k => clientTypeCounts[k] > 0).map(k => [k, clientTypeCounts[k]]);
-  if(clientRows.length){
-    const cliRange = chartBlock(3, [["Type", "Count"]].concat(clientRows));
-    maxDataCol = Math.max(maxDataCol, CHART_DATA_COL + 10);
-    sheet.insertChart(pieChart(cliRange, "Client breakdown", [COLORS.grey, COLORS.blush, COLORS.green, COLORS.gold], 1, 320, 22));
-  }
+    const colRef = off => "$" + L(off) + "$2:$" + L(off) + "$" + (n + 1);
+    sheet.getRange(1, LOOK_COL + 18).setFormula("=IFERROR(MATCH($B$12," + colRef(0) + ",0),0)");
+    sheet.getRange(1, LOOK_COL + 19).setFormula("=IF(" + MATCH_CELL + "=0,\"\",INDEX(" + colRef(10) + "," + MATCH_CELL + "))");
+    const pull = off => "=IF(" + MATCH_CELL + "=0,\"—\",INDEX(" + colRef(off) + "," + MATCH_CELL + "))";
 
-  // Kit usage — across active (pending/approved) bookings
-  const kitCounts = { "Mini": 0, "Luxury": 0, "None": 0 };
-  all.filter(isActive).forEach(b => { const t = kitTier(b); kitCounts[t === "—" ? "None" : t]++; });
-  const kitRows = Object.keys(kitCounts).filter(k => kitCounts[k] > 0).map(k => [k, kitCounts[k]]);
-  if(kitRows.length){
-    const kitRange = chartBlock(4, [["Kit", "Count"]].concat(kitRows));
-    maxDataCol = Math.max(maxDataCol, CHART_DATA_COL + 13);
-    sheet.insertChart(pieChart(kitRange, "Kit usage", [COLORS.grey, COLORS.blush, COLORS.gold], 1, 640, 22));
-  }
+    // status banner (row 13) — the first thing you see for a denied / rescheduled booking
+    sheet.getRange("A13:" + LAST + "13").merge()
+         .setFormula("=IF(" + MATCH_CELL + "=0,\"Pick a booking above to see everything about it.\",INDEX(" + colRef(15) + "," + MATCH_CELL + "))")
+         .setBackground(COLORS.cream).setFontColor(COLORS.ink).setFontWeight("bold").setFontSize(11)
+         .setVerticalAlignment("middle").setHorizontalAlignment("left").setWrap(true);
+    sheet.setRowHeight(13, 38);
 
-  if(maxDataCol >= CHART_DATA_COL) sheet.hideColumns(CHART_DATA_COL, maxDataCol - CHART_DATA_COL + 1);
+    // details card (rows 14–18): who / what / money
+    const fieldRows = [
+      [["Client", 1], ["Hairstyle", 5], ["Total (deals already applied)", 11]],
+      [["Phone", 2], ["Date & time", 6], ["Deposit", 12]],
+      [["Instagram", 3], ["Deals applied", 7], ["GRAND TOTAL — still due", 13]],
+      [["Email", 4], ["Care kit", 8], ["Status", 10]],
+      [["Booked on", 14], ["Notes", 9], ["", -1]]
+    ];
+    const blocks = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];          // [label column, value from, value to]
+    fieldRows.forEach((fr, i) => {
+      const r = 14 + i;
+      fr.forEach((f, k) => {
+        const [lc, v1, v2] = blocks[k];
+        const labelCell = sheet.getRange(r, lc).setValue(f[0]).setFontSize(9).setFontWeight("bold").setFontColor(COLORS.muted)
+          .setVerticalAlignment("middle").setBackground("#FFFFFF");
+        if(f[1] < 0){ sheet.getRange(r, v1, 1, v2 - v1 + 1).merge().setBackground("#FFFFFF"); return; }
+        const val = sheet.getRange(r, v1, 1, v2 - v1 + 1).merge().setFormula(pull(f[1]))
+          .setFontSize(11).setFontColor(COLORS.ink).setVerticalAlignment("middle").setHorizontalAlignment("left").setWrap(true).setBackground("#FFFFFF");
+        if(f[1] === 1) val.setFontWeight("bold");
+        if(f[1] === 11) val.setNumberFormat("$#,##0").setFontWeight("bold");
+        if(f[1] === 13){
+          labelCell.setFontColor(COLORS.pink);
+          val.setNumberFormat("$#,##0").setFontFamily("Cormorant Garamond").setFontSize(24).setFontWeight("bold").setFontColor(COLORS.pink);
+        }
+      });
+      sheet.setRowHeight(r, i === 2 ? 40 : 26);
+    });
+    sheet.setRowHeight(18, 44);
+    sheet.getRange("H18:I18").setValue("Grand total = booking total (deals already applied) − deposit paid. Collect it at the appointment.")
+         .setFontSize(8).setFontColor(COLORS.muted).setFontStyle("italic").setWrap(true).setVerticalAlignment("middle");
+    sheet.getRange("A14:" + LAST + "18").setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
+
+    // color the banner + the Status field by the opened booking's status
+    const bannerRange = sheet.getRange("A13:" + LAST + "13"), statusField = sheet.getRange("H17:I17");
+    const pickRules = Object.keys(STATUS_STYLE).map(s => SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied("=" + STATUS_CELL + "=\"" + s + "\"")
+      .setBackground(STATUS_STYLE[s][0]).setFontColor(STATUS_STYLE[s][1]).setBold(true)
+      .setRanges([bannerRange, statusField]).build());
+    sheet.setConditionalFormatRules(pickRules);
+  }
+  sheet.setRowHeight(19, 14);
 
   // ---------- tables ----------
-  let row = 34;                                          // leaves clearance below the chart gallery above
+  let row = 20;
+
+  // Newest bookings first, so the most recent client is always at the top.
+  const latest = newest.slice(0, 15);
+  const latestRows = latest.map(b => [
+    b.status, b.name, fmtPhone(b.phone), b.serviceLabel, whenOf(b), b.dealsUsed || "—",
+    isPaid(b) ? (isRefunded(b) ? "Refunded" : "Paid ✓") : "Not paid", money(b),
+    "Booked " + (asText(b.submittedAt) || "—") + (hasWarning(b) ? "   ·   ⚠ " + [b.dealAlert, b.checks].filter(Boolean).join(" · ") : "")
+  ]);
+  row = writeTable(sheet, row, "Latest bookings" + (all.length > latest.length ? "  (newest 15 of " + all.length + " — use the picker above for the rest)" : ""),
+    ["Status", "Client", "Phone", "Hairstyle / service", "Date & time", "Deals applied", "Deposit", "Total", "Booked"], latestRows,
+    "No bookings yet.",
+    { boldCol: 2, moneyCol: 8, hl: (r, i) => {
+        const st = STATUS_STYLE[latest[i].status];
+        const out = st ? [[1, st[0], st[1]]] : [];
+        if(r[6] === "Paid ✓") out.push([7, COLORS.green, "#2F5C2B"]);
+        return out;
+    } });
 
   const pendingList = pending.slice().sort((a, c) => {
     const ta = parseSubmitted(a.submittedAt), tc = parseSubmitted(c.submittedAt);
@@ -1168,9 +1303,9 @@ function writeDashboardSheet(all, clients){
   const pendingRows = pendingList.map(b => [
     waitInfo(b, settings.responseHours).text, b.name, fmtPhone(b.phone), b.serviceLabel, b.dealsUsed || "—",
     [b.dealAlert, b.checks].filter(Boolean).join(" · ") || "—",
-    (asDate(b.date) + " " + asTime(b.time)).trim() || "—", money(b), messageFor(b, settings.depositAmount)
+    whenOf(b), money(b), messageFor(b, settings.depositAmount)
   ]);
-  row = writeTable(sheet, row, "Needs your attention",
+  row = writeTable(sheet, row, "Needs your reply",
     ["Waiting", "Client", "Phone", "Service", "Deals", "Alerts", "Preferred date", "Total", "Text to send (approval)"], pendingRows,
     "You're all caught up — no pending requests.",
     { boldCol: 2, moneyCol: 8, hl: (r, i) => {
@@ -1180,7 +1315,6 @@ function writeDashboardSheet(all, clients){
         return out;
     } });
 
-  const kitLabel = b => kitTier(b) === "—" ? "—" : kitTier(b) + (isComp(b) ? " (comp)" : "");
   const scheduleRow = b => [
     asDate(b.date) || "—", b.name, fmtPhone(b.phone), b.serviceLabel, kitLabel(b), isPaid(b) ? "Paid ✓" : "Not paid",
     asTime(b.time) || "—", money(b), messageFor(b, settings.depositAmount)
@@ -1195,22 +1329,25 @@ function writeDashboardSheet(all, clients){
 
   row = writeTable(sheet, row, "Next 7 days", schedHeaders, upcoming.map(b => scheduleRow(b)),
     "No approved appointments in the next 7 days.", scheduleOpts);
-  row = writeTable(sheet, row, "Awaiting deposit", schedHeaders, awaiting.map(b => scheduleRow(b)),
-    "Every approved appointment has its deposit marked paid.", scheduleOpts);
 
-  const refundRows = toRefund.map(b => [b.name, fmtPhone(b.phone), asDate(b.date) || "—", "$" + settings.depositAmount, "Tick \"Deposit refunded\" in Bookings once it's sent back"]);
-  row = writeTable(sheet, row, "Deposits to refund",
-    ["Client", "Phone", "Booking date", "Deposit owed", "Next step"], refundRows,
-    "No refunds owed — you're all caught up.", { boldCol: 1 });
+  // The tables below only appear when there's something in them, so the page stays short.
+  if(awaiting.length) row = writeTable(sheet, row, "Awaiting deposit", schedHeaders, awaiting.map(b => scheduleRow(b)), "", scheduleOpts);
 
-  const bundleRows = bundles.map(b => {
-    const type = (String(b.serviceLabel).match(/bundle purchase only\s*[—-]\s*(virgin|raw)/i) || [])[1];
-    return [asDate(b.date) || "—", b.name, fmtPhone(b.phone), String(b.serviceLabel).replace(/^bundle purchase only\s*[—-]\s*/i, ""),
-            kitLabel(b), b.status, type ? type.charAt(0).toUpperCase() + type.slice(1) : "—", money(b), messageFor(b, settings.depositAmount)];
-  });
-  row = writeTable(sheet, row, "Bundle orders (pickup)",
-    ["Pickup date", "Client", "Phone", "Order", "Care kit", "Status", "Hair type", "Total", "Text to send"], bundleRows,
-    "No open bundle orders.", { boldCol: 2, moneyCol: 8, hl: r => r[4].indexOf("Luxury") === 0 ? [[5, COLORS.gold, "#7A5C14"]] : [] });
+  if(toRefund.length){
+    const refundRows = toRefund.map(b => [b.name, fmtPhone(b.phone), asDate(b.date) || "—", "$" + settings.depositAmount, "Tick \"Deposit refunded\" in Bookings once it's sent back"]);
+    row = writeTable(sheet, row, "Deposits to refund", ["Client", "Phone", "Booking date", "Deposit owed", "Next step"], refundRows, "", { boldCol: 1 });
+  }
+
+  if(bundles.length){
+    const bundleRows = bundles.map(b => {
+      const type = (String(b.serviceLabel).match(/bundle purchase only\s*[—-]\s*(virgin|raw)/i) || [])[1];
+      return [asDate(b.date) || "—", b.name, fmtPhone(b.phone), String(b.serviceLabel).replace(/^bundle purchase only\s*[—-]\s*/i, ""),
+              kitLabel(b), b.status, type ? type.charAt(0).toUpperCase() + type.slice(1) : "—", money(b), messageFor(b, settings.depositAmount)];
+    });
+    row = writeTable(sheet, row, "Bundle orders (pickup)",
+      ["Pickup date", "Client", "Phone", "Order", "Care kit", "Status", "Hair type", "Total", "Text to send"], bundleRows, "",
+      { boldCol: 2, moneyCol: 8, hl: r => r[4].indexOf("Luxury") === 0 ? [[5, COLORS.gold, "#7A5C14"]] : [] });
+  }
 
   // deals at a glance
   const counts = dealSummary(all);
@@ -1234,7 +1371,141 @@ function writeDashboardSheet(all, clients){
          .setFormula('=IF($B$8="Show",SPARKLINE(' + w.sum + ',{"charttype","bar";"max",' + maxWeek + ';"color1","' + COLORS.pink + '"}),"")');
     sheet.getRange(r, 1, 1, 4).setBackground(i % 2 ? COLORS.cream : "#FFFFFF").setFontSize(10).setVerticalAlignment("middle");
   });
+  row = row + 2 + weeks.length + 2;
+
+  // ---------- charts: one row of panels at the very bottom ----------
+  sheet.getRange(row, 1).setValue("At a Glance").setFontFamily("Cormorant Garamond").setFontSize(18).setFontWeight("bold").setFontColor(COLORS.ink);
+  if(revenueMode !== "Show")
+    sheet.getRange(row, 2, 1, 5).merge().setValue("Revenue & deposit charts appear here when Revenue (top of page) is set to Show.")
+         .setFontSize(9).setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle");
+  sheet.setRowHeight(row, 34);
+  const chartRow = row + 1;
+  let chartX = 0;
+  const nextX = width => { const x = chartX; chartX += width + 12; return x; };
+
+  const CHART_DATA_COL = 20;                             // column T onward — hidden helper cells, clear of A–I
+  const chartBlock = (offset, rows) => {
+    const range = sheet.getRange(1, CHART_DATA_COL + offset * 3, rows.length, 2);
+    range.setValues(rows);
+    return range;
+  };
+  // The bordered backgroundColor gives every chart its own clean "panel" card look.
+  const pieChart = (range, title, colors) =>
+    sheet.newChart().setChartType(Charts.ChartType.PIE)
+      .addRange(range)
+      .setPosition(chartRow, 1, nextX(270), 0)
+      .setOption("title", title).setOption("titleTextStyle", { fontSize: 11, bold: true })
+      .setOption("pieHole", 0.4).setOption("colors", colors)
+      .setOption("legend", { position: "bottom", textStyle: { fontSize: 9 } })
+      .setOption("backgroundColor", { fill: "#FFFFFF", stroke: COLORS.pink, strokeWidth: 1 })
+      .setOption("width", 270).setOption("height", 210)
+      .build();
+
+  if(revenueMode === "Show"){
+    const revRange = chartBlock(0, [["Week", "Revenue"]].concat(weeks.map(w => [w.label, w.sum])));
+    sheet.insertChart(sheet.newChart().setChartType(Charts.ChartType.COLUMN)
+      .addRange(revRange)
+      .setPosition(chartRow, 1, nextX(300), 0)
+      .setOption("title", "Revenue by week").setOption("titleTextStyle", { fontSize: 11, bold: true })
+      .setOption("legend", "none").setOption("colors", [COLORS.pink])
+      .setOption("hAxis", { textStyle: { fontSize: 8 }, slantedText: true, slantedTextAngle: 30 })
+      .setOption("backgroundColor", { fill: "#FFFFFF", stroke: COLORS.pink, strokeWidth: 1 })
+      .setOption("width", 300).setOption("height", 210)
+      .build());
+
+    const collectedAmt = approved.filter(isPaid).length * settings.depositAmount;
+    const awaitingAmt = awaiting.length * settings.depositAmount;
+    if(collectedAmt + awaitingAmt > 0){
+      const depRange = chartBlock(1, [["Status", "Amount"], ["Collected", collectedAmt], ["Awaiting", awaitingAmt]]);
+      sheet.insertChart(pieChart(depRange, "Deposits: collected vs. awaiting", [COLORS.pink, COLORS.grey]));
+    }
+  }
+
+  // Service popularity — which services actually get booked (active bookings only)
+  const serviceCounts = {};
+  all.filter(isActive).forEach(b => {
+    const label = isBundle(b) ? "Bundle" : String(b.serviceLabel || "Other").split(" — ")[0].trim() || "Other";
+    serviceCounts[label] = (serviceCounts[label] || 0) + 1;
+  });
+  const serviceRows = Object.keys(serviceCounts).map(k => [k, serviceCounts[k]]);
+  if(serviceRows.length)
+    sheet.insertChart(pieChart(chartBlock(2, [["Service", "Count"]].concat(serviceRows)), "Service popularity",
+      [COLORS.pink, COLORS.gold, COLORS.green, COLORS.grey, COLORS.blush]));
+
+  // Client breakdown — same categories as the Clients tab
+  const clientTypeCounts = { "Awaiting first visit": 0, "New client": 0, "Returning": 0, "Regular": 0 };
+  clients.forEach(c => { if(clientTypeCounts[c.type] !== undefined) clientTypeCounts[c.type]++; });
+  const clientRows = Object.keys(clientTypeCounts).filter(k => clientTypeCounts[k] > 0).map(k => [k, clientTypeCounts[k]]);
+  if(clientRows.length)
+    sheet.insertChart(pieChart(chartBlock(3, [["Type", "Count"]].concat(clientRows)), "Client breakdown",
+      [COLORS.grey, COLORS.blush, COLORS.green, COLORS.gold]));
+
+  // Kit usage — across active (pending/approved) bookings
+  const kitCounts = { "Mini": 0, "Luxury": 0, "None": 0 };
+  all.filter(isActive).forEach(b => { const t = kitTier(b); kitCounts[t === "—" ? "None" : t]++; });
+  const kitRows = Object.keys(kitCounts).filter(k => kitCounts[k] > 0).map(k => [k, kitCounts[k]]);
+  if(kitRows.length)
+    sheet.insertChart(pieChart(chartBlock(4, [["Kit", "Count"]].concat(kitRows)), "Kit usage", [COLORS.grey, COLORS.blush, COLORS.gold]));
+
+  sheet.hideColumns(CHART_DATA_COL, LOOK_COL + 24 - CHART_DATA_COL);   // chart helper cells + the booking lookup table
   sheet.setTabColor(COLORS.pink);
+}
+
+// "Denied & Rescheduled": every booking that didn't go ahead as booked, newest first, with what
+// (if anything) still has to happen to the deposit. Their days are open again on the website.
+function writeMovedSheet(all){
+  const sheet = getOrCreateSheet("Denied & Rescheduled");
+  const dep = getSettings().depositAmount;
+  const f = sheet.getFilter(); if(f) f.remove();
+  sheet.setFrozenRows(0); sheet.setFrozenColumns(0);
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  sheet.clear();
+  sheet.setHiddenGridlines(true);
+
+  const headers = ["Status", "Client", "Phone", "Hairstyle / service", "Original date & time", "Deposit", "Total", "What to do", "Notes"];
+  const W = headers.length, HEAD = 3;
+
+  sheet.getRange(1, 1, 1, W).merge().setValue("Denied & Rescheduled").setBackground(COLORS.ink).setFontColor(COLORS.cream)
+       .setFontFamily("Cormorant Garamond").setFontSize(24).setFontWeight("bold").setVerticalAlignment("middle");
+  sheet.getRange(2, 1, 1, W).merge()
+       .setValue("Bookings marked denied, rescheduled or cancelled. Their date is open again on the website. Pick one in the Dashboard's \"Open a booking\" box to see everything about it.")
+       .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setWrap(true).setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 46); sheet.setRowHeight(2, 34);
+
+  sheet.getRange(HEAD, 1, 1, W).setValues([headers]);
+  styleHeaderRow(sheet.getRange(HEAD, 1, 1, W));
+  sheet.setRowHeight(HEAD, 32);
+  sheet.setFrozenRows(HEAD);
+
+  const rows = all.filter(isMoved).sort((a, c) => c.row - a.row);
+  if(rows.length){
+    const n = rows.length, first = HEAD + 1;
+    sheet.getRange(first, 1, n, W).setNumberFormat("@");
+    sheet.getRange(first, 7, n, 1).setNumberFormat("$#,##0");
+    sheet.getRange(first, 1, n, W).setValues(rows.map(b => {
+      let todo;
+      if(b.status === "rescheduled") todo = isPaid(b) ? "Book their new date — the $" + dep + " deposit carries over" : "Waiting for their new date";
+      else if(isRefunded(b)) todo = "Done — deposit refunded ✓";
+      else if(isPaid(b)) todo = "Send back $" + dep + ", then tick \"Deposit refunded\" in Bookings";
+      else todo = "Nothing owed — no deposit was taken";
+      return [b.status, b.name, fmtPhone(b.phone), b.serviceLabel, whenOf(b), depositText(b, dep), money(b), todo, b.notes || "—"];
+    }));
+    sheet.getRange(first, 1, n, W).setFontSize(10).setVerticalAlignment("middle").setWrap(true)
+         .setBackgrounds(rows.map((b, i) => new Array(W).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
+    sheet.getRange(first, 2, n, 1).setFontWeight("bold");
+    sheet.getRange(first, 7, n, 1).setHorizontalAlignment("right");
+    rows.forEach((b, i) => {
+      const st = STATUS_STYLE[b.status];
+      sheet.getRange(first + i, 1).setBackground(st[0]).setFontColor(st[1]).setFontWeight("bold");
+      if(isPaid(b) && !isRefunded(b) && b.status !== "rescheduled")
+        sheet.getRange(first + i, 8).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setFontWeight("bold");
+    });
+    sheet.getRange(HEAD, 1, n + 1, W).createFilter();
+  }else{
+    sheet.getRange(HEAD + 1, 1).setValue("Nothing denied or rescheduled — every booking is going ahead.").setFontColor(COLORS.muted).setFontStyle("italic");
+  }
+  [110, 150, 115, 210, 170, 200, 70, 290, 220].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.setTabColor("#2C4560");
 }
 
 
@@ -1249,8 +1520,10 @@ function formatSheet(){
   formatBookingsSheet();                      // 4. compact, modern look
   cleanLegacyValues();                        // 5. readable phones, dates, times
   refreshViews();                             // 6. Dashboard + Clients
+  let emailNote = "";
+  try{ ensureEditTrigger(); }catch(err){ emailNote = " (Approval emails from the Status dropdown could NOT be turned on: " + err.message + ")"; }   // 7. lets the dropdown send email
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ["Dashboard", "Clients", "Kits", "Bookings"].forEach((name, i) => {
+  ["Dashboard", "Clients", "Kits", "Denied & Rescheduled", "Bookings"].forEach((name, i) => {
     const s = ss.getSheetByName(name);
     if(s){ ss.setActiveSheet(s); ss.moveActiveSheet(i + 1); }
   });
@@ -1258,7 +1531,7 @@ function formatSheet(){
   const notes = [];
   if(repaired) notes.push("repaired " + repaired + " booking row(s)");
   if(compacted) notes.push("moved " + compacted + " row(s) back up from further down the sheet");
-  ss.toast(notes.length ? "Done — " + notes.join(" and ") + " too." : "Done — everything is tidy.", "Ehiffect", 8);
+  ss.toast((notes.length ? "Done — " + notes.join(" and ") + " too." : "Done — everything is tidy.") + emailNote, "Ehiffect", 8);
 }
 
 // Before the script found columns by header name, it wrote every booking to fixed positions.
@@ -1348,7 +1621,7 @@ function formatBookingsSheet(){
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
 
   // technical columns stay out of sight (their info lives on the Clients tab)
-  ["id", "visitCount", "loyaltyFlag", "dealKeys"].forEach(f => sheet.hideColumns(c[f] + 1));
+  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed"].forEach(f => sheet.hideColumns(c[f] + 1));
 
   // Partner details fold into a group you can open with the small [+] above the headers.
   if(c.partnerContact - c.bookingType === 2){
@@ -1393,6 +1666,7 @@ function formatBookingsSheet(){
     { text: "denied",    bg: "#E9C9C9", fg: "#7A2F2F" },
     { text: "no-show",   bg: "#D6C9F0", fg: "#4A3670" },
     { text: "pending",   bg: "#F5E3B3", fg: "#7A5C14" },
+    { text: "rescheduled", bg: "#D3E3F4", fg: "#2F4C6E" },
     { text: "cancelled", bg: COLORS.grey, fg: COLORS.muted }
   ].map(r => SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(r.text)
       .setBackground(r.bg).setFontColor(r.fg).setBold(true).setRanges([statusRange]).build());

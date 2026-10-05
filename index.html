@@ -230,6 +230,8 @@
   .status-approved{ background:#2f5c2b; color:#c9e3c6; }
   .status-denied{ background:#5c2f2f; color:#e9c9c9; }
   .status-no-show{ background:#3d2f5c; color:#d6c9f0; }
+  .status-rescheduled{ background:#2c4560; color:#d3e3f4; }
+  .status-cancelled{ background:#4a4244; color:#d9d0d2; }
   .repeat-flag{ display:inline-block; background:#7a2f2f; color:#fff; font-size:10px; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
   .returning-flag{ display:inline-block; background:#2f4a5c; color:#c9e0e9; font-size:10px; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
   .booking-detail{ font-size:13.5px; margin-top:10px; line-height:1.7; color:var(--cream); }
@@ -511,9 +513,9 @@ function isTimeAllowed(dateStr, timeStr){
 const BLOCKED_DATES = [
   { start: "2026-10-09", end: "2026-10-12" }, // Fri Oct 9 – Mon Oct 12 — not taking appointments
 ];
-// Whole days that already have an approved appointment, fetched from the sheet so a day
-// closes itself off the moment you approve someone — no manual "block this date" needed for it.
-// Denying/cancelling frees the day back up automatically (it just stops showing up here).
+// Whole days that already have a booking (pending or approved), fetched from the sheet so a day
+// closes itself off the moment someone books it — no manual "block this date" needed for it.
+// Denying, cancelling, or rescheduling frees the day back up automatically (it just stops showing up here).
 let takenDates = new Set();
 async function refreshTakenDates(){
   try{
@@ -552,6 +554,11 @@ function formatTimeLabel(t){
 }
 
 /* ============== helpers ============== */
+// Drive share links open a web page; this turns one into a direct thumbnail image for the admin cards.
+function photoThumb(u){
+  const m = String(u).match(/\/d\/([\w-]+)/) || String(u).match(/[?&]id=([\w-]+)/);
+  return m ? "https://drive.google.com/thumbnail?id=" + m[1] + "&sz=w400" : u;
+}
 function money(n){ return (n===null || n===undefined) ? "Quote pending" : "$" + n.toFixed(0); }
 function displayTotal(t){
   if(t===null || t===undefined || t==='') return "Quote pending";
@@ -587,23 +594,50 @@ function submitViaGet(action, payloadObj){
   });
 }
 
+// Photos are far too big to ride along in the booking request itself (it travels in a URL, which
+// has a hard length limit). So each photo is uploaded first as a series of small pieces that the
+// server stitches back together, and the booking just references them.
+async function uploadPhotos(photos){
+  const CHUNK = 2400;
+  const refs = [];
+  for(const p of photos){
+    const id = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const chunks = [];
+    for(let i = 0; i < p.length; i += CHUNK) chunks.push(p.slice(i, i + CHUNK));
+    let next = 0, failed = false;
+    const worker = async () => {
+      while(!failed){
+        const i = next++;
+        if(i >= chunks.length) return;
+        let ok = false;
+        for(let t = 0; t < 3 && !ok; t++){
+          try{
+            const res = await fetch(`${CONFIG.apiUrl}?action=photoChunk&id=${id}&i=${i}&data=${encodeURIComponent(chunks[i])}`);
+            ok = !!(await res.json()).ok;
+          }catch(err){}
+        }
+        if(!ok) failed = true;
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker(), worker()]);
+    if(failed) throw new Error("photo upload failed");
+    refs.push({ id: id, n: chunks.length });
+  }
+  return refs;
+}
+
 async function saveBooking(data){
   const full = Object.assign({}, data);
-  try{
-    await submitViaGet('create', full);
-  }catch(err){
-    // most likely the reference photos pushed the URL over a safe length —
-    // retry without them so the booking itself still goes through
-    if(full.photos && full.photos.length){
-      const withoutPhotos = Object.assign({}, full, {
-        photos: [],
-        notes: (full.notes ? full.notes + ' ' : '') + '(client attached reference photos that were too large to send automatically — ask them to DM the photos on IG)'
-      });
-      await submitViaGet('create', withoutPhotos);
-    } else {
-      throw err;
+  if(full.photos && full.photos.length){
+    try{
+      full.photoIds = await uploadPhotos(full.photos);
+    }catch(err){
+      // the booking itself must still go through, so flag it for a manual follow-up
+      full.notes = (full.notes ? full.notes + " " : "") + "(client attached reference photos but the upload failed — ask them to DM the photos on IG)";
     }
+    full.photos = [];
   }
+  await submitViaGet("create", full);
   return true;
 }
 async function listBookings(){
@@ -625,19 +659,25 @@ async function checkFirstTimeClient(phone){
   }catch(err){ return null; }
 }
 
-function fileToCompressedDataURL(file, maxW=700, quality=0.65){
+// Shrinks a photo until it is comfortably small (about 150 KB) while staying sharp enough to see the style.
+function fileToCompressedDataURL(file, maxW=900, quality=0.72){
   return new Promise((resolve,reject)=>{
     const reader = new FileReader();
     reader.onload = e => {
       const img = new Image();
       img.onload = () => {
-        const scale = Math.min(1, maxW/img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width*scale);
-        canvas.height = Math.round(img.height*scale);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        let w = maxW, q = quality, out = "";
+        for(let tries = 0; tries < 6; tries++){
+          const scale = Math.min(1, w/img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width*scale);
+          canvas.height = Math.round(img.height*scale);
+          canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+          out = canvas.toDataURL("image/jpeg", q);
+          if(out.length <= 200000) break;
+          w = Math.round(w*0.8); q = Math.max(0.45, q - 0.06);
+        }
+        resolve(out);
       };
       img.onerror = reject;
       img.src = e.target.result;
@@ -1569,7 +1609,7 @@ function renderAdmin(){
     </div>
 
     <div class="cat-grid" style="grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:18px;">
-      ${['all','pending','approved','denied','no-show'].map(f=>`<div class="cat ${state.filter===f?'selected':''}" data-action="filter" data-key="${f}"><span class="cat-name" style="text-transform:capitalize;">${f} <span style="opacity:.65;">${byStatus(f).length}</span></span></div>`).join('')}
+      ${['all','pending','approved','denied','rescheduled','no-show'].map(f=>`<div class="cat ${state.filter===f?'selected':''}" data-action="filter" data-key="${f}"><span class="cat-name" style="text-transform:capitalize;">${f} <span style="opacity:.65;">${byStatus(f).length}</span></span></div>`).join('')}
     </div>
 
     ${filtered.length===0 ? `<div class="empty">${q ? 'No bookings match that search.' : 'No bookings here yet.'}</div>` : filtered.map(b=>{
@@ -1606,7 +1646,7 @@ function renderAdmin(){
           ${Number(b.visitCount) ? `<div><span class="k">Visit count:</span> ${b.visitCount}${b.loyaltyFlag==='TRUE'||b.loyaltyFlag===true ? ' — surprise loyalty gift time!' : ''}</div>` : ''}
           <div><span class="k">Submitted:</span> ${b.submittedAt || ''}</div>
         </div>
-        ${b.photos && b.photos.length ? `<div class="booking-photos">${b.photos.map(p=>`<img src="${p}" data-action="view-photo" data-src="${p}"/>`).join('')}</div>` : ''}
+        ${b.photos && b.photos.length ? `<div class="booking-photos">${b.photos.map(p=>`<img src="${photoThumb(p)}" data-action="view-photo" data-src="${p}"/>`).join('')}</div>` : ''}
 
         ${(b.status==='approved' && !b.isBundle) ? `
         <div class="addon-row" style="margin-top:10px;">
@@ -1617,6 +1657,7 @@ function renderAdmin(){
           <button class="approve ${b.status==='approved'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="approved">Approve</button>
           <button class="pending ${b.status==='pending'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="pending">Pending</button>
           <button class="deny ${b.status==='denied'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="denied">Deny</button>
+          <button class="pending ${b.status==='rescheduled'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="rescheduled">Rescheduled</button>
           <button class="deny ${b.status==='no-show'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="no-show">No-show</button>
         </div>
         ${b.text ? `<div class="booking-actions"><button data-action="copy-text" data-key="${b.key}">${state.copiedKey===b.key ? 'Copied ✓' : 'Copy ' + String(b.textLabel||'text').toLowerCase()}</button></div>` : ''}
@@ -1634,6 +1675,7 @@ function attachHandlers(){
       try{
 
       if(action==='landing-pick'){
+        refreshTakenDates();                 // pick up bookings made since this page was opened
         resetSelection();
         if(key === 'bundles'){ state.view = 'bundles'; state.category = 'bundles'; }
         else if(key === 'consult'){ state.view = 'book'; state.category = 'consult'; }
@@ -1772,6 +1814,7 @@ function attachHandlers(){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
         state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        refreshTakenDates();                 // the day that was just booked should close right away
       }
       else if(action==='admin-login'){
         const val = document.getElementById('admin-pass').value;
