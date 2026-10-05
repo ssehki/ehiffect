@@ -708,11 +708,11 @@ function aftercareIntroHTML(){
   const miniBadge = kitOutcome==='miniFree'
       ? `<span class="kit-badge">Complimentary</span>`
     : miniPickable
-      ? `<span class="kit-badge clickable two-line" data-action="pick-kit-addon" data-key="mini">${state.miniKitPurchase?'<b>✓ Added</b>':`<b>Add</b><small>$${MINI_KIT_PURCHASE_PRICE}</small>`}</span>`
+      ? `<span class="kit-badge clickable two-line" data-action="pick-kit-addon" data-key="mini">${state.miniKitPurchase?`<b>✓ Added</b><small>+ $${MINI_KIT_PURCHASE_PRICE}</small>`:`<b>+ $${MINI_KIT_PURCHASE_PRICE}</b>`}</span>`
       : `<span class="kit-badge">Complimentary</span>`;
   const luxuryBadge = kitOutcome==='luxuryIncluded'
       ? `<span class="kit-badge solid">Included</span>`
-      : `<span class="kit-badge clickable two-line" data-action="pick-kit-addon" data-key="luxury">${state.luxuryKit?'<b>✓ Upgraded</b>':`<b>Upgrade</b><small>$${LUXURY_KIT_PRICE}</small>`}</span>`;
+      : `<span class="kit-badge clickable two-line" data-action="pick-kit-addon" data-key="luxury">${state.luxuryKit?`<b>✓ Added</b><small>+ $${LUXURY_KIT_PRICE}</small>`:`<b>+ $${LUXURY_KIT_PRICE}</b>`}</span>`;
 
   return `
     <div class="aftercare-title">Your hair doesn't end at the appointment.</div>
