@@ -127,7 +127,7 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal"
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -634,7 +634,11 @@ function sendApprovalEmail(b){
       subject: "Your Ehiffect appointment is approved!",
       body: approvalEmailBody(b, getSettings().depositAmount)
     });
-    try{ const sh = getSheet(); setCell(sh, getColumns(sh).map, "approvalEmailed", b.row, true); }catch(markErr){}
+    try{
+      const sh = getSheet(), cm = getColumns(sh).map;
+      setCell(sh, cm, "approvalEmailed", b.row, true);
+      setCell(sh, cm, "lastEmail", b.row, "Approval (automatic) → " + b.email + " · " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy h:mm a"));
+    }catch(markErr){}
   }catch(err){
     // Never let an email hiccup block the status update — but tell you about it instead of
     // failing completely silently, so a bad address or quota issue doesn't go unnoticed.
@@ -963,11 +967,11 @@ function sendCardEmail(dash, row){
   if(!subject || !body.trim()){ note.setValue("⚠ Subject or message is empty."); return; }
   try{
     MailApp.sendEmail({ to: to, subject: subject, body: body });
-    if(String(dash.getRange(DASH.MAIL_TYPE).getValue()) === EMAIL_TYPES[0]){
-      const bookings = getSheet();
-      setCell(bookings, getColumns(bookings).map, "approvalEmailed", row, true);
-    }
-    note.setValue("✓ Sent to " + to + " at " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "h:mm a"));
+    const type = String(dash.getRange(DASH.MAIL_TYPE).getValue());
+    const bookings = getSheet(), colMap = getColumns(bookings).map;
+    if(type === EMAIL_TYPES[0]) setCell(bookings, colMap, "approvalEmailed", row, true);
+    setCell(bookings, colMap, "lastEmail", row, type + " → " + to + " · " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy h:mm a"));
+    refreshViews();                                              // the "Last email sent" line under the message now shows it
   }catch(err){
     note.setValue("⚠ Couldn't send: " + err.message);
   }
@@ -1476,12 +1480,12 @@ function writeDashboardSheet(all, clients){
          .setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle");
   }else{
     const lookHeaders = ["label", "name", "phone", "ig", "email", "service", "when", "deals", "kit", "notes", "status", "total", "deposit", "grand",
-                         "booked", "banner", "serviced", "kitProgress", "rowTag"];
+                         "booked", "banner", "serviced", "kitProgress", "rowTag", "lastEmail"];
     const lookRows = lookList.map(b => [
       "#" + b.row + " · " + (b.name || "?") + " · " + (asDate(b.date) || "no date") + " · " + b.status,
       b.name || "—", fmtPhone(b.phone) || "—", b.ig || "—", b.email || "—", b.serviceLabel || "—", whenOf(b),
       b.dealsUsed || "None", kitLabel(b), b.notes || "—", b.status || "—", money(b), depositText(b, dep), grandTotalOf(b, dep),
-      asText(b.submittedAt) || "—", bannerFor(b, dep), servicedText(b), kitProgress(b), "#" + b.row
+      asText(b.submittedAt) || "—", bannerFor(b, dep), servicedText(b), kitProgress(b), "#" + b.row, b.lastEmail ? String(b.lastEmail) : "No email sent from the sheet yet"
     ]);
     const moneyCols = [11, 13];                          // everything else is stored as plain text so Sheets can't reinterpret it
     for(let off = 0; off < lookHeaders.length; off++) if(moneyCols.indexOf(off) === -1) sheet.getRange(2, LOOK_COL + off, n, 1).setNumberFormat("@");
@@ -1607,8 +1611,12 @@ function writeDashboardSheet(all, clients){
          .setBorder(true, true, true, true, false, false, COLORS.pink, SpreadsheetApp.BorderStyle.SOLID);
     sheet.getRange(DASH.SEND_NOTE).setFontSize(9).setFontColor(COLORS.muted).setFontStyle("italic").setVerticalAlignment("middle").setWrap(true);
     sheet.setRowHeight(34, 30); sheet.setRowHeight(35, 190); sheet.setRowHeight(36, 30);
+    // permanent record of the last email sent for this booking (survives refreshes)
+    lab("A37", "Last email  ▸");
+    sheet.getRange("B37:I37").merge().setFormula(pull(19)).setFontSize(10).setFontWeight("bold").setFontColor(COLORS.ink).setVerticalAlignment("middle");
+    sheet.setRowHeight(37, 26);
   }
-  sheet.setRowHeight(37, 14);
+  if(n === 0) sheet.setRowHeight(37, 14);
 
   // ---------- KITS (rows 38–41): pick someone who ordered a kit; tick Packed / Shipped ----------
   const kitOrders = kitOrdersAll.slice().sort((a, c) => {
@@ -1973,7 +1981,7 @@ function formatBookingsSheet(){
   // compact widths
   const widths = {
     name: 125, phone: 110, ig: 100, email: 170, date: 85, time: 80, status: 95, depositPaid: 70, depositRefunded: 90,
-    serviceLabel: 200, total: 65, amountPaid: 85, grandTotal: 85, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, kitPacked: 85, shipped: 75, serviced: 75, servicedOn: 95, dealAlert: 200,
+    serviceLabel: 200, total: 65, amountPaid: 85, grandTotal: 85, lastEmail: 220, dealsUsed: 150, giftKit: 170, careKitCost: 150, kitComp: 85, kitPacked: 85, shipped: 75, serviced: 75, servicedOn: 95, dealAlert: 200,
     checks: 240, notes: 180, submittedAt: 135, photoUrls: 100, bookingType: 95, partnerName: 115, partnerContact: 125
   };
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
