@@ -221,7 +221,7 @@ function fmtPhone(p){
 
 // When a booking was made (its id is a timestamp), so "newest" stays right even after you re-sort the Bookings tab.
 function bookedAt(b){
-  const m = String(b.id).match(/^b_(d{10,})/);
+  const m = String(b.id).match(/^b_(\d{10,})/);
   if(m) return Number(m[1]);
   const t = parseSubmitted(b.submittedAt);
   return t ? t.getTime() : b.row;
@@ -768,7 +768,7 @@ function onOpen(){
   SpreadsheetApp.getUi().createMenu("Ehiffect")
     .addItem("Refresh dashboard & clients", "refreshViews")
     .addItem("Set up / restyle all sheets", "formatSheet")
-    .addItem("Sort Bookings newest first", "sortBookingsNewestFirst")
+    .addItem("Tidy Bookings (newest first, denied at bottom)", "sortBookingsNewestFirst")
     .addItem("Sync approved bookings to Google Calendar", "syncCalendarNow")
     .addItem("Turn on approval emails", "setupApprovalEmails")
     .addToUi();
@@ -1056,17 +1056,9 @@ function sendCardEmail(dash, row){
 // Menu item: puts the newest booking at the top of the Bookings tab (newest = largest id, which is
 // a timestamp). New bookings still land at the bottom, so run this again whenever you want it re-sorted.
 function sortBookingsNewestFirst(){
-  const sheet = getSheet();
-  const cols = getColumns(sheet);
-  const all = readBookings();
-  if(all.length < 2) return;
-  const last = Math.max.apply(null, all.map(b => b.row));
-  sheet.getRange(2, 1, last - 1, cols.width).sort({ column: cols.map.id + 1, ascending: false });
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const dash = ss.getSheetByName("Dashboard");
-  if(dash){ try{ dash.getRange(DASH.PICK).clearContent(); dash.getRange(DASH.KPICK).clearContent(); }catch(e){} }   // row numbers just changed
-  refreshViews();
-  ss.toast("Bookings sorted — newest at the top.", "Ehiffect", 6);
+  refreshViews();                                               // the tidy-up runs as part of every refresh
+  ss.toast("Bookings tidied — newest on top, denied / rescheduled / cancelled at the bottom.", "Ehiffect", 6);
 }
 
 // Makes sure the installable edit trigger exists (safe to run any time; never makes a duplicate).
@@ -1088,9 +1080,36 @@ function setupApprovalEmails(){
    7. DASHBOARD & CLIENTS TABS (rebuilt automatically)
    ================================================================ */
 
+// Keeps the Bookings tab tidy by itself: live bookings (pending / approved) on top, newest first; denied,
+// rescheduled, cancelled and no-show ones sink to the bottom (still there for refunds and history, just out of the way).
+// Only rewrites the sheet when the order is actually wrong, so ticking boxes etc. never moves anything.
+// Returns true if rows moved.
+function tidyBookingsOrder(all){
+  if(all.length < 2) return false;
+  const rows = all.map(b => b.row).sort((a, c) => a - c);
+  if(rows[rows.length - 1] - rows[0] !== rows.length - 1 || rows[0] !== 2) return false;   // gaps / odd layout: leave it alone
+  const settled = b => isMoved(b) || b.status === "no-show";
+  const desired = all.slice().sort((a, c) => (settled(a) ? 1 : 0) - (settled(c) ? 1 : 0) || byNewest(a, c));
+  if(desired.every((b, i) => b.row === rows[i])) return false;                              // already in order
+  const sheet = getSheet();
+  const width = getColumns(sheet).width;
+  const block = sheet.getRange(2, 1, rows.length, width);
+  const data = block.getValues();
+  block.setValues(desired.map(b => data[b.row - 2]));
+  SpreadsheetApp.flush();
+  return true;
+}
+
 function refreshViews(prefetched){
   try{
-    const all = prefetched || readBookings();
+    let all = prefetched || readBookings();
+    try{
+      if(tidyBookingsOrder(all)){                               // a booking moved (new one, or one was denied / rescheduled)
+        all = readBookings();                                   // row numbers changed, so read them again
+        const dash = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Dashboard");
+        if(dash){ try{ dash.getRange(DASH.PICK).clearContent(); dash.getRange(DASH.KPICK).clearContent(); }catch(e){} }   // the #row in those dropdowns now points elsewhere
+      }
+    }catch(err){ console.error("tidy failed: " + err); }
     syncChecks(all);
     syncCalendar();                                              // before the sheets are drawn so the Dashboard can show how it went
     const clients = buildClients(all);
