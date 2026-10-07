@@ -55,6 +55,10 @@ const PHOTO_FOLDER_NAME = "Ehiffect Booking Photos";  // Drive folder for refere
 // removed if it's denied / rescheduled / cancelled). Leave CALENDAR_ID blank to use the calendar of the
 // Google account that owns this sheet. To use your OTHER Google account instead, put its email here AND
 // share that account's calendar with this account ("Make changes to events") — steps are in the chat.
+// Denied / rescheduled / cancelled bookings are tucked away (hidden rows) in the Bookings tab and shown on the
+// "Denied & Rescheduled" tab instead. Set to false to keep them visible at the bottom of Bookings.
+const HIDE_MOVED_IN_BOOKINGS = true;
+
 const CALENDAR_SYNC = true;
 const CALENDAR_ID = "";
 const CALENDAR_HOURS = 3;                             // how long a styling appointment blocks on the calendar
@@ -768,7 +772,8 @@ function onOpen(){
   SpreadsheetApp.getUi().createMenu("Ehiffect")
     .addItem("Refresh dashboard & clients", "refreshViews")
     .addItem("Set up / restyle all sheets", "formatSheet")
-    .addItem("Tidy Bookings (newest first, denied at bottom)", "sortBookingsNewestFirst")
+    .addItem("Tidy Bookings (newest first, denied tucked away)", "sortBookingsNewestFirst")
+    .addItem("Peek at hidden denied / rescheduled rows in Bookings", "peekHiddenRows")
     .addItem("Sync approved bookings to Google Calendar", "syncCalendarNow")
     .addItem("Turn on approval emails", "setupApprovalEmails")
     .addToUi();
@@ -918,6 +923,7 @@ function handleSheetEdit(e){
       handleDashboardEdit(sheet, e.range.getA1Notation().split(":")[0]);   // merged cells report a range; use its first cell
       return;
     }
+    if(sheet.getName() === "Denied & Rescheduled"){ handleMovedEdit(sheet, e.range.getRow(), e.range.getColumn()); return; }
     if(sheet.getName() !== "Bookings" || e.range.getRow() < 2) return;
     const cols = getColumns(sheet).map;
     const col = e.range.getColumn();
@@ -930,7 +936,24 @@ function handleSheetEdit(e){
       if(approvedBooking) sendApprovalEmail(approvedBooking);
     }
     refreshViews();
+    if(HIDE_MOVED_IN_BOOKINGS && col === cols.status + 1 && ["denied", "rescheduled", "cancelled"].indexOf(String(e.value).trim()) !== -1)
+      SpreadsheetApp.getActiveSpreadsheet().toast("Moved to the Denied & Rescheduled tab.", "Ehiffect", 5);
   }catch(err){ console.error("handleSheetEdit failed: " + err); }
+}
+
+// Ticks on the Denied & Rescheduled tab: "Refund sent?" (col J) and "Bring back?" (col K).
+function handleMovedEdit(sheet, row, col){
+  if(row < 4 || (col !== 10 && col !== 11)) return;
+  const id = String(sheet.getRange(row, 12).getValue());
+  if(!id) return;
+  const b = readBookings().filter(x => x.id === id)[0];
+  if(!b) return;
+  const bookings = getSheet(), cm = getColumns(bookings).map;
+  const on = sheet.getRange(row, col).getValue() === true;
+  if(col === 10) setCell(bookings, cm, "depositRefunded", b.row, on);
+  else if(on) setCell(bookings, cm, "status", b.row, "pending");      // returns to the top of Bookings, waiting for your reply
+  refreshViews();
+  if(col === 11 && on) SpreadsheetApp.getActiveSpreadsheet().toast("Brought back to Bookings as pending.", "Ehiffect", 5);
 }
 
 // Writes the Serviced tick's date (stamped the first time it's ticked, cleared on untick).
@@ -1100,6 +1123,32 @@ function tidyBookingsOrder(all){
   return true;
 }
 
+// Hides the denied / rescheduled / cancelled rows in the Bookings tab (they're on the Denied & Rescheduled tab),
+// and shows everything else. Rows are hidden, not deleted, so refunds, history and the Dashboard keep working.
+function applyBookingsVisibility(all){
+  if(!all.length) return;
+  const sheet = getSheet();
+  const last = Math.max.apply(null, all.map(b => b.row));
+  if(last < 2) return;
+  sheet.showRows(2, last - 1);
+  if(!HIDE_MOVED_IN_BOOKINGS) return;
+  const rows = all.filter(isMoved).map(b => b.row).sort((x, y) => x - y);
+  let i = 0;
+  while(i < rows.length){                                       // hide each run of neighbouring rows in one go
+    let j = i;
+    while(j + 1 < rows.length && rows[j + 1] === rows[j] + 1) j++;
+    sheet.hideRows(rows[i], rows[j] - rows[i] + 1);
+    i = j + 1;
+  }
+}
+
+// Menu item: shows the tucked-away rows in Bookings (they hide again on the next refresh).
+function peekHiddenRows(){
+  const sheet = getSheet();
+  if(sheet.getLastRow() > 1) sheet.showRows(2, sheet.getLastRow() - 1);
+  SpreadsheetApp.getActiveSpreadsheet().toast("Showing denied / rescheduled rows — they tuck away again at the next refresh.", "Ehiffect", 6);
+}
+
 function refreshViews(prefetched){
   try{
     let all = prefetched || readBookings();
@@ -1110,6 +1159,7 @@ function refreshViews(prefetched){
         if(dash){ try{ dash.getRange(DASH.PICK).clearContent(); dash.getRange(DASH.KPICK).clearContent(); }catch(e){} }   // the #row in those dropdowns now points elsewhere
       }
     }catch(err){ console.error("tidy failed: " + err); }
+    try{ applyBookingsVisibility(all); }catch(err){ console.error("row hiding failed: " + err); }
     syncChecks(all);
     syncCalendar();                                              // before the sheets are drawn so the Dashboard can show how it went
     const clients = buildClients(all);
@@ -1452,7 +1502,7 @@ function grandTotalOf(b, dep){
 function bannerFor(b, dep){
   const owed = isPaid(b) && !isRefunded(b);
   if(b.status === "denied")
-    return "✖ DENIED — that day is open again on the website.  " + (owed ? "Deposit of $" + dep + " is owed back — tick \"Deposit refunded\" in Bookings once sent." : isRefunded(b) ? "Deposit already refunded ✓" : "No deposit was taken.");
+    return "✖ DENIED — that day is open again on the website.  " + (owed ? "Deposit of $" + dep + " is owed back — tick \"Refund sent?\" on the Denied & Rescheduled tab once sent." : isRefunded(b) ? "Deposit already refunded ✓" : "No deposit was taken.");
   if(b.status === "rescheduled")
     return "↻ RESCHEDULED — the original day is open again on the website.  " + (owed ? "Their $" + dep + " deposit carries over to the new booking." : "No deposit was taken yet.");
   if(b.status === "cancelled")
@@ -1619,7 +1669,7 @@ function writeDashboardSheet(all, clients){
     "Latest bookings":     { head: withHead("Status", "Booked"),
                              rows: newest.slice(0, 15).map(b => [b, mk(b, b.status, asText(b.submittedAt) || "—")]) },
     "Refunds owed":        { head: withHead("Status", "Next step"),
-                             rows: toRefund.map(b => [b, mk(b, b.status, "Send back $" + dep + ", then tick Deposit refunded")]) },
+                             rows: toRefund.map(b => [b, mk(b, b.status, "Send back $" + dep + ", then tick Refund sent? on the Denied & Rescheduled tab")]) },
     "Denied / rescheduled":{ head: withHead("Status", "Deposit"),
                              rows: moved.map(b => [b, mk(b, b.status, depositText(b, dep))]) },
     "Bundle orders":       { head: withHead("Status", "Text to send"),
@@ -2012,19 +2062,23 @@ function writeMovedSheet(all){
   const dep = getSettings().depositAmount;
   const f = sheet.getFilter(); if(f) f.remove();
   sheet.setFrozenRows(0); sheet.setFrozenColumns(0);
-  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  const everything = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns());
+  everything.breakApart();
   sheet.clear();
+  everything.clearDataValidations();                    // clear() leaves old checkboxes behind
   sheet.setHiddenGridlines(true);
+  if(sheet.getMaxColumns() < 12) sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
 
-  const headers = ["Status", "Client", "Phone", "Hairstyle / service", "Original date & time", "Deposit", "Total", "What to do", "Notes"];
-  const W = headers.length, HEAD = 3;
+  const headers = ["Status", "Client", "Phone", "Hairstyle / service", "Original date & time", "Deposit", "Total", "What to do", "Notes", "Refund sent?", "Bring back?"];
+  const W = headers.length, TEXT_W = 9, HEAD = 3, ID_COL = 12;
 
   sheet.getRange(1, 1, 1, W).merge().setValue("Denied & Rescheduled").setBackground(COLORS.ink).setFontColor(COLORS.cream)
        .setFontFamily("Cormorant Garamond").setFontSize(24).setFontWeight("bold").setVerticalAlignment("middle");
   sheet.getRange(2, 1, 1, W).merge()
-       .setValue("Bookings marked denied, rescheduled or cancelled. Their date is open again on the website. Pick one in the Dashboard's \"Open a booking\" box to see everything about it.")
+       .setValue("Denied, rescheduled and cancelled bookings live here (they're tucked out of the Bookings tab). Their date is open again on the website. " +
+                 "Tick \"Refund sent?\" once you've sent a deposit back, or \"Bring back?\" if you changed your mind — it returns to Bookings as pending.")
        .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setWrap(true).setVerticalAlignment("middle");
-  sheet.setRowHeight(1, 46); sheet.setRowHeight(2, 34);
+  sheet.setRowHeight(1, 46); sheet.setRowHeight(2, 38);
 
   sheet.getRange(HEAD, 1, 1, W).setValues([headers]);
   styleHeaderRow(sheet.getRange(HEAD, 1, 1, W));
@@ -2034,31 +2088,37 @@ function writeMovedSheet(all){
   const rows = all.filter(isMoved).sort(byNewest);
   if(rows.length){
     const n = rows.length, first = HEAD + 1;
-    sheet.getRange(first, 1, n, W).setNumberFormat("@");
+    sheet.getRange(first, 1, n, TEXT_W).setNumberFormat("@");
     sheet.getRange(first, 7, n, 1).setNumberFormat("$#,##0");
-    sheet.getRange(first, 1, n, W).setValues(rows.map(b => {
+    sheet.getRange(first, 1, n, TEXT_W).setValues(rows.map(b => {
       let todo;
       if(b.status === "rescheduled") todo = isPaid(b) ? "Book their new date — the $" + dep + " deposit carries over" : "Waiting for their new date";
       else if(isRefunded(b)) todo = "Done — deposit refunded ✓";
-      else if(isPaid(b)) todo = "Send back $" + dep + ", then tick \"Deposit refunded\" in Bookings";
+      else if(isPaid(b)) todo = "Send back $" + dep + ", then tick \"Refund sent?\" →";
       else todo = "Nothing owed — no deposit was taken";
       return [b.status, b.name, fmtPhone(b.phone), b.serviceLabel, whenOf(b), depositText(b, dep), money(b), todo, b.notes || "—"];
     }));
+    sheet.getRange(first, ID_COL, n, 1).setNumberFormat("@");
+    sheet.getRange(first, ID_COL, n, 1).setValues(rows.map(b => [String(b.id)]));        // hidden: which booking each row is
     sheet.getRange(first, 1, n, W).setFontSize(10).setVerticalAlignment("middle").setWrap(true)
          .setBackgrounds(rows.map((b, i) => new Array(W).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
     sheet.getRange(first, 2, n, 1).setFontWeight("bold");
     sheet.getRange(first, 7, n, 1).setHorizontalAlignment("right");
+    sheet.getRange(first, 10, n, 2).setHorizontalAlignment("center");
+    sheet.getRange(first, 11, n, 1).insertCheckboxes().setValue(false);
     rows.forEach((b, i) => {
       const st = STATUS_STYLE[b.status];
       sheet.getRange(first + i, 1).setBackground(st[0]).setFontColor(st[1]).setFontWeight("bold");
-      if(isPaid(b) && !isRefunded(b) && b.status !== "rescheduled")
-        sheet.getRange(first + i, 8).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setFontWeight("bold");
+      const refundable = isPaid(b) && b.status !== "rescheduled";                        // a rescheduled deposit carries over, so nothing to refund
+      if(refundable) sheet.getRange(first + i, 10).insertCheckboxes().setValue(isRefunded(b));
+      if(refundable && !isRefunded(b)) sheet.getRange(first + i, 8).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText).setFontWeight("bold");
     });
     sheet.getRange(HEAD, 1, n + 1, W).createFilter();
   }else{
     sheet.getRange(HEAD + 1, 1).setValue("Nothing denied or rescheduled — every booking is going ahead.").setFontColor(COLORS.muted).setFontStyle("italic");
   }
-  [110, 150, 115, 210, 170, 200, 70, 290, 220].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  [110, 150, 115, 210, 170, 200, 70, 290, 220, 95, 95].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.hideColumns(ID_COL);
   sheet.setTabColor("#2C4560");
 }
 
