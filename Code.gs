@@ -1025,19 +1025,29 @@ function refreshViews(prefetched){
   try{
     const all = prefetched || readBookings();
     syncChecks(all);
+    syncCalendar();                                              // before the sheets are drawn so the Dashboard can show how it went
     const clients = buildClients(all);
     writeClientsSheet(clients);
     writeKitsSheet(all);
     writeMovedSheet(all);
     writeDashboardSheet(all, clients);
   }catch(err){ console.error("refreshViews failed: " + err); }
-  try{ syncCalendar(prefetched || undefined); }catch(err){ console.error("calendar sync failed: " + err); }   // after the sheets, so a calendar hiccup never blocks them
 }
 
 // Keeps your Google Calendar matching the approved bookings. Cheap on repeat runs: each booking stores a
 // fingerprint of what its event looks like, and the calendar is only touched when that changes.
 // Returns { added, updated, removed } or { error } so the menu item can tell you what went wrong.
-function syncCalendar(prefetched){
+function syncCalendar(){
+  let r;
+  try{ r = syncCalendarCore(); }catch(err){ r = { error: String(err && err.message || err) }; }
+  try{
+    PropertiesService.getScriptProperties().setProperty("calendarStatus", JSON.stringify({
+      ok: !r.error, text: r.error ? r.error : "synced", at: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MMM d, h:mm a") }));
+  }catch(e){}
+  return r;
+}
+
+function syncCalendarCore(){
   if(!CALENDAR_SYNC) return { added: 0, updated: 0, removed: 0 };
   let cal;
   try{ cal = CALENDAR_ID ? CalendarApp.getCalendarById(CALENDAR_ID) : CalendarApp.getDefaultCalendar(); }
@@ -1093,10 +1103,19 @@ function syncCalendar(prefetched){
 
 // Menu item: runs the calendar sync now and tells you what happened.
 function syncCalendarNow(){
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
   const r = syncCalendar();
-  ss.toast(r.error ? "⚠ Calendar: " + r.error
-    : "Calendar updated — " + r.added + " added, " + r.updated + " changed, " + r.removed + " removed.", "Ehiffect", 10);
+  if(!r.error){
+    ui.alert("Calendar synced ✓", r.added + " added, " + r.updated + " changed, " + r.removed + " removed.\n\nCalendar used: " +
+      (CALENDAR_ID || "the account that owns this sheet (default calendar)") + "\n\nOnly APPROVED bookings with a date from today onward are added.", ui.ButtonSet.OK);
+    return;
+  }
+  let hint = "";
+  if(/find that calendar|can't open/i.test(r.error))
+    hint = "\n\nFIX: in the OTHER account's Google Calendar → Settings → your calendar → Share with specific people → add the account that owns this sheet with \"Make changes to events\". Also check CALENDAR_ID in Code.gs is exactly that account's email.";
+  else if(/permission|authoriz|not allowed|access/i.test(r.error))
+    hint = "\n\nFIX: in the Apps Script editor pick \"syncCalendarNow\" in the function dropdown, press Run, and click Allow on the Calendar permission screen. Then redeploy (Deploy → Manage deployments → pencil → New version → Deploy).";
+  ui.alert("Calendar sync problem ⚠", r.error + hint, ui.ButtonSet.OK);
 }
 
 function getOrCreateSheet(name){
@@ -1432,6 +1451,13 @@ function writeDashboardSheet(all, clients){
     const on = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "handleSheetEdit");
     autoNote = on ? "   ·   ✓ ticks & emails are ON" : "   ·   ⚠ ticks & emails are OFF — menu Ehiffect → Turn on approval emails";
   }catch(e){ /* no permission to check — say nothing */ }
+  if(CALENDAR_SYNC){
+    try{
+      const cs = JSON.parse(PropertiesService.getScriptProperties().getProperty("calendarStatus") || "null");
+      autoNote += cs ? (cs.ok ? "   ·   📅 calendar synced " + cs.at : "   ·   ⚠ calendar NOT syncing — menu Ehiffect → Sync approved bookings to Google Calendar shows why")
+                     : "   ·   📅 calendar: not run yet — menu Ehiffect → Sync approved bookings to Google Calendar";
+    }catch(e){}
+  }
 
   // ---------- header ----------
   sheet.getRange("A1:" + LAST + "1").merge().setValue("EHIFFECT").setBackground(COLORS.cream).setFontColor(COLORS.ink)
