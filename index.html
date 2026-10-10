@@ -412,8 +412,8 @@
   @keyframes qmIn{ from{ opacity:0; transform:translateY(16px) scale(.98); } to{ opacity:1; transform:none; } }
   @media (prefers-reduced-motion: reduce){ .qm-overlay.enter, .qm-overlay.enter .qm{ animation:none; } }
   @media (max-width:560px){
-    .qm-overlay{ padding:8px; align-items:stretch; }
-    .qm{ max-height:none; height:100%; border-radius:6px; }
+    .qm-overlay{ padding:8px; align-items:center; }
+    .qm{ height:auto; max-height:calc(100vh - 16px); max-height:calc(100dvh - 16px); border-radius:6px; }   /* fits its content; only scrolls when a page is taller than the screen */
     .qm-head{ padding:18px 18px 4px; } .qm-progress-row{ padding:10px 18px 8px; } .qm-bar{ margin:0 18px; }
     .qm-body{ padding:18px 18px 22px; } .qm-foot{ padding:10px 18px calc(10px + env(safe-area-inset-bottom)); }
   }
