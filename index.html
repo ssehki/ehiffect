@@ -137,6 +137,14 @@
   .cal-day.empty{ border-color:transparent; background:transparent; cursor:default; }
   .cal-day.past{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.4; cursor:default; font-weight:400; }
   .cal-day.blocked{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.6; cursor:not-allowed; font-weight:400; text-decoration:line-through; }
+  .cal-day.squeeze{ background:transparent; border:1px dashed var(--pink); color:var(--pink); }
+  .squeeze-row{ display:flex; gap:10px; align-items:flex-start; margin:0 0 14px; padding:12px; border:1px solid var(--line); border-radius:2px; }
+  .squeeze-row.on{ border-color:var(--pink); background:var(--pink-soft); }
+  .squeeze-row input{ margin-top:3px; accent-color:var(--pink); width:16px; height:16px; flex-shrink:0; }
+  .squeeze-row label{ font-size:13px; color:var(--cream); line-height:1.45; cursor:pointer; }
+  .squeeze-fee{ color:var(--pink); font-weight:600; margin-left:4px; }
+  .squeeze-sub{ display:block; font-size:11.5px; color:var(--muted); margin-top:3px; }
+  .squeeze-note{ display:block; font-size:10.5px; color:var(--muted); text-transform:none; letter-spacing:0; margin-top:2px; }
   .cal-day.selected{ background:var(--cream); border-color:var(--cream); color:var(--bg); font-weight:700; }
   .cal-day:not(.past):not(.blocked):not(.empty):not(.selected):hover{ filter:brightness(1.12); }
   .cal-legend{ display:flex; gap:14px; margin-top:10px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
@@ -176,7 +184,7 @@
   .kit-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.45; }
   .kit-badge{ font-size:10px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; white-space:nowrap; padding:3px 8px; border:1px solid var(--pink); color:var(--pink); border-radius:2px; margin-top:2px; }
   .kit-badge.solid{ background:var(--pink); color:#241318; }
-  .kit-badge.clickable{ cursor:pointer; font-size:12.5px; padding:8px 16px; border-radius:3px; border-width:1.5px; }
+  .kit-badge.clickable{ cursor:pointer; font-size:11px; padding:5px 10px; border-radius:3px; border-width:1px; }
   .kit-badge.clickable:hover{ background:var(--pink-soft); }
   .kit-badge.two-line{ display:flex; flex-direction:column; align-items:flex-end; text-align:right; gap:1px; line-height:1.2; }
   .kit-badge.two-line small{ font-size:9.5px; font-weight:500; opacity:0.75; text-transform:none; letter-spacing:0.02em; }
@@ -263,6 +271,198 @@
   .admin-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
   .refresh-btn{ background:none; border:1px solid var(--line); padding:7px 12px; font-size:12px; cursor:pointer; color:var(--muted); }
   .loading{ text-align:center; color:var(--muted); padding:40px; font-size:13px; }
+
+  /* style quiz: landing prompt + question flow */
+  /* floating style-quiz button (bottom corner, like a chat assistant) */
+  .quiz-fab-wrap{ position:fixed; right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); z-index:40; display:flex; align-items:flex-end; gap:10px; }
+  .quiz-fab{ width:56px; height:56px; border-radius:50%; border:none; background:var(--pink); color:#241318; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 22px rgba(36,19,24,0.28); flex-shrink:0; }
+  .quiz-fab:hover{ background:var(--pink-deep); }
+  .quiz-fab svg{ width:26px; height:26px; }
+  .quiz-bubble{ position:relative; background:#FFFFFF; color:#211A1B; border:1px solid rgba(184,92,130,0.30); border-radius:14px 14px 4px 14px; padding:12px 34px 12px 14px; max-width:220px; font-size:13.5px; line-height:1.45; box-shadow:0 8px 22px rgba(36,19,24,0.18); cursor:pointer; margin-bottom:8px; }
+  .quiz-bubble b{ display:block; font-weight:600; margin-bottom:2px; }
+  .quiz-bubble span{ color:#8C7B7E; font-size:12.5px; }
+  .quiz-bubble-x{ position:absolute; top:6px; right:6px; width:24px; height:24px; border:none; background:transparent; color:#8C7B7E; font-size:16px; line-height:1; cursor:pointer; border-radius:50%; }
+  .quiz-bubble-x:hover{ background:rgba(227,138,174,0.15); }
+  .quiz-fab-wrap.enter .quiz-fab{ animation:fabIn .4s cubic-bezier(.2,.9,.3,1.25) .35s both; }
+  .quiz-fab-wrap.enter .quiz-bubble{ animation:fabIn .35s ease-out .8s both; }
+  @keyframes fabIn{ from{ opacity:0; transform:translateY(60px) scale(.6); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce){ .quiz-fab-wrap.enter .quiz-fab, .quiz-fab-wrap.enter .quiz-bubble{ animation:none; } }
+  .quiz-fab:focus-visible, .quiz-bubble-x:focus-visible, .landing-choice:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+
+  /* homepage: "what are you here for today?" */
+  .landing-q{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:26px; line-height:1.2; text-align:center; color:var(--cream); margin:26px 0 14px; }
+  /* homepage welcome + pop-up menu */
+  .landing-welcome{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:30px; line-height:1.15; text-align:center; color:var(--cream); margin:44px 0 6px; }
+  .landing-welcome-sub{ text-align:center; font-size:14px; color:var(--muted); margin:0; }
+  .menu-overlay{ position:fixed; inset:0; z-index:60; background:rgba(36,19,24,0.40); display:flex; align-items:flex-end; justify-content:center; animation:menuFade .2s ease-out; }
+  @media (min-width:560px){ .menu-overlay{ align-items:center; padding:16px; } }
+  .menu-sheet{ position:relative; width:100%; max-width:440px; background:#F8F3F0; border-radius:16px 16px 0 0; padding:26px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow:0 -10px 30px rgba(36,19,24,0.18); animation:menuUp .28s ease-out; max-height:90vh; overflow-y:auto; }
+  @media (min-width:560px){ .menu-sheet{ border-radius:16px; } }
+  .menu-title{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:24px; text-align:center; color:#211A1B; margin:0 0 16px; }
+  .menu-x{ position:absolute; top:10px; right:10px; width:32px; height:32px; border:none; background:transparent; color:#8C7B7E; font-size:22px; line-height:1; cursor:pointer; border-radius:50%; }
+  .menu-x:hover{ background:rgba(227,138,174,0.15); }
+  .menu-x:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  @keyframes menuUp{ from{ transform:translateY(40px); opacity:0; } to{ transform:none; opacity:1; } }
+  @keyframes menuFade{ from{ opacity:0; } to{ opacity:1; } }
+  @media (prefers-reduced-motion: reduce){ .menu-overlay, .menu-sheet{ animation:none; } }
+  /* homepage options use the same look as the original buttons: solid pink first, thin outlines after */
+  .landing-wrap .landing-choice, .menu-sheet .landing-choice{ background:transparent; border:1px solid var(--line); padding:14px 16px; margin-bottom:10px; text-align:center; }
+  .landing-wrap .landing-choice:hover{ border-color:var(--pink); background:var(--pink-soft); }
+  .landing-wrap .landing-choice-title{ font-family:'Work Sans', sans-serif; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.14em; color:var(--cream); margin-bottom:4px; }
+  .landing-wrap .landing-choice-title::after{ content:none; }
+  .landing-wrap .landing-choice-sub{ font-size:12px; }
+  .landing-wrap .landing-choice.primary{ background:var(--pink); border-color:var(--pink); }
+  .landing-wrap .landing-choice.primary:hover{ background:var(--pink-deep); }
+  .landing-wrap .landing-choice.primary .landing-choice-title{ color:#241318; }
+  .landing-wrap .landing-choice.primary .landing-choice-sub{ color:#3a2128; }
+  .landing-wrap{ padding-bottom:110px; }
+  .quiz-name-input{ width:100%; border:1px solid var(--line); border-radius:2px; background:var(--panel-2); padding:12px; font-family:'Work Sans', sans-serif; font-size:16px; color:var(--cream); margin-bottom:14px; }
+  .quiz-name-input:focus{ outline:2px solid var(--pink); outline-offset:1px; }
+  .quiz-for{ font-size:13.5px; color:var(--muted); margin:0; }
+  .quiz-wrap .card + .card, .quiz-wrap .card + .cta-btn + .card{ margin-top:16px; }
+  .quiz-wrap .cta-btn.secondary + .card{ margin-top:16px; }
+  .quiz-rank{ font-size:11px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--pink); }
+  .quiz-desc{ font-size:13.5px; line-height:1.6; color:var(--muted); margin:0 0 10px; }
+  .quiz-why{ font-size:13.5px; line-height:1.6; color:var(--cream); margin:0 0 12px; }
+  .quiz-price{ font-size:13px; line-height:1.55; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
+  .quiz-price b{ color:var(--cream); font-weight:600; }
+  /* Style Finder hover: answer cards and outlined buttons light up cream */
+  @media (hover:hover){
+    .quiz-wrap .opt:not(.selected):hover, .quiz-wrap .cta-btn.secondary:hover{ background:#F4EAE5; border-color:#F4EAE5; color:#211A1B; }
+    .quiz-wrap .opt:not(.selected):hover .opt-name, .quiz-wrap .opt:not(.selected):hover .opt-price{ color:#211A1B; }
+    .quiz-wrap .opt:not(.selected):hover .opt-sub{ color:#5C4A4E; }
+    .quiz-wrap .opt:not(.selected):hover .quiz-check{ border-color:#C97A9B; }
+    .quiz-wrap .cta-btn:not(.secondary):not(:disabled):hover{ background:#F4EAE5; color:#211A1B; }
+  }
+  .quiz-wrap .opt, .quiz-wrap .cta-btn{ transition:background .15s, border-color .15s, color .15s; }
+  /* aftercare guide */
+  .ac-wrap .back-link{ margin-bottom:6px; }
+  .ac-lead{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:26px; line-height:1.25; color:var(--cream); margin:0 0 8px; text-align:center; }
+  .ac-tabs{ display:flex; gap:8px; margin:0 0 14px; }
+  .ac-tab{ flex:1; padding:12px 8px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; border-radius:2px; }
+  .ac-tab.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
+  .ac-card{ background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:4px 22px 24px; }
+  .ac-sec{ padding:20px 0; border-bottom:1px solid var(--line); }
+  .ac-h{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:24px; line-height:1.15; color:var(--pink-deep); margin:0 0 10px; }
+  .ac-h3{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:19px; color:var(--cream); margin:12px 0 2px; }
+  .ac-note{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:16px; color:var(--muted); margin:0 0 8px; }
+  .ac-list{ list-style:none; margin:0; padding:0; }
+  .ac-list li{ position:relative; padding-left:18px; font-size:13.5px; line-height:1.65; color:var(--cream); margin-bottom:6px; }
+  .ac-list li::before{ content:"\2661"; position:absolute; left:0; top:1px; color:var(--pink-deep); font-size:11px; }
+  .ac-body{ font-size:13.5px; line-height:1.65; color:var(--cream); margin:0; }
+  .ac-toggle{ display:flex; gap:8px; margin:6px 0 6px; }
+  .ac-toggle button{ flex:1; padding:11px 8px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:13px; cursor:pointer; border-radius:999px; }
+  .ac-toggle button[aria-pressed="true"]{ background:var(--pink-deep); border-color:var(--pink-deep); color:#fff; }
+  .ac-test{ font-size:12.5px; line-height:1.6; color:var(--muted); margin:4px 0 6px; }
+  .ac-foot{ text-align:center; padding-top:22px; }
+  .ac-foot p{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:21px; color:var(--cream); margin:0; }
+  .ac-foot span{ color:var(--pink-deep); font-style:normal; font-size:16px; }
+  .ac-tab:focus-visible, .ac-toggle button:focus-visible{ outline:2px solid var(--pink-deep); outline-offset:2px; }
+  /* floating "♡ Find My Style" pill */
+  .quiz-fab{ width:auto; height:auto; border-radius:999px; padding:13px 18px; gap:6px; font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; white-space:nowrap; }
+  .quiz-fab span{ font-size:14px; letter-spacing:0; }
+  .opt-base{ color:var(--cream); opacity:.8; }
+  /* room under every page so the last prices, buttons, and fields can scroll clear of the floating button */
+  body.has-fab .wrap{ padding-bottom:calc(120px + env(safe-area-inset-bottom)); }
+  /* homepage doesn't scroll, so balance top and bottom space to keep the logo and buttons centered */
+  .home-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .home-pair .cta-btn{ padding-left:8px; padding-right:8px; }
+  .landing-wrap, body.has-fab .landing-wrap{ padding-top:80px; padding-bottom:calc(80px + env(safe-area-inset-bottom)); }
+  .landing-wrap .hero{ margin-bottom:0; }
+  #fab-root .quiz-fab-wrap{ transition:transform .25s ease, opacity .25s ease; }
+  /* once they scroll, the button shrinks to just the heart so it doesn't sit on top of the page */
+  .quiz-fab{ transition:width .2s ease, padding .2s ease, background .15s; }
+  #fab-root.compact .quiz-fab{ width:50px; height:50px; padding:0; gap:0; justify-content:center; }
+  #fab-root.compact .fab-label{ display:none; }
+  #fab-root.compact .fab-heart{ font-size:20px; }
+  #fab-root.compact .quiz-bubble{ display:none; }
+  #fab-root.fab-away .quiz-fab-wrap{ transform:translateY(140%); opacity:0; pointer-events:none; }
+  @media (max-width:480px){
+    .quiz-fab-wrap{ right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); gap:8px; }
+    .quiz-fab{ padding:10px 14px; font-size:11px; letter-spacing:0.1em; }
+    .quiz-fab span{ font-size:13px; }
+    .quiz-bubble{ max-width:180px; font-size:12.5px; padding:10px 30px 10px 12px; }
+  }
+  /* small "Not sure what to book?" tag that sits above the Find My Style button */
+  .quiz-fab-wrap{ flex-direction:column; align-items:flex-end; gap:8px; }
+  .quiz-bubble{ max-width:none; white-space:nowrap; padding:6px 28px 6px 11px; margin:0; font-size:12px; font-weight:500; line-height:1.3; border-radius:999px; box-shadow:0 4px 12px rgba(36,19,24,0.18); }
+  .quiz-bubble-x{ top:50%; transform:translateY(-50%); right:4px; width:20px; height:20px; font-size:14px; }
+  @media (max-width:480px){ .quiz-bubble{ font-size:11.5px; padding:5px 26px 5px 10px; } }
+  @media (prefers-reduced-motion: reduce){ #fab-root .quiz-fab-wrap{ transition:none; } }
+
+  /* Style Finder modal */
+  .qm-overlay{ position:fixed; inset:0; z-index:70; background:rgba(12,8,10,0.62); display:flex; align-items:center; justify-content:center; padding:24px; }
+  .qm{ position:relative; width:100%; max-width:560px; max-height:min(88vh, 860px); display:flex; flex-direction:column; background:var(--bg); border:1px solid var(--line); border-radius:6px; box-shadow:0 24px 60px rgba(0,0,0,0.45); overflow:hidden; }
+  .qm-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:22px 24px 6px; }
+  .qm-eyebrow{ font-size:11px; font-weight:600; letter-spacing:0.24em; text-transform:uppercase; color:var(--pink); margin:0 0 4px; }
+  .qm-sub{ font-size:13.5px; color:var(--muted); margin:0; }
+  .qm-x{ flex-shrink:0; width:36px; height:36px; border:1px solid var(--line); border-radius:50%; background:transparent; color:var(--cream); font-size:20px; line-height:1; cursor:pointer; }
+  .qm-x:hover{ background:#F4EAE5; color:#211A1B; border-color:#F4EAE5; }
+  .qm-progress-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 24px 8px; }
+  .qm-link{ border:none; background:transparent; color:var(--pink); font-family:'Work Sans', sans-serif; font-size:12px; cursor:pointer; padding:4px 0; text-decoration:underline; text-underline-offset:3px; }
+  .qm-bar{ height:3px; margin:0 24px; background:var(--line); border-radius:3px; overflow:hidden; }
+  .qm-bar span{ display:block; height:100%; background:var(--pink); transition:width .25s ease; }
+  .qm-body{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px 24px 24px; overscroll-behavior:contain; }
+  .qm-foot{ border-top:1px solid var(--line); padding:12px 24px calc(12px + env(safe-area-inset-bottom)); }
+  .qm-back{ border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; padding:10px 16px; cursor:pointer; border-radius:2px; }
+  .qm-back:hover{ background:#F4EAE5; color:#211A1B; border-color:#F4EAE5; }
+  .qm-x:focus-visible, .qm-link:focus-visible, .qm-back:focus-visible, .quiz-fab:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .qm-overlay.enter{ animation:menuFade .2s ease-out; }
+  .qm-overlay.enter .qm{ animation:qmIn .25s ease-out; }
+  @keyframes qmIn{ from{ opacity:0; transform:translateY(16px) scale(.98); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce){ .qm-overlay.enter, .qm-overlay.enter .qm{ animation:none; } }
+  @media (max-width:560px){
+    .qm-overlay{ padding:8px; align-items:stretch; }
+    .qm{ max-height:none; height:100%; border-radius:6px; }
+    .qm-head{ padding:18px 18px 4px; } .qm-progress-row{ padding:10px 18px 8px; } .qm-bar{ margin:0 18px; }
+    .qm-body{ padding:18px 18px 22px; } .qm-foot{ padding:10px 18px calc(10px + env(safe-area-inset-bottom)); }
+  }
+  .qm .quiz-q{ margin-top:0; }
+  /* homepage Find My Style (sits between the tagline and the question) */
+  .home-finder{ display:inline-flex; align-items:center; gap:5px; margin:24px auto 0; padding:6px 13px; border:1px solid var(--pink); border-radius:999px; background:transparent; color:var(--pink-deep); font-family:'Work Sans', sans-serif; font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; align-self:center; transition:background .15s, color .15s; }
+  .home-finder span{ font-size:11px; letter-spacing:0; }
+  .home-finder:hover{ background:var(--pink); color:#241318; }
+  .home-finder:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .landing-wrap .landing-welcome{ margin-top:56px; }
+
+  /* gallery */
+  .gal-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .gal-tile{ position:relative; display:block; padding:0; border:1px solid var(--line); background:var(--panel); aspect-ratio:3/4; overflow:hidden; cursor:pointer; border-radius:2px; }
+  .gal-tile img, .gal-tile video{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .3s ease; }
+  .gal-tile:hover img, .gal-tile:hover video{ transform:scale(1.03); }
+  .gal-tile:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .gal-play{ position:absolute; top:8px; right:8px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,.45); color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; }
+  .gal-label{ position:absolute; left:0; right:0; bottom:0; padding:18px 10px 8px; background:linear-gradient(transparent, rgba(0,0,0,.65)); color:#fff; font-size:12px; text-align:left; }
+  .gal-box{ position:fixed; inset:0; z-index:80; background:rgba(10,7,8,.92); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:56px 12px 24px; }
+  .gal-box img, .gal-box video{ max-width:100%; max-height:calc(100vh - 110px); object-fit:contain; border-radius:2px; }
+  .gal-cap{ color:#F4EAE5; font-size:13px; margin-top:10px; }
+  .gal-x{ position:absolute; top:12px; right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(244,234,229,.4); background:transparent; color:#F4EAE5; font-size:22px; cursor:pointer; }
+  .gal-nav{ position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:50%; border:none; background:rgba(244,234,229,.14); color:#F4EAE5; font-size:26px; cursor:pointer; z-index:1; }
+  .gal-nav.prev{ left:10px; } .gal-nav.next{ right:10px; }
+  .gal-x:hover, .gal-nav:hover{ background:#F4EAE5; color:#211A1B; }
+  @media (prefers-reduced-motion: reduce){ .gal-tile img, .gal-tile video{ transition:none; } }
+  .quiz-over{ font-size:12.5px; color:var(--pink); margin-top:6px; }
+  .quiz-consult{ border-color:var(--pink); }
+  .quiz-disclaimer{ font-size:11.5px; line-height:1.55; color:var(--muted); text-align:center; margin:20px 8px 10px; }
+  .quiz-wrap .quiz-match{ color:var(--pink); text-align:left; font-size:30px; margin:4px 0 8px; }
+  .quiz-wrap .quiz-progress{ text-transform:uppercase; letter-spacing:0.14em; font-size:11px; font-weight:600; color:var(--pink); }
+  .theme-light .opt.selected .opt-sub{ color:#3a2128; }
+  .quiz-check{ width:22px; height:22px; flex-shrink:0; border:1px solid var(--line); border-radius:2px; display:flex; align-items:center; justify-content:center; color:#241318; font-size:13px; font-weight:700; }
+  .opt.selected .quiz-check{ background:var(--pink); border-color:var(--pink); }
+  .cta-btn:disabled{ opacity:0.45; cursor:not-allowed; }
+  .quiz-progress{ font-size:12px; color:var(--pink); margin-bottom:6px; }
+  .quiz-q{ font-family:'Cormorant Garamond', serif; font-size:22px; font-weight:600; line-height:1.25; color:var(--cream); margin:0 0 4px; }
+  .quiz-hint{ font-size:12.5px; color:var(--muted); margin:0 0 14px; }
+  .quiz-match{ font-family:'Cormorant Garamond', serif; font-size:34px; font-weight:600; line-height:1.1; color:var(--pink); margin:2px 0 10px; }
+  .quiz-from{ font-size:13px; color:var(--cream); margin:12px 0 16px; }
+  .quiz-from b{ color:var(--pink); }
+  .cta-btn:focus-visible, .opt:focus-visible, .back-link:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .takedown-note{ background:var(--pink-soft); border-left:3px solid var(--pink); padding:12px 14px; font-size:13px; line-height:1.55; color:var(--cream); margin-top:14px; }
+  .takedown-note b{ color:var(--pink); }
+  .takedown-note ul{ margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:12.5px; }
+  .takedown-note li + li{ margin-top:4px; }
+  .signature-card{ border:1px solid var(--pink); padding:14px 16px; margin-top:14px; font-size:13px; line-height:1.55; color:var(--cream); text-align:center; }
+  .signature-eyebrow{ font-size:11px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--pink); margin-bottom:6px; }
 </style>
 </head>
 <body>
@@ -273,7 +473,6 @@
 const CONFIG = {
   cashtag: "$ehiixs",
   depositAmount: 20,
-  adminPasscode: "ehiffect26",
   lateFeeAmount: 10,
   lateFeeMinutes: 10,
   lateCancelMinutes: 20,
@@ -290,20 +489,20 @@ const LOGO_LIGHT_B64 = "iVBORw0KGgoAAAANSUhEUgAAApEAAAJMCAYAAACii/06AAEAAElEQVR4
 const SALE_ENDS = new Date(2026, 9, 31, 23, 59, 59);
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
-    { key:"service", name:"Service only", price:70 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:100 },
-    { key:"human", name:"+ human hair (2 bundles)", price:180, lengths:true, addBundle:{ "16-20":40, "22+":50 } },
-    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":40, "22+":50 },
-      note:"starting price — final price varies by the type of hair purchased; you'll get full pricing transparency before your booking is approved" },
-    { key:"raw", name:"+ raw hair", price:400, note:"starting price — varies by length/type, final quote after consult" },
+    { key:"service", name:"Service only", price:90 },
+    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:130 },
+    { key:"human", name:"+ human hair (2 bundles)", price:200, was:220, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Longer lengths priced accordingly." },
+    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Longer lengths priced accordingly.",
+      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
+    { key:"raw", name:"+ raw hair", price:400, note:"Price varies by length and type. Final quote after your consultation." },
   ]},
   si: { label:"Sew-In", tiers:[
-    { key:"service", name:"Service only", price:120, was:140 },
+    { key:"service", name:"Installation only", price:120, was:150 },
     { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:150, was:180 },
-    { key:"human", name:"+ human hair (2 bundles)", price:180, was:200, lengths:true, addBundle:{ "16-20":40, "22+":50 } },
-    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":40, "22+":50 },
-      note:"starting price — final price varies by the type of hair purchased; you'll get full pricing transparency before your booking is approved" },
-    { key:"raw", name:"+ raw hair", price:400, note:"starting price — varies by length/type, final quote after consult" },
+    { key:"human", name:"Human hair package — 2 bundles", price:200, was:220, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Add bundles or longer lengths below." },
+    { key:"human3", name:"Human hair package — 3 bundles", price:275, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Longer lengths priced accordingly.",
+      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
+    { key:"raw", name:"Raw hair package", price:400, note:"Price varies by length and type. Final quote after your consultation." },
   ]}
 };
 if(new Date() > SALE_ENDS){
@@ -315,12 +514,10 @@ if(new Date() > SALE_ENDS){
 const FULANI_SURCHARGE = { qw: 70, si: 70 };
 
 const INSTALL_ADDONS = [
-  { key:"trim", name:"Trim", price:10, note:"Different from face framing" },
   { key:"curls", name:"Curls / wand styling", price:7 },
-  { key:"closure", name:"Closure install", price:20 },
+  { key:"closure", name:"Closure install", price:15 },
   { key:"extraBundleSynthetic", name:"Extra bundle (synthetic)", price:25 },
-  { key:"extraBundleHuman", name:"Extra bundle (human)", price:40 },
-  { key:"color", name:"Color (per bundle)", price:30 },
+  { key:"extraBundleHuman", name:"Extra bundle (human)", price:50 },
 ];
 
 const BRAID_STYLES = { twist:"Twists", marley:"Marley Twists", mini:"Mini Twists", twostrand:"Two Strand Twists", micro:"Micro Twists", box:"Box Braids" };
@@ -369,8 +566,7 @@ const BOHO_PRICE = 40;
 
 const CORNROW_OPTIONS = [
   { key:"6", name:"6 rows", price:40 },
-  { key:"8", name:"8 rows", price:50 },
-  { key:"10", name:"10 rows", price:60 },
+  { key:"8-10", name:"8–10 rows", price:50 },
 ];
 
 const TREATMENTS = [
@@ -409,6 +605,197 @@ function textureOptionsHTML(list, selected){
   return html;
 }
 const CROCHET_PRICES = { own:50, stylist:80 };
+
+// Takedowns — removal only. Client must come with the install already washed and fully dry.
+const TAKEDOWNS = [
+  { key:"thread", name:"Thread & Track Removal", price:40, desc:"Thread and tracks removed; your braid-down stays in. Braid removal and detangling not included." },
+  { key:"full", name:"Full Sew-In Takedown", price:55, desc:"Thread and tracks removed, then your braid-down is taken out. Detangling and wash not included." },
+  { key:"complete", name:"Complete Takedown + Detangling", price:70, desc:"Full takedown plus careful detangling of shed hair and tangles. Wash and styling not included." },
+  { key:"crochet", name:"Crochet Takedown", price:50, desc:"Crochet hair and the braid-down underneath come out." },
+];
+
+/* ============== THE STYLE FINDER (quiz) ============== */
+// Rules-based: each answer adds (or removes) points for the services it suits.
+// Services are ranked by total points; up to three are shown. To tune a match, change the numbers here.
+// for:'w' = women's path only, for:'m' = men's path only, no `for` = both paths.
+
+// RELATIVE appointment length, used only by the "appointment experience" question.
+// The site doesn't have real appointment times yet, so these are rough tiers — not shown to clients.
+// Once you know your real times, update these (or add durations) and the matching follows.
+const QUIZ_SPEED = { qw:'shorter', cornrows:'shorter', twostrand:'shorter', crochet:'moderate', si:'longer', braids:'longer', marley:'longer' };
+
+const QUIZ = [
+  { key:"who", q:"Who are we styling?", options:[
+    { key:"w", label:"Women's styles", sub:"Sew-ins, quick weaves, braids & twists, crochet, and cornrows" },
+    { key:"m", label:"Men's styles", sub:"Two-strand twists, Marley twists, and cornrows" },
+  ]},
+  { key:"vision", q:"What's the vision?", options:[
+    { for:"w", key:"sleek", label:"Sleek & polished", sub:"Straight styles, smooth finishes, and defined parts", score:{ si:3, qw:3, cornrows:2 }, why:"matches the sleek, polished look you want" },
+    { for:"m", key:"sleek", label:"Sleek & polished", sub:"Clean lines and defined parts", score:{ cornrows:3, twostrand:1 }, why:"matches the clean, defined look you want" },
+    { for:"w", key:"full", label:"Full & voluminous", sub:"Body, movement, curls, and added fullness", score:{ si:3, qw:3, crochet:2, braids:1 }, why:"matches the full, voluminous look you want" },
+    { key:"braided", label:"Braided & protective", sub:"Braids, twists, and styles that keep daily styling simple", score:{ braids:3, cornrows:3, crochet:2, marley:3, twostrand:2 }, why:"matches the braided look you want" },
+    { key:"natural", label:"Natural & textured", sub:"Defined texture, curls, and styles that complement a natural look", score:{ crochet:3, braids:2, si:1, qw:1, twostrand:3, marley:1 }, why:"matches the natural, textured look you want" },
+    { key:"open", label:"I'm open to suggestions", sub:"Help me find the right style", open:true },
+  ]},
+  { key:"chair", q:"What's your preferred appointment experience?", options:[
+    { key:"short", label:"A shorter appointment, please", speed:{ shorter:2, moderate:1, longer:-1 }, why:"is one of the shorter appointments" },
+    { key:"hours", label:"I'm comfortable spending a few hours in the chair", speed:{ shorter:1, moderate:2, longer:1 }, why:"fits a few hours in the chair" },
+    { key:"flex", label:"I'm flexible if the results are worth it", speed:{}, open:true },
+  ]},
+  { key:"matters", multi:true, q:"What matters most to you?", hint:"Pick as many as you like.", options:[
+    { key:"natural", label:"A natural-looking finish", score:{ crochet:2, si:2, qw:1, twostrand:2, cornrows:1 }, why:"gives a natural-looking finish" },
+    { for:"w", key:"length", label:"Length, fullness, and versatility", score:{ si:3, qw:2, crochet:1, braids:1 }, why:"gives you length, fullness, and versatility" },
+    { key:"protective", label:"A protective style with less daily styling", score:{ braids:3, si:2, crochet:2, cornrows:1, marley:3, twostrand:2 }, why:"is protective with less daily styling" },
+    { key:"occasion", label:"A polished look for a special occasion", score:{ qw:2, si:2, cornrows:1, twostrand:1 }, why:"looks polished for a special occasion" },
+    { key:"easy", label:"A style that's easy to maintain", score:{ braids:2, crochet:2, cornrows:2, marley:2, twostrand:1 }, why:"is easy to maintain" },
+  ]},
+  { key:"last", q:"How long would you like your style to last?", hint:"How long a style lasts depends on your hair and how you care for it.", options:[
+    { for:"w", key:"1-2", label:"A week or two", sub:"for an event or something short-term", score:{ cornrows:3, qw:2 }, why:"suits a short wear time" },
+    { for:"w", key:"2-4", label:"2 to 4 weeks", score:{ qw:3, crochet:2, cornrows:1 }, why:"fits a 2 to 4 week wear time" },
+    { for:"w", key:"4-6", label:"4 to 6 weeks", score:{ si:2, braids:2, crochet:2 }, why:"can be worn 4 to 6 weeks with proper care" },
+    { for:"w", key:"6-8", label:"6 to 8 weeks", score:{ si:3, braids:3, crochet:1 }, why:"can be worn 6 to 8 weeks with proper care" },
+    { for:"w", key:"max", label:"As long as possible", sub:"a couple of months if I can", score:{ braids:3, si:2 }, why:"is one of the longer-wearing options" },
+    { for:"m", key:"1-2", label:"A week or two", sub:"for an event or something short-term", score:{ cornrows:3, twostrand:1 }, why:"suits a short wear time" },
+    { for:"m", key:"2-4", label:"2 to 4 weeks", score:{ twostrand:3, cornrows:1, marley:1 }, why:"fits a 2 to 4 week wear time" },
+    { for:"m", key:"4-6", label:"4 to 6 weeks", score:{ marley:3, twostrand:1 }, why:"can be worn 4 to 6 weeks with proper care" },
+    { for:"m", key:"max", label:"As long as possible", score:{ marley:3 }, why:"is one of the longer-wearing options" },
+    { key:"open", label:"I'm open to recommendations", open:true },
+  ]},
+  { key:"budget", q:"What investment range feels comfortable for you?",
+    hintFor:{ w:"Starting prices run from $40 (cornrows) to $400+ (raw hair packages).", m:"Men's styles run from $40 (cornrows) to $180 (small Marley twists), plus hair if needed." }, options:[
+    { for:"w", key:"u100", label:"Under $100", max:99 },
+    { for:"w", key:"100", label:"$100–$175", max:175 },
+    { for:"w", key:"176", label:"$175–$250", max:250 },
+    { for:"w", key:"251", label:"$250+", max:Infinity },
+    { for:"m", key:"u60", label:"Under $60", max:59 },
+    { for:"m", key:"60", label:"$60–$100", max:100 },
+    { for:"m", key:"100", label:"$100–$150", max:150 },
+    { for:"m", key:"150", label:"$150+", max:Infinity },
+    { key:"flex", label:"I'm flexible depending on the style", max:Infinity, open:true },
+  ]},
+  { key:"hair", q:"What will you need for your appointment?", options:[
+    { for:"w", key:"buy", label:"I'd like to purchase hair through The Ehiffect" },
+    { for:"w", key:"own", label:"I'll be providing my own hair" },
+    { for:"w", key:"unsure", label:"I'm not sure what I'll need yet", open:true },
+    { for:"m", key:"none", label:"Just my own hair, no extensions", score:{ twostrand:3, cornrows:2, marley:-3 }, why:"uses just your own hair" },
+    { for:"m", key:"added", label:"I'd like added hair for length or fullness", score:{ marley:3, twostrand:-1 }, why:"adds hair for length and fullness" },
+    { for:"m", key:"unsure", label:"I'm not sure yet", open:true },
+  ]},
+];
+
+// Results info for each service. Prices come straight from the menu data above.
+// price(hair) returns { from, label } for the hair answer: 'buy', 'own', or anything else (unsure / men's path).
+const minOf = list => Math.min(...list.map(x=>x.price));
+const QUIZ_SERVICES = {
+  qw: { name:"Quick Weave", desc:"Bundles are bonded onto a protective cap over your natural hair. Book installation only, or a package with synthetic, human, or raw hair.",
+    price:h=> h==='buy' ? { from:INSTALLS.qw.tiers.find(t=>t.key==='synthetic').price, label:"with hair included (synthetic). Human hair packages from "+money(INSTALLS.qw.tiers.find(t=>t.key==='human').price)+"." }
+                        : { from:INSTALLS.qw.tiers.find(t=>t.key==='service').price, label:"installation only — hair not included. Hair packages are available." },
+    book:{ category:'qw' } },
+  si: { name:"Sew-In", desc:"Your natural hair is braided down and bundles are sewn on top. Book installation only, or a package with synthetic, human, or raw hair. First-time clients booking qualifying sew-in packages receive The Signature Client Experience.",
+    price:h=> h==='buy' ? { from:INSTALLS.si.tiers.find(t=>t.key==='synthetic').price, label:"with hair included (synthetic). Human hair packages from "+money(INSTALLS.si.tiers.find(t=>t.key==='human').price)+"." }
+                        : { from:INSTALLS.si.tiers.find(t=>t.key==='service').price, label:"installation only — hair not included. Hair packages are available." },
+    book:{ category:'si' } },
+  braids: { name:"Braids & Twists", desc:"Box braids, twists, Marley twists, mini twists, two-strand twists, and micro twists, in a range of sizes.",
+    price:h=> ({ from:minOf([BOX_BRAID_SIZES,TWIST_SIZES,TWO_STRAND_SIZES,MARLEY_TWIST_SIZES,MINI_TWIST_SIZES].flat()),
+      label: h==='buy' ? `for the style itself; if I provide the hair, packs are ${money(BRAID_HAIR_PACK_PRICE)} each (less for two-strand and mini twists).` : "for the style itself; price depends on the style and size you pick. Bring your own hair or add hair packs." }),
+    book:{ category:'braids' } },
+  cornrows: { name:"Cornrows", desc:"Neat cornrows in 6 rows or 8–10 rows. Want a custom design? Describe it in your booking notes.",
+    price:()=>({ from:minOf(CORNROW_OPTIONS), label:"done with your own hair — no hair purchase needed." }),
+    book:{ category:'cornrows' } },
+  crochet: { name:"Crochet", desc:"Crochet hair installed over a braid-down, with no leave-out. Bring your own hair or have me provide it.",
+    price:h=> h==='buy' ? { from:CROCHET_PRICES.stylist, label:"with hair provided by me." }
+                        : { from:CROCHET_PRICES.own, label:"when you bring your own hair; "+money(CROCHET_PRICES.stylist)+" if I provide it." },
+    book:{ category:'crochet' } },
+  twostrand: { name:"Two-Strand Twists", desc:"Two-strand twists done with your own hair.",
+    price:()=>({ from:minOf(TWO_STRAND_SIZES), label:"done with your own hair." }),
+    book:{ category:'braids', braidStyle:'twostrand', braidSize:'standard' } },
+  marley: { name:"Marley Twists", desc:"Twists done with Marley extensions for added length and fullness, in large, medium, or small.",
+    price:()=>({ from:minOf(MARLEY_TWIST_SIZES), label:`for the style; bring your own Marley hair or add packs at ${money(BRAID_HAIR_PACK_PRICE)} each.` }),
+    book:{ category:'braids', braidStyle:'marley' } },
+};
+const QUIZ_RESULTS_FOR = { w:['si','qw','braids','crochet','cornrows'], m:['twostrand','marley','cornrows'] };
+const QUIZ_SEEN_KEY = "ehiffectQuizSeen";
+function quizAlreadySeen(){ try{ return sessionStorage.getItem(QUIZ_SEEN_KEY)==='1'; }catch(e){ return false; } }
+function markQuizSeen(){ state.showQuizPrompt = false; try{ sessionStorage.setItem(QUIZ_SEEN_KEY,'1'); }catch(e){} }
+function escapeHTML(str){ return String(str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function quizQuestions(){
+  const who = state.quizAnswers.who;
+  const fits = x => !x.for || !who || x.for===who;
+  return QUIZ.filter(fits).map(q=>({ ...q, hint:(q.hintFor && q.hintFor[who]) || q.hint, options:q.options.filter(fits) }));
+}
+function quizPicked(){
+  const picked = [];
+  quizQuestions().forEach(q=>{
+    const a = state.quizAnswers[q.key];
+    const keys = Array.isArray(a) ? a : (a ? [a] : []);
+    q.options.filter(o=>keys.includes(o.key)).forEach(o=>picked.push({ q, o }));
+  });
+  return picked;
+}
+// Floating Style Finder button — booking and bundle pages only (the homepage has its own button).
+function quizFabHTML(){
+  if(state.quizOpen || !['landing','book','bundles','questions','aftercare','gallery'].includes(state.view) || state.galleryOpen != null) return '';
+  const sparkle = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" fill="currentColor"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" fill="currentColor"/></svg>`;
+  // pops up from the bottom once each time they open Book a Service; the help bubble shows once per visit
+  const animate = state.fabPop; if(animate){ state.fabPop = false; state.fabPopNow = true; }
+  const bubble = state.view==='book' && !state.category && state.showQuizPrompt;   // tucks away once they pick a service
+  // the bubble disappears on its own after 25 seconds
+  if(bubble && !state.bubbleTimer){
+    state.bubbleTimer = setTimeout(()=>{ if(state.showQuizPrompt){ markQuizSeen(); render(); } }, 25000);
+  }
+  return `<div class="quiz-fab-wrap ${animate?'enter':''}">
+    ${bubble ? `
+    <div class="quiz-bubble" data-action="start-quiz" role="button" tabindex="0">
+      Not sure what to book?
+      <button class="quiz-bubble-x" data-action="dismiss-quiz-prompt" aria-label="Close">×</button>
+    </div>` : ''}
+    <button class="quiz-fab" data-action="start-quiz" aria-label="Find My Style — open The Style Finder" title="Find My Style"><span class="fab-heart" aria-hidden="true">♡</span><span class="fab-label">Find My Style</span></button>
+  </div>`;
+}
+// Scores every service on the chosen path. Returns [{ key, score, reasons, price, overBudget }] best first.
+function quizScored(){
+  const who = state.quizAnswers.who || 'w';
+  const hair = state.quizAnswers.hair;
+  const budget = quizPicked().find(p=>p.q.key==='budget');
+  const max = budget ? budget.o.max : Infinity;
+  return QUIZ_RESULTS_FOR[who].map(key=>{
+    let score = 0; const reasons = [];
+    quizPicked().forEach(({o})=>{
+      let pts = 0;
+      if(o.score) pts = o.score[key] || 0;
+      if(o.speed) pts = o.speed[QUIZ_SPEED[key]] || 0;
+      score += pts;
+      if(pts >= 2 && o.why) reasons.push({ why:o.why, pts });
+    });
+    const price = QUIZ_SERVICES[key].price(hair);
+    const overBudget = price.from > max;
+    if(overBudget) score -= 4;               // still shown if it's a strong match, with the price clearly stated
+    else if(budget && max !== Infinity) score += 1;
+    return { key, score, reasons:[...new Set(reasons.sort((a,b)=>b.pts-a.pts).map(r=>r.why))].slice(0,3), price, overBudget };
+  }).sort((a,b)=> (b.score - a.score) || (visionPts(b.key) - visionPts(a.key)));
+}
+// tie-breaker: the look they asked for beats everything else
+function visionPts(key){
+  const v = quizPicked().find(p=>p.q.key==='vision');
+  return (v && v.o.score && v.o.score[key]) || 0;
+}
+function quizMatches(){
+  const scored = quizScored();
+  const top = scored[0];
+  if(!top || top.score <= 0) return [];
+  // keep only services that are genuinely close to the best match — never pad the list
+  return scored.filter(r => r.score > 0 && r.score >= top.score * 0.6).slice(0,3);
+}
+// Suggest a consultation when most answers were "open" or no service clearly fits.
+function quizNeedsConsult(matches){
+  const openCount = quizPicked().filter(({o})=>o.open).length;
+  return !matches.length || openCount >= 3 || matches[0].score < 5;
+}
+function quizReasonSentence(reasons){
+  if(!reasons.length) return "";
+  const list = reasons.length===1 ? reasons[0] : reasons.slice(0,-1).join(", ") + (reasons.length>2?",":"") + " and " + reasons[reasons.length-1];
+  return "Why it may suit you: it " + list + ".";
+}
 
 // Paused deals are kept here (not deleted) so they're easy to bring back later — just
 // remove the `paused` flag. They still won't show up for clients to pick while paused.
@@ -536,6 +923,10 @@ async function refreshTakenDates(){
     render();
   }catch(err){ /* live sync failed — manual BLOCKED_DATES still works, just no auto-block this load */ }
 }
+// Squeeze-ins: a request for a day that's already booked. Always needs your approval.
+const SQUEEZE_IN_FEE = 20;
+function squeezeApplies(){ return !!state.squeezeIn && state.category && state.category!=='bundles' && state.category!=='consult'; }
+function isDayOff(dateStr){ return BLOCKED_DATES.some(b => typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end)); }
 function isDateBlocked(dateStr){
   if(takenDates.has(dateStr)) return true;
   return BLOCKED_DATES.some(b => typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end));
@@ -646,14 +1037,17 @@ async function saveBooking(data){
   await submitViaGet("create", full);
   return true;
 }
-async function listBookings(){
-  const res = await fetch(CONFIG.apiUrl + "?action=list&key=" + encodeURIComponent(CONFIG.adminPasscode));
+// The dashboard passcode is never stored in this file. You type it in, it's checked by your
+// Google Apps Script, and it's kept in memory only for this tab (gone on refresh or close).
+let ADMIN_SESSION_KEY = "";
+async function listBookings(passcode){
+  const res = await fetch(CONFIG.apiUrl + "?action=list&key=" + encodeURIComponent(passcode || ADMIN_SESSION_KEY));
   const json = await res.json();
-  const bookings = json.bookings || [];
-  return bookings;
+  if(json.error === "unauthorized" || json.error === "locked"){ const err = new Error(json.error); err.code = json.error; throw err; }
+  return json.bookings || [];
 }
 async function updateStatus(key, status){
-  await submitViaGet('updateStatus', { key, status, adminKey: CONFIG.adminPasscode });
+  await submitViaGet('updateStatus', { key, status, adminKey: ADMIN_SESSION_KEY });
 }
 // Looks up only whether this one phone number has any approved bookings before —
 // doesn't expose the rest of the client list, unlike a full listBookings() call.
@@ -724,13 +1118,13 @@ function aftercareIntroHTML(){
     <div class="aftercare-title">Your hair doesn't end at the appointment.</div>
     <p class="aftercare-text">Every qualifying appointment comes with thoughtful aftercare essentials to help you care for your hair long after you leave the chair.</p>
     <div class="kit-row ${miniActive ? 'active' : ''}">
-      <div><div class="kit-name">Mini Care Kit</div><div class="kit-sub">Complimentary with bundle orders and first-time $${MINI_KIT_MIN_TOTAL}+ services, or add it for $${MINI_KIT_PURCHASE_PRICE}</div></div>
+      <div><div class="kit-name">Mini Care Kit</div><div class="kit-sub">Complimentary with bundle orders and first-time qualifying services</div></div>
       ${miniBadge}
     </div>
     <details class="kit-more" data-keep="kitOpen" ${state.kitOpen?'open':''}>
       <summary>See what's included</summary>
       <div class="kit-more-body">
-        <div>Complimentary with bundle orders and first-time $${MINI_KIT_MIN_TOTAL}+ services, or $${MINI_KIT_PURCHASE_PRICE} on any booking. Hand-picked from:</div>
+        <div>Complimentary with bundle orders and first-time qualifying services. Hand-picked from:</div>
         <ul>
           <li>Satin bonnet</li>
           <li>Detangling brush</li>
@@ -741,13 +1135,13 @@ function aftercareIntroHTML(){
     </details>
 
     <div class="kit-row ${luxuryActive ? 'active' : ''}" style="margin-top:10px;">
-      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">Included with qualifying $${LUXURY_INCLUDED_MIN}+ packages, or upgrade for $${LUXURY_KIT_PRICE}</div></div>
+      <div><div class="kit-name">Luxury Care Kit</div><div class="kit-sub">Included with qualifying packages</div></div>
       ${luxuryBadge}
     </div>
     <details class="kit-more" data-keep="kitOpenLuxury" ${state.kitOpenLuxury?'open':''}>
       <summary>See what's included</summary>
       <div class="kit-more-body">
-        <div>Included free with qualifying $${LUXURY_INCLUDED_MIN}+ packages, or $${LUXURY_KIT_PRICE} on any booking. Hand-picked from:</div>
+        <div>Included free with qualifying packages. Hand-picked from:</div>
         <ul>
           <li>Full-size shampoo + conditioner</li>
           <li>Satin bonnet + scarf</li>
@@ -785,6 +1179,8 @@ let state = {
   crochetHairSource: null, crochetConfirmed: false, crochetDetails: "",
   bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "", bundleKitUpgrade: false,
   customDetails: "",
+  takedownKey: null, takedownWashConfirmed: false,
+  showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
   installTexture: "",
   dealsSelected: [],
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
@@ -807,6 +1203,7 @@ function resetSelection(){
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
   state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleKitUpgrade=false;
   state.customDetails="";
+  state.takedownKey=null; state.takedownWashConfirmed=false;
   state.installTexture="";
   state.dealsSelected=[];
   state.loyaltyVisit=""; state.btcFirstConfirmed=false; state.hallohairCostumeConfirmed=false;
@@ -828,7 +1225,35 @@ function render(){
   else if(state.view === "admin-gate") app.innerHTML = renderGate();
   else if(state.view === "admin") app.innerHTML = renderAdmin();
   else if(state.view === "questions") app.innerHTML = renderQuestions();
+  else if(state.view === "aftercare") app.innerHTML = renderAftercare();
+  else if(state.view === "gallery") app.innerHTML = renderGallery();
+  // Style Finder modal: keep the scroll position inside it unless they moved to a new step
+  const prevQmScroll = (document.querySelector('.qm-body')||{}).scrollTop || 0;
+  if(state.quizOpen) app.insertAdjacentHTML('beforeend', renderQuiz());
+  const qmBody = document.querySelector('.qm-body');
+  if(qmBody && !state.qmReset) qmBody.scrollTop = prevQmScroll;
+  state.qmReset = false; state.qmEnter = false;
+  document.body.style.overflow = (state.quizOpen || (state.view==='gallery' && state.galleryOpen != null)) ? 'hidden' : '';
+  saveQuizProgress();
+  // The floating button lives outside #app so re-renders don't restart its pop-up animation.
+  let fabRoot = document.getElementById('fab-root');
+  if(!fabRoot){ fabRoot = document.createElement('div'); fabRoot.id = 'fab-root'; document.body.appendChild(fabRoot); }
+  const fabHTML = quizFabHTML();
+  const fabSig = fabHTML.replace('quiz-fab-wrap enter','quiz-fab-wrap ');
+  if(fabRoot.dataset.sig !== fabSig || state.fabPopNow){ fabRoot.innerHTML = fabHTML; fabRoot.dataset.sig = fabSig; }
+  state.fabPopNow = false;
+  document.body.classList.toggle('has-fab', !!fabHTML);
+  fabRoot.classList.toggle('compact', window.scrollY > 40);
+  if(!fabHTML) fabRoot.classList.remove('fab-away');
+  // cream page edges on desktop for the light-theme pages (homepage + Style Finder)
+  const light = ['landing','aftercare'].includes(state.view) ? '#F8F3EF' : '';
+  document.documentElement.style.background = light; document.body.style.background = light;
   attachHandlers();
+  const nameInput = document.getElementById('quiz-name');
+  if(nameInput && document.activeElement !== nameInput) nameInput.focus({ preventScroll:true });
+  if(state.qmFocus){ const t = document.querySelector('.qm .opt, .qm .cta-btn, .qm-x'); if(t) t.focus({ preventScroll:true }); state.qmFocus = false; }
+  const firstMenu = document.querySelector('.menu-sheet .landing-choice');
+  if(firstMenu && !document.activeElement.closest('.menu-sheet')) firstMenu.focus({ preventScroll:true });
 }
 
 /* ============== pricing calc ============== */
@@ -844,6 +1269,7 @@ function serviceChosen(){
   if(state.category==='treatments') return Object.values(state.treatmentKeys).some(Boolean);
   if(state.category==='bundles') return true;
   if(state.category==='custom') return true;
+  if(state.category==='takedown') return !!state.takedownKey;
   if(state.category==='consult') return true;
   return false;
 }
@@ -875,6 +1301,9 @@ function computeBaseTotal(){
     }
   } else if(state.category==='bundles'){
     total = null; // priced after catalog/quote, not a fixed number
+  } else if(state.category==='takedown'){
+    const t = TAKEDOWNS.find(t=>t.key===state.takedownKey);
+    if(t) total += t.price;
   } else if(state.category==='consult'){
     total = CONFIG.depositAmount; // counts toward your deposit if they book a service afterward
   }
@@ -918,7 +1347,7 @@ function computeBaseTotal(){
 }
 
 // Care kits apply to service bookings only (bundles have their own flow; custom is quote-based).
-function kitsApply(){ return state.category && state.category!=='bundles' && state.category!=='custom' && state.category!=='consult'; }
+function kitsApply(){ return state.category && state.category!=='bundles' && state.category!=='custom' && state.category!=='consult' && state.category!=='takedown'; }
 
 // Luxury Care Kit is included (no +$50) with qualifying $400+ hair packages.
 function luxuryIncluded(){
@@ -952,7 +1381,7 @@ function bookingTypeShortNote(){
 }
 // Client-facing status line under the aftercare section.
 function kitStatusText(){
-  if(luxuryIncluded()) return "Your $400+ hair package includes the Luxury Care Kit.";
+  if(luxuryIncluded()) return "Your hair package includes the Luxury Care Kit.";
   if(state.luxuryKit) return `You've upgraded to the Luxury Care Kit (+${money(LUXURY_KIT_PRICE)}).`;
   if(miniKitEligible()){
     if(state.bookingType==='couple') return "Your Couple Booking includes a complimentary Mini Care Kit.";
@@ -962,7 +1391,7 @@ function kitStatusText(){
   if(state.miniKitPurchase) return `You've added the Mini Care Kit (+${money(MINI_KIT_PURCHASE_PRICE)}).`;
   const base = computeBaseTotal();
   if(state.isFirstTimeClient===null && base !== null && base >= MINI_KIT_MIN_TOTAL)
-    return "First-time clients with qualifying $200+ services receive a complimentary Mini Care Kit — we'll confirm once you add your phone number below.";
+    return "First-time clients with qualifying services receive a complimentary Mini Care Kit — we'll confirm once you add your phone number below.";
   return '';
 }
 // Stored with the booking so it can be cross-checked on the dashboard/sheet.
@@ -983,6 +1412,7 @@ function calcTotal(){
   const base = computeBaseTotal();
   if(base === null) return null;
   let total = base;
+  if(squeezeApplies()) total += SQUEEZE_IN_FEE;   // added after deals, so it's never discounted
   if(kitsApply() && !luxuryIncluded()){
     if(state.luxuryKit) total += LUXURY_KIT_PRICE;
     else if(!miniKitEligible() && state.miniKitPurchase) total += MINI_KIT_PURCHASE_PRICE;
@@ -1031,6 +1461,10 @@ function serviceLabelText(){
     return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
   }
   if(state.category==='custom') return `Custom style request (approval-based) — ${state.customDetails}`;
+  if(state.category==='takedown'){
+    const t = TAKEDOWNS.find(t=>t.key===state.takedownKey);
+    return t ? `Takedown — ${t.name} (client confirmed hair will be washed & dry: ${state.takedownWashConfirmed?'yes':'no'})` : '';
+  }
   if(state.category==='consult') return `Consultation`;
   return '';
 }
@@ -1042,25 +1476,267 @@ const CATEGORIES = [
   { key:'cornrows', name:'Cornrows' },
   { key:'crochet', name:'Crochet' },
   { key:'treatments', name:'Hair Treatments' },
+  { key:'takedown', name:'Takedowns' },
   { key:'custom', name:'Custom' },
 ];
 
 function renderLanding(){
   return `
-  <div class="wrap theme-light" style="min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center;">
+  <div class="wrap theme-light landing-wrap" style="min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center;">
     <div class="hero" style="padding-top:0; padding-bottom:8px;">
       <p class="eyebrow">currently based in Bloomington</p>
       <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:130px; margin:6px auto 22px;"/>
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
 
-    <div style="margin-top:40px;">
+    <div style="margin-top:44px;">
       <button class="cta-btn" data-action="landing-pick" data-key="service">Book a Service</button>
-      <button class="cta-btn secondary" data-action="landing-pick" data-key="bundles">Bundles</button>
-      <button class="cta-btn secondary" data-action="landing-pick" data-key="consult">Consultation</button>
+      <div class="home-pair">
+        <button class="cta-btn secondary" data-action="landing-pick" data-key="bundles">Shop Hair</button>
+        <button class="cta-btn secondary" data-action="go-aftercare">Aftercare</button>
+      </div>
     </div>
 
-    <div class="back-link" data-action="go-questions" style="display:block; text-align:center; margin-top:8px;">Questions about your appointment? ›</div>
+    <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your appointment? ›</div>
+    <div class="back-link" data-action="landing-pick" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin-top:0;">Need a consultation first? ›</div>
+    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
+  </div>`;
+}
+
+// The Style Finder opens as a modal over whatever page they're on.
+// Progress is kept for the browsing session, so closing and reopening picks up where they left off.
+const QUIZ_SAVE_KEY = "ehiffectStyleFinder";
+function saveQuizProgress(){
+  try{ sessionStorage.setItem(QUIZ_SAVE_KEY, JSON.stringify({ step:state.quizStep, answers:state.quizAnswers, name:state.quizName, show:state.quizShowCount||1 })); }catch(e){}
+}
+function loadQuizProgress(){
+  try{
+    const d = JSON.parse(sessionStorage.getItem(QUIZ_SAVE_KEY) || 'null');
+    if(d){ state.quizStep = d.step||0; state.quizAnswers = d.answers||{}; state.quizName = d.name||''; state.quizShowCount = d.show||1; }
+  }catch(e){}
+}
+function renderQuiz(){
+  if(!state.quizOpen) return '';
+  const qs = quizQuestions();
+  const total = qs.length;
+  const step = state.quizStep;
+  const onQuestion = step < total, onName = step === total, onResults = step > total;
+  const pct = onResults ? 100 : Math.round((Math.min(step, total) / total) * 100);
+  const progressLabel = onQuestion ? `Question ${step+1} of ${total}` : onName ? 'Last step' : 'Your results';
+  let body = '';
+  if(onQuestion){
+    const q = qs[step];
+    const picked = state.quizAnswers[q.key];
+    const isOn = k => q.multi ? (picked||[]).includes(k) : picked===k;
+    const answered = q.multi ? (picked||[]).length>0 : !!picked;
+    body = `
+      <h2 class="quiz-q" id="qm-q">${q.q}</h2>
+      ${q.hint ? `<p class="quiz-hint">${q.hint}</p>` : `<div style="height:10px;"></div>`}
+      <div class="opt-group">
+        ${q.options.map(o=>`
+        <div class="opt ${isOn(o.key)?'selected':''}" data-action="${q.multi?'quiz-toggle':'quiz-answer'}" data-key="${o.key}" role="button" tabindex="0" ${q.multi?`aria-pressed="${isOn(o.key)}"`:''}>
+          <div><div class="opt-name">${o.label}</div>${o.sub ? `<div class="opt-sub">${o.sub}</div>` : ''}</div>
+          ${q.multi ? `<span class="quiz-check">${isOn(o.key)?'✓':''}</span>` : ''}
+        </div>`).join('')}
+      </div>
+      ${q.multi ? `<button class="cta-btn" data-action="quiz-next" style="margin:14px 0 0;" ${answered?'':'disabled'}>Next</button>`
+        : (answered ? `<button class="cta-btn secondary" data-action="quiz-forward" style="margin:14px 0 0;">Next</button>` : '')}`;
+  } else if(onName){
+    body = `
+      <h2 class="quiz-q" id="qm-q">What should I call you?</h2>
+      <p class="quiz-hint">Optional. I'll fill it in for you if you book.</p>
+      <input type="text" id="quiz-name" class="quiz-name-input" value="${escapeHTML(state.quizName)}" placeholder="your name" autocomplete="given-name"/>
+      <button class="cta-btn" data-action="quiz-name-submit">See my match</button>
+      <button class="cta-btn secondary" data-action="quiz-name-skip" style="margin-bottom:0;">Skip</button>`;
+  } else {
+    const matches = quizMatches();
+    const consult = quizNeedsConsult(matches);
+    const shown = matches.slice(0, Math.max(1, state.quizShowCount||1));
+    const card = (r, i) => {
+      const svc = QUIZ_SERVICES[r.key];
+      const why = quizReasonSentence(r.reasons);
+      return `
+      <div class="card quiz-result">
+        <div class="quiz-rank">${i===0 ? 'Top match' : `Match ${i+1}`}</div>
+        <div class="quiz-match">${svc.name}</div>
+        <p class="quiz-desc">${svc.desc}</p>
+        ${why ? `<p class="quiz-why">${why}</p>` : ''}
+        <div class="quiz-price"><b>Starts at ${money(r.price.from)}</b> ${r.price.label}</div>
+        ${r.overBudget ? `<div class="quiz-over">This starts above the range you picked, but it matched your other answers closely.</div>` : ''}
+        <button class="cta-btn" data-action="quiz-book" data-key="${r.key}" style="margin:16px 0 0;">Explore this service</button>
+      </div>`;
+    };
+    body = `
+      <h2 class="quiz-q" id="qm-q" style="font-size:28px;">Your Style Match</h2>
+      <p class="quiz-hint">${state.quizName ? `${escapeHTML(state.quizName)}, based` : 'Based'} on your preferences, here ${matches.length===1?'is the style':'are the styles'} we think you'll love.</p>
+      ${shown.map(card).join('')}
+      ${matches.length > shown.length ? `<button class="cta-btn secondary" data-action="quiz-more" style="margin-top:16px;">See another recommendation</button>` : ''}
+      ${consult ? `
+      <div class="card quiz-consult">
+        <div class="quiz-rank">${matches.length ? 'Want a second opinion?' : 'Let\'s talk it through'}</div>
+        <p class="quiz-desc" style="margin-top:6px;">${matches.length ? 'Your answers left a few things open, so a consultation may help us pick the right service for your hair.' : 'Your answers didn\'t point clearly to one service, so a consultation is the best next step. We\'ll find the right style for your hair together.'}</p>
+        <button class="cta-btn ${matches.length?'secondary':''}" data-action="landing-pick" data-key="consult" style="margin:12px 0 0;">Book a consultation</button>
+      </div>` : `
+      <div class="back-link" data-action="landing-pick" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin-top:16px;">Still unsure? Book a consultation</div>`}
+      <p class="quiz-disclaimer">Recommendations are based on your answers. Final suitability and pricing depend on the service you choose and your styling needs.</p>`;
+  }
+  const hasStarted = step > 0 || Object.keys(state.quizAnswers).length > 0;
+  return `
+  <div class="qm-overlay ${state.qmEnter?'enter':''}" data-action="quiz-close" data-backdrop="1">
+    <div class="qm quiz-wrap" role="dialog" aria-modal="true" aria-labelledby="qm-title">
+      <div class="qm-head">
+        <div>
+          <p class="qm-eyebrow" id="qm-title">♡ The Style Finder</p>
+          <p class="qm-sub">Not sure what to book? Let's find your look.</p>
+        </div>
+        <button class="qm-x" data-action="quiz-close" aria-label="Close The Style Finder">×</button>
+      </div>
+      <div class="qm-progress-row">
+        <span class="quiz-progress">${progressLabel}</span>
+        ${hasStarted ? `<button class="qm-link" data-action="quiz-restart">Start over</button>` : ''}
+      </div>
+      <div class="qm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${Math.min(step,total)}"><span style="width:${pct}%"></span></div>
+      <div class="qm-body">${body}</div>
+      ${step > 0 ? `<div class="qm-foot"><button class="qm-back" data-action="quiz-back">&lsaquo; Back</button></div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ============== my work (gallery) ============== */
+// Photos and videos live next to index.html as their own files (work-1.mp4, work-4.jpg, ...),
+// so the page stays fast. To add more: upload the file, then add a line here. "label" is optional.
+const GALLERY = [
+  { type:"video", src:"work-1.mp4", poster:"work-1-poster.jpg", label:"" },
+  { type:"video", src:"work-2.mp4", poster:"work-2-poster.jpg", label:"" },
+  { type:"video", src:"work-3.mp4", poster:"work-3-poster.jpg", label:"" },
+  { type:"photo", src:"work-4.jpg", label:"" },
+  { type:"photo", src:"work-5.jpg", label:"" },
+  { type:"photo", src:"work-6.jpg", label:"" },
+];
+function renderGallery(){
+  const tile = (g, i) => `
+    <button type="button" class="gal-tile" data-action="gal-open" data-key="${i}" aria-label="View ${g.type} ${i+1}${g.label?': '+g.label:''}">
+      ${g.type==='video'
+        ? `<video src="${g.src}" poster="${g.poster}" muted loop playsinline autoplay preload="metadata" aria-hidden="true"></video><span class="gal-play" aria-hidden="true">▶</span>`
+        : `<img src="${g.src}" alt="${g.label || 'Hair styled by The Ehiffect'}" loading="lazy"/>`}
+      ${g.label ? `<span class="gal-label">${g.label}</span>` : ''}
+    </button>`;
+  const open = state.galleryOpen;
+  const cur = (open !== null && open !== undefined) ? GALLERY[open] : null;
+  return `
+  <div class="wrap gal-wrap">
+    <span class="back-link" data-action="go-landing" role="button" tabindex="0">&lsaquo; homepage</span>
+    <div class="hero" style="padding-top:4px; margin-bottom:22px;">
+      <p class="eyebrow">My work</p>
+      <h1 class="title" style="margin:6px 0 8px;">Styled by The Ehiffect</h1>
+      <p class="tagline">uncomplicated &amp; at your service</p>
+    </div>
+    <div class="gal-grid">${GALLERY.map(tile).join('')}</div>
+    <button class="cta-btn" data-action="landing-pick" data-key="service" style="margin-top:24px;">Book a Service</button>
+    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
+    ${cur ? `
+    <div class="gal-box" data-action="gal-close" data-backdrop="1" role="dialog" aria-modal="true" aria-label="Photo viewer">
+      <button class="gal-x" data-action="gal-close" aria-label="Close">×</button>
+      ${GALLERY.length > 1 ? `<button class="gal-nav prev" data-action="gal-step" data-key="-1" aria-label="Previous">‹</button>
+      <button class="gal-nav next" data-action="gal-step" data-key="1" aria-label="Next">›</button>` : ''}
+      ${cur.type==='video'
+        ? `<video src="${cur.src}" poster="${cur.poster}" controls autoplay playsinline muted loop></video>`
+        : `<img src="${cur.src}" alt="${cur.label || 'Hair styled by The Ehiffect'}"/>`}
+      ${cur.label ? `<div class="gal-cap">${cur.label}</div>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+
+/* ============== aftercare guide ============== */
+// Content comes from your aftercare.html (sew-in) and your quick weave aftercare PDF.
+// Each section: { h: heading, note?: small italic line, items: [...] }. "POROSITY" marks where the porosity toggle goes.
+const AFTERCARE = {
+  si: { name:"Sew-In", intro:"Everything you need to keep your sew-in fresh and your natural hair healthy underneath.", sections:[
+    { h:"First 48 hours", items:["Hands off. No scratching, picking, or pulling at your braids while your scalp settles.","Some tenderness is normal. Sharp pain, bumps, or pulling that won’t ease up is not. Reach out to me."] },
+    { h:"Every night", items:["Wrap your hair or wear a silk/satin bonnet.","A satin pillowcase is a bonus for less frizz and tangling.","Never go to bed with damp hair or damp braids."] },
+    { h:"Wash day", items:["Cleanse your scalp every 1–2 weeks using diluted shampoo in an applicator bottle.","Rinse well. Leftover product causes buildup and itching.","Dry completely with a hooded dryer or blow dryer. Damp braids under an install can lead to mildew and odor."] },
+    { h:"Working out", items:["Go for it! Pull your hair into a loose, low ponytail or use a sweatband. Nothing tight at the edges.","Sweat sitting in your braids causes itching and odor, so if you work out often, cleanse your scalp weekly.","After a sweaty session, blow-dry your roots on cool or low heat."] },
+    { h:"Be gentle", items:["Detangle from ends to roots.","Use low to medium heat with a heat protectant. High heat shortens the life of your bundles.","Avoid tight styles and excessive tension.","Skip heavy products that weigh your hair down."] },
+    { h:"POROSITY", note:"For your leave-out and your natural hair underneath." },
+    { h:"Leave-out care", items:["Keep it moisturized based on your porosity above.","Limit flat ironing so your leave-out doesn’t get heat damaged and stop blending.","Wrap or tuck it under your bonnet every night."] },
+    { h:"Sensitive scalp", items:["Choose fragrance-free, alcohol-free scalp products.","Pure aloe vera gel or a gentle scalp spray calms itching without irritation.","Patch test anything new behind your ear first.","Be careful with tea tree and peppermint oils. They’re popular but can burn a sensitive scalp. Always dilute them, or skip them.","Rinse shampoo out extra well.","Let me know at your appointment so I can adjust braid tension for you."] },
+    { h:"6–8 weeks", takedown:true, items:["It’s time for a takedown. Wearing your install longer risks matting, breakage, and buildup at the roots.","Book your takedown with me. Please don’t cut or pull your install out yourself."] },
+  ]},
+  qw: { name:"Quick Weave", intro:"Everything you need to keep your quick weave fresh and your natural hair healthy underneath.", sections:[
+    { h:"First 24 hours", items:["Give the bond a day to set. Keep your hair dry and skip heavy sweating for the first 24 hours.","Some tightness is normal. Burning, stinging, or pain is not. Reach out to me right away."] },
+    { h:"Every night", items:["Wrap your hair or wear a silk/satin bonnet.","A satin pillowcase is a bonus for less frizz and tangling.","Never go to bed with damp hair."] },
+    { h:"Keep the roots dry", items:["Water and oils weaken the bond that holds your tracks, so don’t soak or wash your hair at the roots.","Keep oils and heavy products away from your scalp and edges.","To refresh, mist the lengths lightly with a leave-in spray, staying away from the roots."] },
+    { h:"Working out", items:["Go for it! Use a sweatband and keep your hair in a loose, low ponytail.","Wipe sweat from your hairline after, then dry your roots on cool. Sweat can loosen the bond over time."] },
+    { h:"Be gentle", items:["Detangle from ends to roots.","Use low to medium heat with a heat protectant. Keep high heat away from the roots.","Don’t pull, pick, or tug at your tracks.","If a track starts lifting, don’t glue it back down yourself. Reach out to me."] },
+    { h:"Leave-out care", items:["Keep your leave-out moisturized based on your porosity below, using products only on your leave-out, not near the tracks.","Limit flat ironing so your leave-out doesn’t get heat damaged and stop blending.","Wrap or tuck it under your bonnet every night."] },
+    { h:"POROSITY", note:"For your leave-out." },
+    { h:"Sensitive scalp", items:["Some people are sensitive to bonding glue. If you’ve reacted to glue before, tell me before your appointment.","Burning, nonstop itching, bumps, or redness after your install can mean a glue reaction. Reach out to me right away.","Choose fragrance-free, alcohol-free products for your leave-out.","Patch test anything new behind your ear first."] },
+    { h:"2–4 weeks", takedown:true, items:["It’s time for removal. Wearing a quick weave longer can lead to breakage and buildup.","Never pull or peel your quick weave out. It has to come out with glue remover, or it can rip your hair.","Book your removal with me, and plan a wash and deep condition for your natural hair right after."] },
+  ]},
+};
+const AFTERCARE_POROSITY = {
+  si: {
+    low:{ note:"Moisture sits on top of your hair and products tend to build up.", items:["Use light, water-based leave-ins and sprays.","Apply products to slightly damp or warm hair so they absorb. A warm towel helps.","Skip heavy butters and thick creams.","Less is more. Moisturize your leave-out every few days, not daily."] },
+    high:{ note:"Your hair soaks up moisture fast and loses it just as fast.", items:["Moisturize, then seal: a leave-in first, then an oil or butter to lock it in.","Do a light protein treatment on your leave-out before your install and between installs.","Moisturize your leave-out daily or every other day.","In humid weather, use an anti-humidity product so your leave-out keeps blending."] },
+  },
+  qw: {
+    low:{ note:"Moisture sits on top of your hair and products tend to build up.", items:["Use light, water-based leave-ins on your leave-out.","Apply products to slightly warm hair so they absorb.","Skip heavy butters and thick creams.","Moisturize every few days, not daily."] },
+    // The quick weave PDF only showed the low-porosity panel, so this reuses your sew-in high-porosity tips (leave-out only, away from the tracks).
+    high:{ note:"Your hair soaks up moisture fast and loses it just as fast.", items:["Moisturize, then seal: a leave-in first, then an oil or butter to lock it in, on your leave-out only.","Moisturize your leave-out daily or every other day, keeping products away from the tracks.","In humid weather, use an anti-humidity product so your leave-out keeps blending."] },
+  },
+};
+function renderAftercare(){
+  const tab = state.aftercareTab || 'si';
+  const por = state.porosity || 'low';
+  const g = AFTERCARE[tab];
+  const list = items => `<ul class="ac-list">${items.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  const section = sec => {
+    if(sec.h === 'POROSITY'){
+      const P = AFTERCARE_POROSITY[tab][por];
+      return `
+      <section class="ac-sec">
+        <h2 class="ac-h">Your porosity</h2>
+        <p class="ac-note">${sec.note}</p>
+        <div class="ac-toggle" role="group" aria-label="Choose your porosity">
+          <button type="button" data-action="ac-porosity" data-key="low" aria-pressed="${por==='low'}">Low porosity</button>
+          <button type="button" data-action="ac-porosity" data-key="high" aria-pressed="${por==='high'}">High porosity</button>
+        </div>
+        <p class="ac-test">Not sure? If your hair takes a while to get fully wet and products seem to sit on top, you’re likely low porosity. If it soaks up water fast and dries fast, you’re likely high. Or just ask me at your next appointment.</p>
+        <h3 class="ac-h3">${por==='low'?'Low':'High'} porosity</h3>
+        <p class="ac-note">${P.note}</p>
+        ${list(P.items)}
+      </section>`;
+    }
+    return `
+      <section class="ac-sec">
+        <h2 class="ac-h">${sec.h}</h2>
+        ${list(sec.items)}
+        ${sec.takedown ? `<button class="cta-btn secondary" data-action="ac-book-takedown" style="margin:12px 0 0;">Book your ${tab==='qw'?'removal':'takedown'}</button>` : ''}
+      </section>`;
+  };
+  return `
+  <div class="wrap theme-light ac-wrap">
+    <span class="back-link" data-action="go-landing" role="button" tabindex="0">&lsaquo; homepage</span>
+    <div class="hero" style="padding-top:4px; margin-bottom:18px;">
+      <p class="eyebrow">Aftercare guide</p>
+      <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:110px; margin:4px auto 16px;"/>
+      <h1 class="ac-lead">Your hair doesn’t end at the appointment.</h1>
+      <p class="tagline">${g.intro}</p>
+    </div>
+    <div class="ac-tabs" role="tablist">
+      ${Object.entries(AFTERCARE).map(([k,v])=>`<button type="button" role="tab" aria-selected="${tab===k}" class="ac-tab ${tab===k?'on':''}" data-action="ac-tab" data-key="${k}">${v.name}</button>`).join('')}
+    </div>
+    <div class="ac-card">
+      ${g.sections.map(section).join('')}
+      <section class="ac-sec">
+        <h2 class="ac-h">Scalp feeling off?</h2>
+        <p class="ac-body">Persistent pain, bumps, redness, worsening flakes, or irritation isn’t something to ignore. Reach out to me.</p>
+      </section>
+      <div class="ac-foot">
+        <p>thanks for trusting me <span>♡</span></p>
+        <button class="cta-btn" data-action="landing-pick" data-key="service" style="margin:14px 0 0;">Book your next appointment</button>
+      </div>
+    </div>
     <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
@@ -1090,12 +1766,14 @@ function renderCalendar(){
   for(let d=1; d<=daysInMonth; d++){
     const dateStr = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const isPast = dateStr < today;
-    const isBlocked = isDateBlocked(dateStr);
+    const squeezable = squeezeApplies() && takenDates.has(dateStr) && !isDayOff(dateStr);
+    const isBlocked = isDateBlocked(dateStr) && !squeezable;
     const isSelected = state.date === dateStr;
     const cls = ['cal-day'];
     if(isPast) cls.push('past');
     else if(isBlocked) cls.push('blocked');
     else if(isSelected) cls.push('selected');
+    else if(squeezable) cls.push('squeeze');
     const clickable = !isPast && !isBlocked;
     cells.push(`<div class="${cls.join(' ')}" ${clickable ? `data-action="pick-cal-day" data-key="${dateStr}"` : ''}>${d}</div>`);
   }
@@ -1113,6 +1791,7 @@ function renderCalendar(){
         <span><i style="background:var(--pink);"></i>available</span>
         <span><i style="background:var(--cream);"></i>selected</span>
         <span><i style="background:var(--panel-2); border:1px solid var(--line);"></i>not available</span>
+        ${squeezeApplies() ? `<span><i style="background:transparent; border:1px dashed var(--pink);"></i>squeeze-in</span>` : ''}
       </div>
     </div>`;
 }
@@ -1133,12 +1812,14 @@ function renderBook(){
       <span class="back-link" data-action="go-landing">&lsaquo; back</span>
       ${state.category==='consult' ? `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Consultation</span></div>
+      <div class="back-link" data-action="pick-category" data-key="" role="button" tabindex="0" style="margin:-4px 0 10px;">See all services instead ›</div>
       <p class="aftercare-text" style="margin:0;">Not sure a style will work for your hair, or just have questions before committing? A consultation is time set aside just to talk through it — whether it's a specific concern about your hair, making sure a service is possible, or anything else you'd like to ask. I'll confirm the consultation once it's booked.</p>
       ` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
       <div class="cat-grid">
-        ${CATEGORIES.map(c=>`<div class="cat ${c.key==='custom'?'cat-wide':''} ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
-      </div>`}
+        ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
+      </div>
+      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:12px 0 0;">Not sure yet? Book a consultation ›</div>`}
 
       ${state.category && state.category!=='consult' ? `
       <div class="field" style="margin-top:14px; text-align:center;">
@@ -1161,11 +1842,16 @@ function renderBook(){
         ` : ''}
       </div>` : ''}
 
+      ${state.category==='si' ? `
+        <div class="signature-card">
+          <div class="signature-eyebrow">The Signature Client Experience</div>
+          First-time clients booking qualifying sew-in packages receive a curated haircare gift, complete with personalized aftercare guidance to help maintain their style.
+        </div>` : ''}
       ${(state.category==='qw'||state.category==='si') ? `
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
-              <div><div class="opt-name">${t.name}</div>${t.lengths ? `<div class="opt-sub">base length 12–14"</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
+              <div><div class="opt-name">${t.name}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
               <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
@@ -1251,6 +1937,28 @@ function renderBook(){
           <span class="opt-price">${t.unavailable ? 'Not offered' : money(t.price)}</span>
         </div>`).join('')}</div>` : ''}
 
+      ${state.category==='takedown' ? `
+        <div class="opt-group" style="margin-top:14px;">
+          <div class="opt-sub" style="margin-bottom:6px;">What are we taking down?</div>
+          ${TAKEDOWNS.map(t=>`
+          <div class="opt ${state.takedownKey===t.key?'selected':''}" data-action="pick-takedown" data-key="${t.key}">
+            <div><div class="opt-name">${t.name}</div><div class="opt-sub">${t.desc}</div></div><span class="opt-price">${money(t.price)}</span>
+          </div>`).join('')}
+        </div>
+        <div class="takedown-note">
+          <b>Your hair must be washed before your takedown.</b> Wash the install and let it dry completely before you come in. Clean hair loosens buildup and makes the takedown gentler on your natural hair.
+          <ul>
+            <li>Come with it fully dry, not damp.</li>
+            <li>Shampoo, conditioning, and styling aren't included with any takedown.</li>
+            <li>If your hair needs a lot more detangling than usual, I'll talk through any extra cost with you before I start.</li>
+            <li>Let me know in the notes if you have matting, tangles, or the install has been in longer than usual so I can plan enough time.</li>
+          </ul>
+        </div>
+        <div class="agree-row">
+          <input type="checkbox" id="takedown-wash-confirm" ${state.takedownWashConfirmed?'checked':''} data-action="toggle-takedown-wash"/>
+          <label for="takedown-wash-confirm">My hair will be washed and fully dry before my appointment.</label>
+        </div>` : ''}
+
       ${state.category==='custom' ? `
         <div class="opt-group" style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:6px;">Custom styles are approval-based — I'll review what you send and confirm final pricing and timing before your appointment is locked in.</div>
@@ -1267,11 +1975,11 @@ function renderBook(){
     <div class="card">
       <div class="step-label"><span class="step-num">2</span><span class="step-title">Add-ons</span></div>
       ${INSTALL_ADDONS.map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>${a.note ? `<div class="addon-note">${a.note}</div>` : ''}`).join('')}
-      <div class="total-bar"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div>
+      <div class="total-bar"><span class="label">estimated total${squeezeApplies() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
     ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' && state.category!=='consult' ? `
-    <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
+    <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${squeezeApplies() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
     ${showDetails && kitsApply() ? `
     <div class="card">
@@ -1282,11 +1990,18 @@ function renderBook(){
     ${showDetails && state.category!=='bundles' ? `
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">When would you like your appointment?</span></div>
+      ${state.category!=='consult' ? `
+      <div class="squeeze-row ${state.squeezeIn?'on':''}">
+        <input type="checkbox" id="squeeze-in" ${state.squeezeIn?'checked':''} data-action="toggle-squeeze"/>
+        <label for="squeeze-in"><b>I need a squeeze-in appointment</b> <span class="squeeze-fee">+${money(SQUEEZE_IN_FEE)}</span>
+          <span class="squeeze-sub">Want a day that's already booked? Check this and booked days open up on the calendar below — pick one and I'll see if I can fit you in. Squeeze-ins are only confirmed once I approve.</span></label>
+      </div>` : ''}
       <div class="field">
         <label>Preferred date <span style="color:var(--pink);">*required</span></label>
         ${renderCalendar()}
         ${dayNote ? `<div class="avail-note" style="margin-top:10px;">${dayNote}</div>` : ''}
       </div>
+
       ${state.date ? `
       <div class="field">
         <label>Preferred time</label>
@@ -1455,7 +2170,7 @@ function renderBundles(){
 
       <div style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
         ${aftercareIntroHTML()}
-        <div class="avail-note" style="margin-top:10px;">Every bundle order includes a complimentary Mini Care Kit.${state.bundleHairSource==='raw' ? ` Luxury Care Kit included with qualifying $${LUXURY_INCLUDED_MIN}+ hair packages — I'll confirm when I quote your order.` : ''}</div>
+        <div class="avail-note" style="margin-top:10px;">Every bundle order includes a complimentary Mini Care Kit.${state.bundleHairSource==='raw' ? ` Luxury Care Kit included with qualifying hair packages — I'll confirm when I quote your order.` : ''}</div>
         <div class="addon-row" style="margin-top:8px;">
           <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the Luxury Care Kit</label>
           <span class="opt-price">+${money(LUXURY_KIT_PRICE)}</span>
@@ -1674,6 +2389,8 @@ function renderAdmin(){
 /* ============== event handling ============== */
 function attachHandlers(){
   document.querySelectorAll('[data-action]').forEach(el=>{
+    if(el.dataset.bound) return;   // persistent elements (the floating button) keep their one listener
+    el.dataset.bound = '1';
     const action = el.getAttribute('data-action');
     const evt = (el.tagName === 'SELECT' || (el.tagName === 'INPUT' && el.type==='checkbox')) ? 'change' : 'click';
     el.addEventListener(evt, async (e)=>{
@@ -1681,14 +2398,88 @@ function attachHandlers(){
       try{
 
       if(action==='landing-pick'){
+        state.landingMenu = false; state.quizOpen = false;
         refreshTakenDates();                 // pick up bookings made since this page was opened
         resetSelection();
         if(key === 'bundles'){ state.view = 'bundles'; state.category = 'bundles'; }
         else if(key === 'consult'){ state.view = 'book'; state.category = 'consult'; }
-        else { state.view = 'book'; state.category = null; }
+        else { state.view = 'book'; state.category = null; state.fabPop = true; }
       }
-      else if(action==='go-landing'){ state.view = 'landing'; }
-      else if(action==='go-questions'){ state.view = 'questions'; }
+      else if(action==='go-landing'){ state.view = 'landing'; state.landingMenu = false; }
+      else if(action==='open-landing-menu'){ state.landingMenu = true; markQuizSeen(); }
+      else if(action==='close-landing-menu'){
+        if(el.getAttribute('data-backdrop') && e.target !== el) return;   // taps inside the sheet don't close it
+        state.landingMenu = false;
+      }
+      else if(action==='dismiss-quiz-prompt'){ e.stopPropagation(); markQuizSeen(); }
+      else if(action==='start-quiz'){
+        if(e.target.closest && e.target.closest('.quiz-bubble-x')) return;   // the bubble's × shouldn't open the quiz
+        markQuizSeen(); state.landingMenu = false;
+        state.quizOpen = true; state.qmEnter = true; state.qmReset = true; state.qmFocus = true;   // progress is kept, not reset
+      }
+      else if(action==='quiz-close'){
+        if(el.getAttribute('data-backdrop') && e.target !== el) return;   // clicks inside the box don't close it
+        state.quizOpen = false;
+      }
+      else if(action==='quiz-restart'){ state.quizStep = 0; state.quizAnswers = {}; state.quizName = ''; state.quizShowCount = 1; state.qmReset = true; }
+      else if(action==='quiz-forward'){ state.quizStep++; state.qmReset = true; }
+      else if(action==='quiz-answer'){
+        const q = quizQuestions()[state.quizStep];
+        if(q.key==='who' && state.quizAnswers.who !== key) state.quizAnswers = {};   // switching paths clears old answers
+        state.quizAnswers[q.key] = key;
+        state.quizStep++; state.qmReset = true;
+      }
+      else if(action==='quiz-more'){ state.quizShowCount = (state.quizShowCount||1) + 1; }
+      else if(action==='quiz-toggle'){
+        const q = quizQuestions()[state.quizStep];
+        const list = state.quizAnswers[q.key] || [];
+        state.quizAnswers[q.key] = list.includes(key) ? list.filter(k=>k!==key) : [...list, key];
+      }
+      else if(action==='quiz-next'){
+        const q = quizQuestions()[state.quizStep];
+        if(!(state.quizAnswers[q.key]||[]).length) return;
+        state.quizStep++; state.qmReset = true;
+      }
+      else if(action==='quiz-name-submit' || action==='quiz-name-skip'){
+        const nameEl = document.getElementById('quiz-name');
+        state.quizName = action==='quiz-name-skip' ? '' : (nameEl ? nameEl.value.trim() : '');
+        if(state.quizName) state.name = state.quizName;   // pre-fills the booking form
+        state.quizStep = quizQuestions().length + 1; state.quizShowCount = 1; state.qmReset = true;
+      }
+      else if(action==='quiz-back'){
+        if(state.quizStep > 0){ state.quizStep--; state.qmReset = true; }
+      }
+      else if(action==='quiz-book'){
+        state.quizOpen = false;
+        refreshTakenDates();
+        resetSelection();
+        state.view = 'book';
+        if(key.startsWith('takedown:')){ state.category = 'takedown'; state.takedownKey = key.split(':')[1]; }
+        else{
+          Object.assign(state, QUIZ_SERVICES[key].book);
+          // carry the hair answer into crochet, the one service where it's a direct price choice
+          if(key==='crochet' && state.quizAnswers.hair==='buy') state.crochetHairSource = 'stylist';
+          if(key==='crochet' && state.quizAnswers.hair==='own') state.crochetHairSource = 'own';
+        }
+        window.scrollTo(0,0);
+      }
+      else if(action==='go-gallery'){ state.view = 'gallery'; state.galleryOpen = null; window.scrollTo(0,0); }
+      else if(action==='gal-open'){ state.galleryOpen = Number(key); }
+      else if(action==='gal-close'){
+        if(el.getAttribute('data-backdrop') && e.target !== el) return;
+        state.galleryOpen = null;
+      }
+      else if(action==='gal-step'){ e.stopPropagation(); state.galleryOpen = (state.galleryOpen + Number(key) + GALLERY.length) % GALLERY.length; }
+      else if(action==='go-aftercare'){ state.view = 'aftercare'; window.scrollTo(0,0); }
+      else if(action==='ac-tab'){ state.aftercareTab = key; }
+      else if(action==='ac-porosity'){ state.porosity = key; }
+      else if(action==='ac-book-takedown'){
+        refreshTakenDates(); resetSelection();
+        state.view = 'book'; state.category = 'takedown';
+        if(state.aftercareTab !== 'qw') state.takedownKey = 'full';   // quick weave removal isn't on the takedown menu yet — they pick or note it
+        window.scrollTo(0,0);
+      }
+      else if(action==='go-questions'){ state.view = 'questions'; state.landingMenu = false; }
       else if(action==='pick-category'){ state.category = key; resetSelection(); }
       else if(action==='toggle-deal'){
         const idx = state.dealsSelected.indexOf(key);
@@ -1733,6 +2524,12 @@ function attachHandlers(){
       }
       else if(action==='toggle-bundle-kit-upgrade'){ state.bundleKitUpgrade = !state.bundleKitUpgrade; }
       else if(action==='toggle-crochet-confirm'){ state.crochetConfirmed = !state.crochetConfirmed; }
+      else if(action==='toggle-squeeze'){
+        state.squeezeIn = !state.squeezeIn;
+        if(!state.squeezeIn && state.date && takenDates.has(state.date)){ state.date = ''; state.time = ''; }   // that day is only open for squeeze-ins
+      }
+      else if(action==='pick-takedown'){ state.takedownKey = key; }
+      else if(action==='toggle-takedown-wash'){ state.takedownWashConfirmed = !state.takedownWashConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
       else if(action==='qty-minus'){ state.bundleQty = Math.max(1, state.bundleQty-1); }
       else if(action==='pick-bundle-source'){ state.bundleHairSource = key; }
@@ -1791,6 +2588,9 @@ function attachHandlers(){
           state.bundleDetails = document.getElementById('f-bundle-details').value.trim();
           if(!state.bundleDetails){ state.error = "Please describe the type/brand/length of bundles you want."; render(); return; }
         }
+        if(state.category==='takedown' && !state.takedownWashConfirmed){
+          state.error = "Please confirm your hair will be washed and fully dry before your takedown."; render(); return;
+        }
         if(state.category==='custom'){
           state.customDetails = document.getElementById('f-custom-details').value.trim();
           if(!state.customDetails){ state.error = "Please describe the style you want, or paste a link/photo reference."; render(); return; }
@@ -1805,7 +2605,7 @@ function attachHandlers(){
         const notesWithLink = state.referenceLink ? `${state.notes}${state.notes ? ' | ' : ''}Reference link: ${state.referenceLink}` : state.notes;
         const booking = {
           name: state.name, phone: state.phone, ig: state.ig, email: state.email, date: state.date, time: state.time, notes: notesWithLink,
-          photos: state.photos, serviceLabel: serviceLabelText(), dealsLabel: dealsLabelText(), dealKeys: state.dealsSelected.join(", "),
+          photos: state.photos, serviceLabel: serviceLabelText() + (squeezeApplies() ? ` — ⚡ SQUEEZE-IN REQUEST (+${money(SQUEEZE_IN_FEE)})` : ''), dealsLabel: dealsLabelText(), dealKeys: state.dealsSelected.join(", "),
           bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
           giftKit: kitLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)') : '',
@@ -1823,24 +2623,36 @@ function attachHandlers(){
         refreshTakenDates();                 // the day that was just booked should close right away
       }
       else if(action==='admin-login'){
-        const val = document.getElementById('admin-pass').value;
-        if(val === CONFIG.adminPasscode){
-          state.view = 'admin'; state.adminError=''; state.loadingAdmin = true;
-          render();
-          try{ state.bookings = await listBookings(); }catch(err){ state.bookings = []; }
-          state.loadingAdmin = false;
-        } else { state.adminError = "wrong passcode"; }
+        const val = document.getElementById('admin-pass').value.trim();
+        if(!val){ state.adminError = "enter your passcode"; }
+        else{
+          el.disabled = true; el.textContent = 'Checking…';
+          try{
+            const bookings = await listBookings(val);   // your Apps Script decides if it's right
+            ADMIN_SESSION_KEY = val; state.bookings = bookings;
+            state.view = 'admin'; state.adminError = ''; state.loadingAdmin = false;
+          }catch(err){
+            state.adminError = err.code === 'locked' ? "too many wrong tries — wait 15 minutes and try again"
+              : err.code === 'unauthorized' ? "wrong passcode"
+              : "couldn't reach the server — check your connection and try again";
+          }
+          state.adminInput = '';
+        }
       }
       else if(action==='refresh'){
         state.loadingAdmin = true; render();
-        try{ state.bookings = await listBookings(); }catch(err){ state.bookings = []; }
+        try{ state.bookings = await listBookings(); }
+        catch(err){
+          if(err.code){ ADMIN_SESSION_KEY = ''; state.view = 'admin-gate'; state.adminError = 'please enter your passcode again'; }
+          else state.bookings = [];
+        }
         state.loadingAdmin = false;
       }
       else if(action==='filter'){ state.filter = key; }
       else if(action==='toggle-deposit'){
         const b = state.bookings.find(x=>x.key===key);
         if(b){ b.depositPaid = !b.depositPaid; render(); }
-        await submitViaGet('setDeposit', { key, paid: b ? b.depositPaid : true, adminKey: CONFIG.adminPasscode });
+        await submitViaGet('setDeposit', { key, paid: b ? b.depositPaid : true, adminKey: ADMIN_SESSION_KEY });
         try{ state.bookings = await listBookings(); }catch(err){}
       }
       else if(action==='copy-text'){
@@ -1933,10 +2745,58 @@ function attachHandlers(){
   }
 }
 
+document.addEventListener('keydown', (e)=>{
+  if(state.view==='gallery' && state.galleryOpen != null){
+    if(e.key === 'Escape'){ state.galleryOpen = null; render(); return; }
+    if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ state.galleryOpen = (state.galleryOpen + (e.key==='ArrowRight'?1:-1) + GALLERY.length) % GALLERY.length; render(); return; }
+  }
+  if(e.key === 'Escape' && state.quizOpen){ state.quizOpen = false; render(); return; }
+  if(e.key === 'Tab' && state.quizOpen){
+    const f = [...document.querySelectorAll('.qm button:not(:disabled), .qm [tabindex="0"], .qm input')];
+    if(f.length){ const first=f[0], last=f[f.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); } }
+  }
+  if(e.key === 'Escape' && state.landingMenu){ state.landingMenu = false; render(); return; }
+  if(e.key === 'Escape' && state.showQuizPrompt && document.querySelector('.quiz-bubble')){ markQuizSeen(); render(); return; }
+  if(e.key === 'Enter' && e.target && e.target.id === 'quiz-name'){ e.preventDefault(); document.querySelector('[data-action="quiz-name-submit"]').click(); return; }
+  const t = e.target;
+  if((e.key === 'Enter' || e.key === ' ') && t && t.getAttribute && t.getAttribute('role') === 'button' && t.getAttribute('data-action')){
+    e.preventDefault(); t.click();
+  }
+});
+
 /* ============== router ============== */
-function checkRoute(){ if(window.location.hash === '#admin'){ state.view = (state.view==='admin') ? 'admin' : 'admin-gate'; } }
+// Keep the floating button out of the way: it slides away while someone scrolls down
+// through prices or is typing in a field, and comes back when they scroll up or reach the end.
+(function(){
+  let lastY = window.scrollY, typing = false;
+  const away = on => { const r = document.getElementById('fab-root'); if(r) r.classList.toggle('fab-away', on); };
+  window.addEventListener('scroll', ()=>{
+    const y = window.scrollY;
+    const nearBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 40;
+    const r = document.getElementById('fab-root'); if(r) r.classList.toggle('compact', y > 40);
+    if(typing) away(true);
+    else if(nearBottom || y < 60) away(false);
+    else if(y > lastY + 6) away(true);
+    else if(y < lastY - 6) away(false);
+    lastY = y;
+  }, { passive:true });
+  document.addEventListener('focusin', e=>{ if(e.target.matches && e.target.matches('input, textarea, select') && !e.target.closest('.qm')){ typing = true; away(true); } });
+  document.addEventListener('focusout', e=>{ if(e.target.matches && e.target.matches('input, textarea, select')){ typing = false; away(false); } });
+})();
+
+function checkRoute(){
+  if(window.location.hash === '#admin'){ state.view = (state.view==='admin') ? 'admin' : 'admin-gate'; }
+  else if(window.location.hash === '#work'){ state.view = 'gallery'; }
+  else if(window.location.hash === '#aftercare' || window.location.hash === '#aftercare-quickweave'){
+    state.view = 'aftercare'; state.aftercareTab = window.location.hash === '#aftercare-quickweave' ? 'qw' : 'si';
+  }
+}
 window.addEventListener('hashchange', ()=>{ checkRoute(); render(); });
 checkRoute();
+if(quizAlreadySeen()) state.showQuizPrompt = false;
+loadQuizProgress();
 render();
 refreshTakenDates();
 </script>
