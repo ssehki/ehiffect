@@ -734,7 +734,7 @@ function quizPicked(){
 }
 // Floating Style Finder button — booking and bundle pages only (the homepage has its own button).
 function quizFabHTML(){
-  if(state.quizOpen || !['landing','book','bundles','questions','aftercare','gallery'].includes(state.view) || state.galleryOpen != null) return '';
+  if(state.quizOpen || !['book','bundles','questions','aftercare','gallery'].includes(state.view) || state.galleryOpen != null) return '';   // not on the homepage: it has its own button up under the tagline
   const sparkle = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" fill="currentColor"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" fill="currentColor"/></svg>`;
   // pops up from the bottom once each time they open Book a Service; the help bubble shows once per visit
   const animate = state.fabPop; if(animate){ state.fabPop = false; state.fabPopNow = true; }
@@ -1487,9 +1487,10 @@ function renderLanding(){
       <p class="eyebrow">currently based in Bloomington</p>
       <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:130px; margin:6px auto 22px;"/>
       <p class="tagline">uncomplicated &amp; at your service</p>
+      <button class="home-finder" data-action="start-quiz" style="padding:9px 18px; font-size:11px;"><span aria-hidden="true">♡</span> Find My Style</button>
     </div>
 
-    <div style="margin-top:44px;">
+    <div style="margin-top:36px;">
       <button class="cta-btn" data-action="landing-pick" data-key="service">Book a Service</button>
       <div class="home-pair">
         <button class="cta-btn secondary" data-action="landing-pick" data-key="bundles">Shop Hair</button>
