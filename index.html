@@ -633,21 +633,25 @@ const QUIZ = [
     { for:"w", key:"sleek", label:"Sleek & polished", sub:"Straight styles, smooth finishes, and defined parts", score:{ si:3, qw:3, cornrows:2 }, why:"matches the sleek, polished look you want" },
     { for:"m", key:"sleek", label:"Sleek & polished", sub:"Clean lines and defined parts", score:{ cornrows:3, twostrand:1 }, why:"matches the clean, defined look you want" },
     { for:"w", key:"full", label:"Full & voluminous", sub:"Body, movement, curls, and added fullness", score:{ si:3, qw:3, crochet:2, braids:1 }, why:"matches the full, voluminous look you want" },
-    { key:"braided", label:"Braided & protective", sub:"Braids, twists, and styles that keep daily styling simple", score:{ braids:3, cornrows:3, crochet:2, marley:3, twostrand:2 }, why:"matches the braided look you want" },
-    { key:"natural", label:"Natural & textured", sub:"Defined texture, curls, and styles that complement a natural look", score:{ crochet:3, braids:2, si:1, qw:1, twostrand:3, marley:1 }, why:"matches the natural, textured look you want" },
+    { for:"w", key:"braided", label:"Braided & protective", sub:"Braids, twists, and styles that keep daily styling simple", score:{ braids:3, cornrows:3, crochet:2 }, why:"matches the braided look you want" },
+    { for:"w", key:"natural", label:"Natural & textured", sub:"Defined texture, curls, and styles that complement a natural look", score:{ crochet:3, braids:2, si:1, qw:1 }, why:"matches the natural, textured look you want" },
+    { for:"m", key:"natural", label:"Natural & defined", sub:"Twists that show off your own hair's texture", score:{ twostrand:3, marley:1 }, why:"shows off your own hair's natural texture" },
+    { for:"m", key:"full", label:"Long & full", sub:"Added length and body with Marley twists", score:{ marley:3 }, why:"gives you the long, full look you want" },
+    { for:"m", key:"braided", label:"Protective & low-effort", sub:"Styles that keep daily styling simple", score:{ cornrows:3, marley:3, twostrand:2 }, why:"keeps daily styling simple" },
     { key:"open", label:"I'm open to suggestions", sub:"Help me find the right style", open:true },
   ]},
-  { key:"chair", q:"What's your preferred appointment experience?", options:[
-    { key:"short", label:"A shorter appointment, please", speed:{ shorter:2, moderate:1, longer:-1 }, why:"is one of the shorter appointments" },
-    { key:"hours", label:"I'm comfortable spending a few hours in the chair", speed:{ shorter:1, moderate:2, longer:1 }, why:"fits a few hours in the chair" },
-    { key:"flex", label:"I'm flexible if the results are worth it", speed:{}, open:true },
+  { key:"chair", q:"How much time do you want to spend in the chair?", options:[
+    { key:"short", label:"Keep it quick", sub:"I'd rather have a shorter appointment", speed:{ shorter:2, moderate:1, longer:-1 }, why:"is one of the shorter appointments" },
+    { key:"hours", label:"A few hours is fine", sub:"Happy to sit for a more detailed style", speed:{ shorter:1, moderate:2, longer:1 }, why:"fits a few hours in the chair" },
+    { key:"flex", label:"Whatever it takes", sub:"I care more about the result than the time", speed:{}, open:true },
   ]},
-  { key:"matters", multi:true, q:"What matters most to you?", hint:"Pick as many as you like.", options:[
-    { key:"natural", label:"A natural-looking finish", score:{ crochet:2, si:2, qw:1, twostrand:2, cornrows:1 }, why:"gives a natural-looking finish" },
-    { for:"w", key:"length", label:"Length, fullness, and versatility", score:{ si:3, qw:2, crochet:1, braids:1 }, why:"gives you length, fullness, and versatility" },
-    { key:"protective", label:"A protective style with less daily styling", score:{ braids:3, si:2, crochet:2, cornrows:1, marley:3, twostrand:2 }, why:"is protective with less daily styling" },
-    { key:"occasion", label:"A polished look for a special occasion", score:{ qw:2, si:2, cornrows:1, twostrand:1 }, why:"looks polished for a special occasion" },
-    { key:"easy", label:"A style that's easy to maintain", score:{ braids:2, crochet:2, cornrows:2, marley:2, twostrand:1 }, why:"is easy to maintain" },
+  { key:"matters", multi:true, q:"What matters most to you?", hint:"Pick up to two or three — whatever you'd care about most.", options:[
+    { key:"natural", label:"Looks like my own hair", sub:"A natural, blended finish", score:{ crochet:2, si:2, qw:1, twostrand:2, cornrows:1 }, why:"gives a natural-looking finish" },
+    { for:"w", key:"length", label:"Length & fullness", sub:"More length, body, and versatility", score:{ si:3, qw:2, crochet:1, braids:1 }, why:"gives you length, fullness, and versatility" },
+    { for:"m", key:"length", label:"Length & fullness", sub:"Added length and body", score:{ marley:3 }, why:"gives you added length and fullness" },
+    { key:"protective", label:"Giving my hair a break", sub:"Less everyday styling and manipulation while it rests", score:{ braids:3, si:2, crochet:2, cornrows:1, marley:3, twostrand:2 }, why:"is protective with less daily styling" },
+    { key:"easy", label:"Easy day to day", sub:"Quick mornings with very little upkeep", score:{ braids:2, crochet:2, cornrows:2, marley:2, twostrand:1 }, why:"is easy to maintain" },
+    { key:"occasion", label:"Looking great for an event", sub:"A polished look for a special occasion or photos", score:{ qw:2, si:2, cornrows:1, twostrand:1 }, why:"looks polished for a special occasion" },
   ]},
   { key:"last", q:"How long would you like your style to last?", hint:"How long a style lasts depends on your hair and how you care for it.", options:[
     { for:"w", key:"1-2", label:"A week or two", sub:"for an event or something short-term", score:{ cornrows:3, qw:2 }, why:"suits a short wear time" },
@@ -673,13 +677,13 @@ const QUIZ = [
     { for:"m", key:"150", label:"$150+", max:Infinity },
     { key:"flex", label:"I'm flexible depending on the style", max:Infinity, open:true },
   ]},
-  { key:"hair", q:"What will you need for your appointment?", options:[
+  { key:"hair", q:"What will you need for your appointment?", qFor:{ m:"Do you want hair added?" }, options:[
     { for:"w", key:"buy", label:"I'd like to purchase hair through The Ehiffect" },
     { for:"w", key:"own", label:"I'll be providing my own hair" },
     { for:"w", key:"unsure", label:"I'm not sure what I'll need yet", open:true },
-    { for:"m", key:"none", label:"Just my own hair, no extensions", score:{ twostrand:3, cornrows:2, marley:-3 }, why:"uses just your own hair" },
-    { for:"m", key:"added", label:"I'd like added hair for length or fullness", score:{ marley:3, twostrand:-1 }, why:"adds hair for length and fullness" },
-    { for:"m", key:"unsure", label:"I'm not sure yet", open:true },
+    { for:"m", key:"none", label:"No — just my own hair", sub:"No extensions", score:{ twostrand:3, cornrows:2, marley:-3 }, why:"uses just your own hair" },
+    { for:"m", key:"added", label:"Yes — add hair", sub:"For extra length or fullness", score:{ marley:3, twostrand:-1 }, why:"adds hair for length and fullness" },
+    { for:"m", key:"unsure", label:"Not sure yet", open:true },
   ]},
 ];
 
@@ -721,7 +725,7 @@ function escapeHTML(str){ return String(str||'').replace(/[&<>"']/g, c=>({'&':'&
 function quizQuestions(){
   const who = state.quizAnswers.who;
   const fits = x => !x.for || !who || x.for===who;
-  return QUIZ.filter(fits).map(q=>({ ...q, hint:(q.hintFor && q.hintFor[who]) || q.hint, options:q.options.filter(fits) }));
+  return QUIZ.filter(fits).map(q=>({ ...q, q:(q.qFor && q.qFor[who]) || q.q, hint:(q.hintFor && q.hintFor[who]) || q.hint, options:q.options.filter(fits) }));
 }
 function quizPicked(){
   const picked = [];
