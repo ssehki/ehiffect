@@ -60,6 +60,9 @@
   .row-actions{ display:flex; gap:6px; flex-shrink:0; }
   .chev{ color:var(--muted); font-size:18px; }
 
+  .nudge{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:var(--muted, #aaa); }
+  .nudge .btn{ padding:5px 10px; font-size:12px; text-decoration:none; }
+  .dayhead{ font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--pink, #e86aa6); padding:12px 14px 4px; }
   .pill{ display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap; vertical-align:middle; }
   .p-pending{ background:#4d3f17; color:#f5e3b3; } .p-approved{ background:#264a24; color:#c9e3c6; }
   .p-denied{ background:#4d2626; color:#e9c9c9; } .p-cancelled{ background:#3d3638; color:#d9d0d2; }
@@ -224,13 +227,61 @@ async function load(silent){
   if(!silent){ S.loading = true; render(); }
   try{
     const d = await api("adminData");
-    if(d && d.ok){ S.data = d; }
+    if(d && d.ok){
+      const before = S.data ? new Set(S.data.bookings.filter(x => x.status === "pending").map(x => x.key)) : null;
+      S.data = d;
+      const fresh = before ? d.bookings.filter(x => x.status === "pending" && !before.has(x.key)) : [];
+      if(fresh.length) setTimeout(() => toast("🔔 New request from " + fresh.map(x => first(x.name) + (x.isSqueeze ? " (⚡ squeeze-in)" : "")).join(", ")), 50);
+    }
     else if(!silent){ S.loginErr = (d && d.error) || "Couldn't load."; }
   }catch(err){ if(S.key && !silent) toast("Couldn't reach your Sheet — check your connection."); }
   S.loading = false; render();
 }
 
 /* ============== derived lists ============== */
+// How long an appointment usually takes, in minutes (a rough guess from the service name).
+function lengthOf(b){
+  const s = String(b.serviceLabel || "").toLowerCase();
+  if(/consult/.test(s)) return 30;
+  if(/takedown|take down|removal/.test(s)) return 120;
+  if(/knotless|box braid|boho|goddess|passion|twist/.test(s)) return 360;
+  if(/sew-in|sew in|quick ?weave|install/.test(s)) return 240;
+  if(/crochet/.test(s)) return 180;
+  if(/cornrow|stitch|feed-?in/.test(s)) return 120;
+  if(/treatment|wash|silk press|press/.test(s)) return 90;
+  return 180;
+}
+const BUFFER_MIN = 15;
+// Other approved/pending appointments that day whose times run into this one (incl. your 15-min buffer).
+function clashes(b){
+  if(!b.dateIso || b.timeMin === null || b.timeMin === undefined || !(b.status === "approved" || b.status === "pending")) return [];
+  const a1 = b.timeMin - BUFFER_MIN, a2 = b.timeMin + lengthOf(b);
+  return S.data.bookings.filter(x => x.key !== b.key && x.dateIso === b.dateIso && (x.status === "approved" || x.status === "pending") && !x.isBundle &&
+    x.timeMin !== null && x.timeMin !== undefined && (x.timeMin - BUFFER_MIN) < a2 && (x.timeMin + lengthOf(x)) > a1);
+}
+// Tap-to-text / tap-to-email links with the message already written.
+function smsHref(b, text){ const ph = String(b.phone || "").replace(/[^\d+]/g, ""); if(!ph) return ""; return "sms:" + ph + (/iPhone|iPad|Mac/i.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(text); }
+function mailHref(b, subject, text){ return b.email ? "mailto:" + encodeURIComponent(b.email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(text) : ""; }
+function nudges(b){
+  if(b.status !== "approved") return [];
+  const day = when(b), out = [], dep = (S.data.settings && S.data.settings.depositAmount) || 20, cash = S.data.cashtag || "";
+  if(!b.depositPaid && !b.isConsult) out.push({ label: "deposit", subject: "Your Ehiffect deposit 💗",
+    text: `Hey ${first(b.name)}! Just a reminder to send your $${dep} deposit to ${cash} on Cash App to lock in your appointment on ${day}. It comes off your total. Thank you! 💗 — Indie` });
+  if(!b.checkIn && b.manageUrl) out.push({ label: "check-in", subject: "Your hair check-in for The Ehiffect 💗",
+    text: `Hey ${first(b.name)}! Before your appointment on ${day}, please fill out your quick hair check-in (a few photos + questions) here: ${b.manageUrl} — it helps me prep for you. Thank you! 💗 — Indie` });
+  return out;
+}
+function nudgeButtons(b){
+  return nudges(b).map(n => {
+    const sms = smsHref(b, n.text), mail = mailHref(b, n.subject, n.text);
+    return `<div class="nudge"><span>Remind about ${n.label}:</span>${sms ? `<a class="btn" href="${esc(sms)}">💬 Text</a>` : ''}${mail ? `<a class="btn" href="${esc(mail)}">✉️ Email</a>` : ''}${!sms && !mail ? '<span class="hint">no phone or email on file</span>' : ''}</div>`;
+  }).join("");
+}
+function clashNote(b){
+  const c = clashes(b); if(!c.length) return "";
+  return `<div class="row-note" style="border-color:var(--bad);">⚠ Overlaps with ${c.map(x => esc(first(x.name)) + " at " + esc(x.time || "?")).join(", ")} (counting your ${BUFFER_MIN}-min buffer)</div>`;
+}
+function todo(b){ return (b.needsHair && !b.hairOrdered) || (b.kit && b.kit !== "—" && !b.kitPacked); }
 function lists(){
   const all = S.data.bookings, t = todayIso();
   const upcoming = b => !b.dateIso || b.dateIso >= t;
@@ -245,6 +296,8 @@ function lists(){
     checkins: all.filter(b => b.checkIn && b.status === "approved" && upcoming(b)).sort(byWhen),
     prep: all.filter(b => b.status === "approved" && b.dateIso && b.dateIso >= t && daysAway(b.dateIso) <= PREP_DAYS &&
                 ((b.needsHair && !b.hairOrdered) || (b.kit && b.kit !== "—" && !b.kitPacked))).sort(byWhen),
+    week: all.filter(b => (b.status === "approved" || b.status === "pending") && !b.isBundle && b.dateIso && b.dateIso >= t && daysAway(b.dateIso) <= 6 &&
+                (b.dateIso > t || todo(b))).sort(byWhen),
     wrap: all.filter(b => b.status === "approved" && !b.serviced && b.dateIso && (b.dateIso < t || (b.dateIso === t && b.timeMin !== null && b.timeMin + 240 < new Date().getHours()*60 + new Date().getMinutes()))).sort(byWhen),
   };
 }
@@ -289,7 +342,7 @@ function bookingRow(b, opts){
   return `<div class="row" data-a="open" data-k="${esc(b.key)}">
     <div class="row-main">
       <div class="row-title">${esc(b.name || "No name")} ${opts.noPill ? '' : pill(b.status)}</div>
-      <div class="row-sub">${esc(opts.sub !== undefined ? opts.sub : (when(b) + " · " + b.serviceLabel))}</div>
+      <div class="row-sub">${esc(opts.sub !== undefined ? opts.sub : (when(b) + " · " + svc(b)))}</div>
       ${opts.note ? `<div class="row-note">${opts.note}</div>` : ''}
     </div>
     ${opts.actions ? `<div class="row-actions">${opts.actions}</div>` : '<span class="chev" aria-hidden="true">›</span>'}
@@ -301,39 +354,53 @@ function inbox(){
   const hour = new Date().getHours();
   const hi = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const sec = (title, items, body, quiet) => items.length ? `<h2 class="sec">${title}<span class="n ${quiet?'quiet':''}">${items.length}</span></h2><div class="list">${body}</div>` : '';
-  const all = L.requests.length + L.pending.length + L.messages.length + L.deposits.length + L.refunds.length + L.prep.length + L.wrap.length;
+  const all = L.requests.length + L.pending.length + L.messages.length + L.deposits.length + L.refunds.length + L.prep.length + L.week.length + L.wrap.length;
+  const dayTag = b => { const d = daysAway(b.dateIso); return d === 0 ? 'today' : d === 1 ? 'tomorrow' : new Date(b.dateIso + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" }); };
   const prepRow = b => `<div class="row" style="align-items:flex-start; cursor:default;">
       <div class="row-main" data-a="open" data-k="${esc(b.key)}" style="cursor:pointer;">
-        <div class="row-title">${esc(b.name)} <span class="tag warn">${daysAway(b.dateIso) === 0 ? 'today' : daysAway(b.dateIso) === 1 ? 'tomorrow' : 'in ' + daysAway(b.dateIso) + ' days'}</span></div>
-        <div class="row-sub">${esc(when(b))}</div>
+        <div class="row-title">${esc(b.name)} ${todo(b) ? '<span class="tag warn">to prep</span>' : ''}${b.status === 'pending' ? ' <span class="tag bad">not approved yet</span>' : ''}${b.isSqueeze ? ' <span class="tag warn">⚡ squeeze-in</span>' : ''}</div>
+        <div class="row-sub">${esc((b.time || "no time") + " · " + svcName(b))}</div>
         ${b.needsHair ? `<div class="row-note">✂ ${esc(b.hairDetails)}</div>` : ''}
+        <div>${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
+        ${clashNote(b)}
       </div>
       <div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">
         ${b.needsHair ? `<label class="check" style="padding:4px 0; font-size:12.5px;"><input type="checkbox" data-a="tick" data-f="hairOrdered" data-k="${esc(b.key)}" ${b.hairOrdered?'checked':''}/>Hair ordered</label>` : ''}
         ${b.kit && b.kit !== '—' ? `<label class="check" style="padding:4px 0; font-size:12.5px;"><input type="checkbox" data-a="tick" data-f="kitPacked" data-k="${esc(b.key)}" ${b.kitPacked?'checked':''}/>${esc(b.kit)} kit packed</label>` : ''}
-      </div></div>`;
+        ${!b.needsHair && !(b.kit && b.kit !== '—') ? '<span class="hint" style="font-size:12px; padding:4px 0;">nothing to prep ✓</span>' : ''}
+      </div></div>${nudges(b).length ? `<div style="padding:0 14px 12px;">${nudgeButtons(b)}</div>` : ''}`;
+  const weekBody = list => {
+    const exp = list.filter(b => b.status === "approved").reduce((n, b) => n + (num(b.total) || 0), 0);
+    let out = `<div class="row" style="cursor:default;"><div class="row-sub">${list.filter(b => b.status === "approved").length} booked · ${list.filter(b => b.status === "pending").length} waiting on you · about ${money(exp)} coming in</div></div>`, last = "";
+    list.forEach(b => {
+      if(b.dateIso !== last){ last = b.dateIso; const d = new Date(b.dateIso + "T12:00:00");
+        out += `<div class="dayhead">${dayTag(b) === "today" ? "Today" : dayTag(b) === "tomorrow" ? "Tomorrow" : dayTag(b)} · ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>`; }
+      out += prepRow(b);
+    });
+    return out;
+  };
   return header(hi + ", Indie", dayLabel(t)) + `
     <div class="today">
       <div class="today-date">Today</div>
       ${L.today.length ? L.today.map(b => `<div class="slot" data-a="open" data-k="${esc(b.key)}">
           <div class="slot-time">${esc((b.time||"—").replace(" ", " "))}</div>
-          <div><div class="slot-name">${esc(b.name)}</div><div class="slot-sub">${esc(b.serviceLabel)}</div>
+          <div><div class="slot-name">${esc(b.name)}</div><div class="slot-sub">${esc(svc(b))}</div>
             <span class="tag ${b.depositPaid?'good':'bad'}">${b.depositPaid?'deposit in':'no deposit yet'}</span>${b.checkIn?'<span class="tag good">check-in ✓</span>':''}${b.lateNote?'<span class="tag warn">running late</span>':''}</div>
         </div>`).join("") : `<div class="empty">No appointments today.</div>`}
     </div>
-    ${sec("Prep this week", L.prep, L.prep.map(prepRow).join(""))}
-    ${sec("Wrap up", L.wrap, L.wrap.map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + b.serviceLabel,
+    ${sec("This week" + (L.prep.length ? " · " + L.prep.length + " to prep" : ""), L.week, weekBody(L.week))}
+    ${sec("Wrap up", L.wrap, L.wrap.map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + svc(b),
         actions: `<button class="btn primary" data-a="wrap" data-k="${esc(b.key)}">Wrap up</button>` })).join(""))}
-    ${sec("Running late", L.late, L.late.map(b => bookingRow(b, { noPill:true, sub: b.time + " · " + b.serviceLabel, note: "⏰ " + esc(b.lateNote.split("\n")[0]) })).join(""))}
+    ${sec("Running late", L.late, L.late.map(b => bookingRow(b, { noPill:true, sub: b.time + " · " + svc(b), note: "⏰ " + esc(b.lateNote.split("\n")[0]) })).join(""))}
     ${sec("Reschedule requests", L.requests, L.requests.map(b => bookingRow(b, { noPill:true,
         sub: "Now: " + when(b), note: (b.request.within24 ? "🚨 Within 24 hrs · " : "") + "Wants " + esc(b.request.date + " " + b.request.time) + (b.request.reason ? "<br>“" + esc(b.request.reason) + "”" : ""),
         actions: `<button class="btn ok" data-a="req" data-d="approve" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="req" data-d="deny" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
     ${sec("New requests", L.pending, L.pending.map(b => bookingRow(b, { noPill:true,
-        sub: when(b) + " · " + b.serviceLabel + " · " + money(b.total) + (b.waiting ? " · waiting " + b.waiting : ""),
-        note: [b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
+        sub: when(b) + " · " + svc(b) + " · " + money(b.total) + (b.waiting ? " · waiting " + b.waiting : ""),
+        note: [/LESS THAN 24 HRS/.test(b.serviceLabel) ? "⏰ Last-minute squeeze-in (less than 24 hrs away)" : "", clashes(b).length ? "⚠ Overlaps with " + clashes(b).map(x => first(x.name) + " at " + (x.time || "?")).join(", ") : "", b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
         actions: `<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
     ${sec("Messages", L.messages, L.messages.map(b => { const m = b.thread[b.thread.length-1] || {}; return bookingRow(b, { noPill:true, sub: when(b), note: "💬 " + esc(m.text || "") }); }).join(""))}
-    ${sec("Waiting on deposit", L.deposits, L.deposits.map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + b.serviceLabel,
+    ${sec("Waiting on deposit", L.deposits, L.deposits.map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + svc(b),
         actions: `<button class="btn" data-a="deposit" data-k="${esc(b.key)}">Received</button>` })).join(""), true)}
     ${sec("Refunds to send", L.refunds, L.refunds.map(b => bookingRow(b, { sub: when(b) + " · deposit paid", note: b.cancelInfo ? esc(b.cancelInfo) : "",
         actions: `<button class="btn" data-a="refunded" data-k="${esc(b.key)}">Refunded</button>` })).join(""), true)}
@@ -350,15 +417,16 @@ function schedule(){
   const d = S.dayOffDraft;
   return header("Schedule", "Your upcoming appointments and days off") + `
     <details class="fold" ${S.openDaysOff?'open':''} data-keep="openDaysOff"><summary>Days off ${off.filter(x=>x.end>=t).length ? '('+off.filter(x=>x.end>=t).length+')' : ''}</summary><div>
-      <p class="hint" style="margin-top:0;">Days you block here can't be booked on your site. Squeeze-ins can't land on them either.</p>
+      <p class="hint" style="margin-top:0;">Days you block here can't be booked on your site. Tick "booked out" if clients should still be able to send squeeze-in requests for them.</p>
       ${off.filter(x => x.end >= t).map((x, i) => `<div class="row" style="cursor:default; padding:10px 0; border-top:1px solid var(--line-2);">
-          <div class="row-main"><div class="row-title">${x.start === x.end ? shortDay(x.start) : shortDay(x.start) + " – " + shortDay(x.end)}</div>${x.note ? `<div class="row-sub">${esc(x.note)}</div>` : ''}</div>
+          <div class="row-main"><div class="row-title">${x.start === x.end ? shortDay(x.start) : shortDay(x.start) + " – " + shortDay(x.end)}</div><div class="row-sub">${x.squeeze ? '⚡ booked out · squeeze-ins allowed' : 'day off · no bookings'}${x.note ? ' · ' + esc(x.note) : ''}</div></div>
           <button class="btn no" data-a="dayoff-del" data-k="${off.indexOf(x)}">Remove</button></div>`).join("") || `<div class="empty" style="padding-top:0;">No days off coming up.</div>`}
       <div class="grid2" style="margin-top:10px;">
         <div class="field"><label>From</label><input type="date" id="do-start" value="${esc(d.start)}" min="${t}"/></div>
         <div class="field"><label>To (optional)</label><input type="date" id="do-end" value="${esc(d.end)}" min="${t}"/></div>
       </div>
       <div class="field"><label>Note (only you see this)</label><input type="text" id="do-note" value="${esc(d.note)}" placeholder="e.g. Thanksgiving, exams"/></div>
+      <label class="check"><input type="checkbox" id="do-squeeze" ${d.squeeze?'checked':''}/> I'm booked out — still allow squeeze-in requests</label>
       <button class="btn primary block" data-a="dayoff-add">Block these days</button>
     </div></details>
     <label class="check"><input type="checkbox" data-a="past" ${S.showPast?'checked':''}/> Show past appointments</label>
@@ -367,7 +435,7 @@ function schedule(){
       <div class="list">${days[iso].map(b => `<div class="row ${b.status==='pending'?'pend':''}" data-a="open" data-k="${esc(b.key)}">
         <div style="width:64px; font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:600;">${esc(b.time || "—")}</div>
         <div class="row-main"><div class="row-title">${esc(b.name)} ${b.status==='pending' ? pill('pending') : ''}</div>
-          <div class="row-sub">${esc(b.serviceLabel)}</div>
+          <div class="row-sub">${esc(svc(b))}</div>
           ${b.status==='approved' && !b.isBundle ? `<span class="tag ${b.depositPaid?'good':'bad'}">${b.depositPaid?'deposit in':'no deposit'}</span>` : ''}${b.needsHair ? `<span class="tag ${b.hairOrdered?'good':'warn'}">${b.hairOrdered?'hair ordered':'hair to order'}</span>` : ''}${b.request ? '<span class="tag warn">wants to move</span>' : ''}
         </div><span class="chev" aria-hidden="true">›</span></div>`).join("")}</div>`).join("")
       : `<p class="empty">Nothing on the books ${S.showPast ? '' : 'coming up'} yet.</p>`}`;
@@ -480,6 +548,13 @@ function renderLayer(){
   document.body.style.overflow = (S.open || S.client || S.compose || S.tpl || S.wrap || S.adding) ? "hidden" : "";
 }
 
+function svcName(b){ return b.service || String(b.serviceLabel || "").replace(/\s*—\s*⚡ SQUEEZE-IN REQUEST.*$/, "").trim(); }
+function svc(b){ return svcName(b) + (b.isSqueeze ? " · ⚡ squeeze-in" : "") + (/LESS THAN 24 HRS/.test(b.serviceLabel || "") ? " · ⏰ last-minute" : ""); }
+function sameDay(b){
+  if(!b.dateIso) return [];
+  return S.data.bookings.filter(x => x.key !== b.key && x.dateIso === b.dateIso && (x.status === "approved" || x.status === "pending") && !x.isBundle)
+    .sort((a, c) => (a.timeMin || 0) - (c.timeMin || 0));
+}
 function detailSheet(b){
   const st = b.status, upcoming = !b.dateIso || b.dateIso >= todayIso();
   const quick = [];
@@ -501,13 +576,18 @@ function detailSheet(b){
       ${b.request ? `<div class="box ${b.request.within24?'alert':'warn'}"><h4>${b.request.within24?'🚨 Wants to move (within 24 hrs)':'📅 Wants to move'}</h4>
         <div>To ${esc(b.request.date + " " + b.request.time)}</div>${b.request.reason ? `<div class="hint" style="margin-top:4px;">“${esc(b.request.reason)}”</div>` : ''}
         <div class="btn-row" style="margin-top:10px;"><button class="btn ok" data-a="req" data-d="approve" data-k="${esc(b.key)}">Approve move</button><button class="btn no" data-a="req" data-d="deny" data-k="${esc(b.key)}">Deny</button></div></div>` : ''}
+      ${clashes(b).length ? `<div class="box alert"><h4>⚠ Time overlap</h4><div style="font-size:13.5px;">${clashes(b).map(x => `${esc(x.time || "?")} — ${esc(x.name)} (${esc(svcName(x))}, about ${Math.round(lengthOf(x)/60*10)/10} hrs)${x.status === "pending" ? " · pending" : ""}`).join("<br>")}</div><div class="hint" style="margin-top:6px;">Counts a ${BUFFER_MIN}-min buffer and a rough length for each service. Change a time if they really clash.</div></div>` : ''}
+      ${nudges(b).length ? `<div class="box">${nudgeButtons(b)}</div>` : ''}
       ${b.lateNote ? `<div class="box warn"><h4>⏰ Running late</h4><div style="white-space:pre-line; font-size:13.5px;">${esc(b.lateNote)}</div></div>` : ''}
+      ${b.isSqueeze ? (() => { const o = sameDay(b); return `<div class="box warn"><h4>⚡ Squeeze-in request</h4><div style="font-size:13.5px;">They picked a day you already had booked. The $20 squeeze-in fee is already in their total.</div>
+        <div class="hint" style="margin-top:8px;">${o.length ? 'Also booked that day:' : 'Nothing else is booked that day anymore — you can take the $20 off the total if you want.'}</div>
+        ${o.map(x => `<div style="font-size:13.5px; margin-top:4px;">• ${esc(x.time || '?')} — ${esc(x.name || '?')} (${esc(svcName(x))})${x.status === 'pending' ? ' · pending' : ''}</div>`).join('')}</div>`; })() : ''}
       ${b.dealAlert || String(b.checks||"").includes("⚠") ? `<div class="box alert"><div style="font-size:13.5px;">${esc([b.dealAlert, b.checks].filter(Boolean).join(" · "))}</div></div>` : ''}
       ${b.serviced || num(b.amountPaid) !== null || num(b.tip) !== null || num(b.hairCost) !== null ? `<div class="box"><h4>Money</h4><dl class="kv" style="margin:0;">
         <dt>Paid</dt><dd>${money(paidOf(b))}</dd><dt>Tip</dt><dd>${money(num(b.tip) || 0)}</dd><dt>Hair cost</dt><dd>${money(num(b.hairCost) || 0)}</dd>
         <dt>Profit</dt><dd class="serif" style="font-size:20px; font-weight:600; color:${profitOf(b) >= 0 ? 'var(--good)' : 'var(--bad)'};">${money(profitOf(b))}</dd></dl></div>` : ''}
       <dl class="kv" style="margin-top:16px;">
-        <dt>Service</dt><dd>${esc(b.serviceLabel)}</dd>
+        <dt>Service</dt><dd>${esc(svcName(b))}</dd>
         <dt>Total</dt><dd>${money(b.total)}${b.grandTotal !== "" ? ` (final ${money(b.grandTotal)})` : ''}${b.amountPaid !== "" ? ` · paid ${money(b.amountPaid)}` : ''}</dd>
         ${b.phone ? `<dt>Phone</dt><dd><a href="tel:${esc(String(b.phone).replace(/[^\d+]/g,''))}">${esc(b.phone)}</a> · <a href="sms:${esc(String(b.phone).replace(/[^\d+]/g,''))}">text</a></dd>` : ''}
         ${b.email ? `<dt>Email</dt><dd>${esc(b.email)}</dd>` : '<dt>Email</dt><dd class="hint">none on file</dd>'}
@@ -584,7 +664,7 @@ function clientSheet(){
 function wrapSheet(b){
   const paid = num(b.amountPaid) !== null ? b.amountPaid : (num(b.grandTotal) ?? num(b.total) ?? "");
   return `<div class="veil" data-a="close-wrap" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="Wrap up ${esc(b.name)}">
-    <div class="sheet-head"><div><h3>Wrap up ${esc(first(b.name))}</h3><p>${esc(when(b))} · ${esc(b.serviceLabel)}</p></div><button class="icon-btn" data-a="close-wrap" aria-label="Close">×</button></div>
+    <div class="sheet-head"><div><h3>Wrap up ${esc(first(b.name))}</h3><p>${esc(when(b))} · ${esc(svc(b))}</p></div><button class="icon-btn" data-a="close-wrap" aria-label="Close">×</button></div>
     <div class="sheet-body">
       <div class="field"><label>She paid ($) — total for the service, deposit included</label><input type="number" inputmode="decimal" id="w-paid" value="${esc(paid)}"/></div>
       <div class="field"><label>Tip ($)</label><input type="number" inputmode="decimal" id="w-tip" value="${esc(b.tip)}" placeholder="0"/></div>
@@ -650,19 +730,49 @@ function composeSheet(){
     </div></div></div>`;
 }
 
+// A real upcoming client (or a made-up one) to show what an email will look like.
+function tplSample(){
+  const t = todayIso(), bs = (S.data && S.data.bookings) || [];
+  const b = bs.filter(x => x.status === "approved" && x.dateIso >= t && !x.isBundle).sort(byWhen)[0] || bs.filter(x => !x.isBundle).sort(byWhen).reverse()[0];
+  const dep = (S.data && S.data.settings && S.data.settings.depositAmount) || 20, cash = (S.data && S.data.cashtag) || "";
+  const w = x => x && x.date ? x.date + (x.time ? " at " + x.time : "") : "Friday, 10/16/2026 at 10:00 AM";
+  const paid = b ? !!b.depositPaid : false;
+  return { first: b ? first(b.name) : "Jasmine", name: b ? b.name : "Jasmine Carter", service: b ? svcName(b) : "Knotless Braids — medium",
+    when: w(b), oldWhen: w(b), newWhen: b && b.request ? b.request.date + " at " + b.request.time : "Saturday, 10/17/2026 at 11:00 AM",
+    total: b && num(b.total) !== null ? money(b.total) : "$180", deposit: "$" + dep, cashtag: cash, site: (S.data && S.data.siteUrl) || "",
+    depositLine: paid ? "Your deposit is already in — your spot is locked in." : "To lock in your spot, send your $" + dep + " deposit to " + cash + " on Cash App. It comes off your total at your appointment, and you'll get an email as soon as I receive it.",
+    depositNote: "Your $" + dep + " deposit will be sent back to you.",
+    checkinLine: b && b.checkIn ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
+    squeezeLine: b && b.isSqueeze ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
+    within24Line: "I'll confirm within 24 hours." };
+}
+function tplPreviewHtml(subject, body, button){
+  const v = tplSample(), fill = x => String(x || "").replace(/\{(\w+)\}/g, (m, k) => v[k] !== undefined ? v[k] : m);
+  const paras = fill(body).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  return `<div style="font-weight:600; margin-bottom:8px;">${esc(fill(subject))}</div>
+    <div style="font-size:13.5px; line-height:1.5;">${paras.length ? paras.map(p => `<p style="margin:0 0 10px; white-space:pre-line;">${esc(p)}</p>`).join("") : '<p class="hint">(empty — this email won\'t send)</p>'}</div>
+    ${button ? `<span class="btn primary" style="pointer-events:none; display:inline-block; margin-top:4px;">${esc(button)}</span>` : ''}`;
+}
+function tplLive(){
+  const el = document.getElementById("t-preview"), g = id => (document.getElementById(id) || {}).value;
+  if(el) el.innerHTML = tplPreviewHtml(g("t-subject"), g("t-body"), g("t-button"));
+}
 function tplSheet(){
   const k = S.tpl, t = S.data.templates[k];
   return `<div class="veil" data-a="close-tpl" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.label)} email">
     <div class="sheet-head"><div><h3>${esc(t.label)}</h3><p>${esc(t.when)}</p></div><button class="icon-btn" data-a="close-tpl" aria-label="Close">×</button></div>
     <div class="sheet-body">
-      <div class="field"><label>Subject</label><input type="text" id="t-subject" value="${esc(t.subject)}"/></div>
-      <div class="field"><label>Message</label><textarea id="t-body" style="min-height:280px;">${esc(t.body)}</textarea></div>
-      <div class="field"><label>Pink button (leave blank for none)</label><input type="text" id="t-button" value="${esc(t.button)}"/></div>
-      <details class="fold" style="margin-top:4px;"><summary>Fill-in words you can use</summary><div class="hint">
-        <b>{first}</b> her first name · <b>{service}</b> · <b>{when}</b> date and time · <b>{total}</b> · <b>{deposit}</b> · <b>{cashtag}</b> · <b>{site}</b> your booking site<br>
-        Reschedules: <b>{oldWhen}</b> <b>{newWhen}</b><br>
-        Automatic lines: <b>{depositLine}</b> deposit instructions or "already in" · <b>{depositNote}</b> refund note · <b>{checkinLine}</b> check-in reminder · <b>{nextSteps}</b><br>
-        A blank line starts a new paragraph. Lines that end up empty are skipped.</div></details>
+      <div class="field"><label>Subject</label><input type="text" id="t-subject" value="${esc(t.subject)}" oninput="tplLive()"/></div>
+      <div class="field"><label>Message</label><textarea id="t-body" style="min-height:280px;" oninput="tplLive()">${esc(t.body)}</textarea></div>
+      <div class="field"><label>Pink button (leave blank for none)</label><input type="text" id="t-button" value="${esc(t.button)}" oninput="tplLive()"/></div>
+      <div class="box" style="margin-top:6px;"><h4>👀 What ${esc(tplSample().first)} would get</h4>
+        <div class="hint" style="margin-bottom:8px;">The words in {curly brackets} fill in by themselves for each client — you never type them. Here's this email with a real appointment:</div>
+        <div id="t-preview">${tplPreviewHtml(t.subject, t.body, t.button)}</div></div>
+      <details class="fold" style="margin-top:4px;"><summary>What each {fill-in} becomes</summary><div class="hint">
+        <b>{first}</b> her first name · <b>{service}</b> the service · <b>{when}</b> date and time · <b>{total}</b> · <b>{deposit}</b> deposit amount · <b>{cashtag}</b> · <b>{site}</b> your booking site<br>
+        Reschedules: <b>{oldWhen}</b> old time · <b>{newWhen}</b> new time<br>
+        Lines that only show up when they apply: <b>{depositLine}</b> how to pay the deposit (or "already in") · <b>{depositNote}</b> refund note · <b>{checkinLine}</b> check-in reminder · <b>{squeezeLine}</b> squeeze-in fee note · <b>{within24Line}</b><br>
+        A blank line starts a new paragraph. If a fill-in line doesn't apply to someone, it's just left out.</div></details>
     </div>
     <div class="sheet-foot">
       ${t.edited ? `<button class="btn" data-a="tpl-reset">Reset to original</button>` : `<button class="btn" data-a="close-tpl">Cancel</button>`}
@@ -831,10 +941,10 @@ document.addEventListener("click", async e => {
     if(a === "dayoff-add"){
       const s = document.getElementById("do-start").value, en = document.getElementById("do-end").value || s, note = document.getElementById("do-note").value;
       if(!s){ toast("Pick a start date."); return; }
-      list.push({ start:s, end:en, note });
+      list.push({ start:s, end:en, note, squeeze: !!(document.getElementById("do-squeeze") || {}).checked });
     }else list.splice(Number(k), 1);
     S.busy = "Saving…"; renderLayer();
-    try{ const r = await api("setDaysOff", { daysOff:list }); S.busy = ""; if(r && r.ok){ S.data.daysOff = r.daysOff; S.dayOffDraft = { start:"", end:"", note:"" }; S.openDaysOff = true; render(); toast(a === "dayoff-add" ? "Days blocked" : "Day off removed"); } else { renderLayer(); toast("Didn't save — try again."); } }
+    try{ const r = await api("setDaysOff", { daysOff:list }); S.busy = ""; if(r && r.ok){ S.data.daysOff = r.daysOff; S.dayOffDraft = { start:"", end:"", note:"", squeeze:false }; S.openDaysOff = true; render(); toast(a === "dayoff-add" ? "Days blocked" : "Day off removed"); } else { renderLayer(); toast("Didn't save — try again."); } }
     catch(err){ S.busy = ""; renderLayer(); }
     return;
   }
@@ -848,6 +958,7 @@ document.addEventListener("input", e => {
   if(e.target.id === "search"){ S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = document.getElementById("search"); if(s){ s.focus(); s.setSelectionRange(pos, pos); } }
   if(e.target.id === "reply") S.replyDraft = e.target.value;
   if(["do-start","do-end","do-note"].includes(e.target.id)) S.dayOffDraft[e.target.id.slice(3)] = e.target.value;
+  if(e.target.id === "do-squeeze") S.dayOffDraft.squeeze = e.target.checked;
 });
 document.addEventListener("toggle", e => { if(e.target.dataset && e.target.dataset.keep) S[e.target.dataset.keep] = e.target.open; }, true);
 document.addEventListener("keydown", e => {
@@ -855,6 +966,7 @@ document.addEventListener("keydown", e => {
   if(e.key === "Enter" && e.target.id === "pass") document.querySelector('[data-a="login"]').click();
 });
 // Refresh quietly when you come back to the app.
+setInterval(() => { const f = document.activeElement; if(f && /INPUT|TEXTAREA|SELECT/.test(f.tagName)) return; if(!document.hidden && S.key && S.data && !S.busy && !S.compose && !S.open && !S.wrap && !S.adding && !S.tpl) load(true); }, 60000);
 document.addEventListener("visibilitychange", () => { if(!document.hidden && S.key && S.data && !S.busy && !S.compose) load(true); });
 
 /* ============== start ============== */

@@ -610,7 +610,7 @@ function sendBookingEmail(body, v, photoUrls){
   try{
     MailApp.sendEmail({
       to: NOTIFY_EMAIL,
-      subject: (hasWarning(v) ? "⚠ HEADS UP — " : "") + "New Ehiffect booking request — " + (v.name || "unknown"),
+      subject: (hasWarning(v) ? "⚠ HEADS UP — " : "") + (isSqueeze(v) ? (/LESS THAN 24 HRS/.test(String(v.serviceLabel)) ? "⏰⚡ LAST-MINUTE SQUEEZE-IN — " : "⚡ SQUEEZE-IN — ") : "") + "New Ehiffect booking request — " + (v.name || "unknown"),
       body:
         (v.dealAlert ? "⚠ DEAL ALERT: " + v.dealAlert + "\n" : "") +
         (v.checks ? "CHECKS: " + v.checks + "\n" : "") +
@@ -763,7 +763,7 @@ function doGet(e){
       .filter(b => isActive(b) && !isBundle(b) && !isConsult(b))
       .map(b => asDate(b.date))
       .filter(Boolean);
-    return json({ dates: Array.from(new Set(dates)), daysOff: getDaysOff().map(d => ({ start: d.start, end: d.end })) });
+    return json({ dates: Array.from(new Set(dates)), daysOff: getDaysOff().map(d => ({ start: d.start, end: d.end, squeeze: d.squeeze === true })) });
   }
 
   // One small piece of a reference photo (photos are too big for the booking request itself).
@@ -901,16 +901,16 @@ function sendClientEmail(b, subject, paras, opts){
 /* ---------- EMAIL TEMPLATES (editable from the admin site → More → Emails) ----------
    Words in {curly braces} are filled in for each client:
    {first} {name} {service} {when} {oldWhen} {newWhen} {total} {deposit} {cashtag} {site}
-   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps}
+   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine}
    A blank line starts a new paragraph. A paragraph that ends up empty is left out.
    "button" is the pink button's text (leave blank for no button).                              */
 const EMAIL_DEFAULTS = {
   received: { label: "Request received", when: "Sent right after someone books",
     subject: "We got your request — The Ehiffect", button: "Manage my appointment",
-    body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Use the button below." },
+    body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\n{squeezeLine}\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Use the button below." },
   approved: { label: "Approved", when: "When you approve a booking",
     subject: "Your Ehiffect appointment is approved! 💗", button: "Hair check-in & manage appointment",
-    body: "Good news — your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
+    body: "Good news — your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
   deposit: { label: "Deposit received", when: "When you mark a deposit as received",
     subject: "Deposit received — you're all set! 💗", button: "Manage my appointment",
     body: "I received your {deposit} deposit — your spot on {when} is locked in!\n\nIt comes off your total at your appointment.\n\n{checkinLine}" },
@@ -965,7 +965,8 @@ function saveTemplate(kind, t){
 function templateVars(b, extra){
   const dep = getSettings().depositAmount, owed = isPaid(b) && !isRefunded(b);
   return Object.assign({
-    first: firstName(b), name: b.name || "", service: b.serviceLabel || "", when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
+    first: firstName(b), name: b.name || "", service: cleanService(b), when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
+    squeezeLine: isSqueeze(b) ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
     total: (b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed",
     deposit: "$" + dep, cashtag: CASHTAG, site: SITE_URL,
     depositLine: isPaid(b) ? "Your deposit is already in — your spot is locked in." : depositLine(dep),
@@ -980,7 +981,7 @@ function fillTemplate(text, vars){ return String(text || "").replace(/\{(\w+)\}/
 // What an email would say, for previewing/editing before it's sent.
 function renderTemplate(kind, b, extra){
   const t = getTemplates()[kind] || getTemplates().custom, v = templateVars(b, extra);
-  return { kind: kind, to: String(b.email || ""), subject: fillTemplate(t.subject, v), body: fillTemplate(t.body, v), button: t.button || "" };
+  return { kind: kind, to: String(b.email || ""), subject: fillTemplate(t.subject, v), body: fillTemplate(t.body, v).replace(/\n[ \t]*(\n[ \t]*)+\n/g, "\n\n").trim(), button: t.button || "" };
 }
 
 // Sends one templated email. `override` = { subject, body, button } you edited in the admin site.
@@ -1037,7 +1038,7 @@ function emailStatusChange(b, status, override){
 function manageShape(b, extra){
   const h = hoursUntil(b), ci = readCheckIn(b);
   return Object.assign({
-    ok: true, name: firstName(b), service: b.serviceLabel, date: asDate(b.date), time: asTime(b.time), status: b.status,
+    ok: true, name: firstName(b), service: cleanService(b) + (isSqueeze(b) ? " (squeeze-in)" : ""), date: asDate(b.date), time: asTime(b.time), status: b.status,
     total: b.total, depositPaid: isPaid(b), deposit: getSettings().depositAmount, cashtag: CASHTAG,
     isBundle: isBundle(b), isConsult: isConsult(b), hoursUntil: h === null ? null : Math.round(h * 10) / 10,
     request: hasRequest(b) ? { date: asDate(b.reqDate), time: asTime(b.reqTime), reason: String(b.reqReason || ""), at: asText(b.reqAt) } : null,
@@ -1324,7 +1325,8 @@ function adminBooking(b, settings){
     lastEmail: String(b.lastEmail || ""), checkInAt: asText(b.checkInAt), hairOrdered: isHairOrdered(b), hairOrderedOn: String(b.hairOrderedOn || ""),
     needsHair: needsHairFromMe(b), hairDetails: hairDetails(b), isConsult: isConsult(b), dateIso: isoOf(b), timeMin: parseMinutes(b),
     approvalEmailed: isTrue(b.approvalEmailed), depositEmailed: isTrue(b.depositEmailed),
-    tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || "")
+    tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || ""),
+    isSqueeze: isSqueeze(b), service: cleanService(b)
   });
 }
 
@@ -1334,8 +1336,8 @@ function getDaysOff(){
 }
 function setDaysOff(list){
   const ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
-  const clean = (list || []).slice(0, 300).map(d => ({ start: clip(d.start, 10), end: clip(d.end || d.start, 10), note: clip(d.note, 80) }))
-    .filter(d => ok(d.start) && ok(d.end)).map(d => d.end < d.start ? { start: d.end, end: d.start, note: d.note } : d)
+  const clean = (list || []).slice(0, 300).map(d => ({ start: clip(d.start, 10), end: clip(d.end || d.start, 10), note: clip(d.note, 80), squeeze: d.squeeze === true }))
+    .filter(d => ok(d.start) && ok(d.end)).map(d => d.end < d.start ? { start: d.end, end: d.start, note: d.note, squeeze: d.squeeze } : d)
     .sort((a, c) => a.start < c.start ? -1 : 1);
   PropertiesService.getScriptProperties().setProperty("daysOff", JSON.stringify(clean));
   return clean;
@@ -2303,6 +2305,11 @@ function needsHairFromMe(b){
 function isHairOrdered(b){ return isTrue(b.hairOrdered); }
 
 // The hair details, without the parts that don't matter for ordering.
+// Squeeze-ins: booked on a day that already had someone. The site adds this tag to the service.
+function isSqueeze(b){ return /SQUEEZE-IN REQUEST/i.test(String(b.serviceLabel || "")); }
+// The service name a client should see (without your squeeze-in tag).
+function cleanService(b){ return String(b.serviceLabel || "").replace(/\s*—\s*⚡ SQUEEZE-IN REQUEST.*$/, "").trim(); }
+
 function hairDetails(b){
   return String(b.serviceLabel || "").replace(/\s*—\s*⚡ SQUEEZE-IN REQUEST.*$/, "").trim();
 }

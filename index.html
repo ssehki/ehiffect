@@ -937,11 +937,12 @@ function isTimeAllowed(dateStr, timeStr){
   return effectiveWindows(day).some(w => t >= timeToMinutes(w.start) && t <= timeToMinutes(w.end));
 }
 
-// Whole days you're not taking ANY bookings, on top of your normal weekly schedule above.
-// Tell me the dates and I'll add them here — either a single day ("2026-10-15") or a run of
-// days inclusive ({start:"2026-10-10", end:"2026-10-12"}). They show pink and can't be picked.
+// Whole days you're not taking regular bookings, on top of your normal weekly schedule above.
+// Either a single day ("2026-10-15") or a run of days inclusive ({start:"2026-10-10", end:"2026-10-12"}).
+// Add squeeze:true when you're BOOKED OUT (clients can still send a squeeze-in request for those days).
+// Leave it off for real days off (vacation, exams) — nobody can pick those at all.
 const BLOCKED_DATES = [
-  { start: "2026-10-06", end: "2026-10-12" }, // Tue Oct 6 – Mon Oct 12 — booked out, not taking appointments
+  { start: "2026-10-06", end: "2026-10-12", squeeze: true }, // Tue Oct 6 – Mon Oct 12 — booked out (squeeze-ins still allowed)
 ];
 // Whole days that already have a booking (pending or approved), fetched from the sheet so a day
 // closes itself off the moment someone books it — no manual "block this date" needed for it.
@@ -965,10 +966,23 @@ async function refreshTakenDates(){
 // Squeeze-ins: a request for a day that's already booked. Always needs your approval.
 const SQUEEZE_IN_FEE = 20;
 function squeezeApplies(){ return !!state.squeezeIn && state.category && state.category!=='bundles' && state.category!=='consult'; }
-function isDayOff(dateStr){ return BLOCKED_DATES.concat(remoteDaysOff).some(b => typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end)); }
-function isDateBlocked(dateStr){
-  if(takenDates.has(dateStr)) return true;
-  return isDayOff(dateStr);
+// It's only a squeeze-in (and only costs the fee) when the day they picked is actually already booked.
+// On the confirmation screen the answer is frozen, because their own new booking now marks that day as taken.
+function isSqueezeBooking(){
+  if(state.view === 'confirm') return !!state.wasSqueeze;
+  return squeezeApplies() && !!state.date && isFullDay(state.date) && !isDayOff(state.date);
+}
+function inBlock(b, dateStr){ return typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end); }
+// A real day off — nobody can book, not even a squeeze-in.
+function isDayOff(dateStr){ return BLOCKED_DATES.concat(remoteDaysOff).some(b => inBlock(b, dateStr) && !(b && b.squeeze)); }
+// Already full: someone's booked that day, or you marked it "booked out" (squeeze-ins allowed).
+function isFullDay(dateStr){ return takenDates.has(dateStr) || BLOCKED_DATES.concat(remoteDaysOff).some(b => b && b.squeeze && inBlock(b, dateStr)); }
+function isDateBlocked(dateStr){ return isFullDay(dateStr) || isDayOff(dateStr); }
+// Squeeze-ins within 24 hours are allowed, but flagged so the client knows it's short notice.
+function isShortNotice(dateStr, timeStr){
+  if(!dateStr) return false;
+  const t = new Date(dateStr + 'T' + (timeStr || '23:59') + ':00');
+  return (t - Date.now()) < 24 * 3600e3;
 }
 
 function timeSlotsFor(dateStr){
@@ -981,6 +995,8 @@ function timeSlotsFor(dateStr){
       slots.push(String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'));
     }
   });
+  // Booking for today: only times at least an hour from now.
+  if(dateStr === todayStr()){ const n = new Date(), soon = n.getHours()*60 + n.getMinutes() + 60; return slots.filter(s => timeToMinutes(s) >= soon); }
   return slots;
 }
 function formatTimeLabel(t){
@@ -1244,6 +1260,7 @@ function resetSelection(){
   state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleKitUpgrade=false;
   state.customDetails="";
   state.takedownKey=null; state.takedownWashConfirmed=false;
+  state.squeezeIn=false;
   state.installTexture="";
   state.dealsSelected=[];
   state.loyaltyVisit=""; state.btcFirstConfirmed=false; state.hallohairCostumeConfirmed=false;
@@ -1453,7 +1470,7 @@ function calcTotal(){
   const base = computeBaseTotal();
   if(base === null) return null;
   let total = base;
-  if(squeezeApplies()) total += SQUEEZE_IN_FEE;   // added after deals, so it's never discounted
+  if(isSqueezeBooking()) total += SQUEEZE_IN_FEE;   // added after deals, so it's never discounted
   if(kitsApply() && !luxuryIncluded()){
     if(state.luxuryKit) total += LUXURY_KIT_PRICE;
     else if(!miniKitEligible() && state.miniKitPurchase) total += MINI_KIT_PURCHASE_PRICE;
@@ -1754,7 +1771,7 @@ function renderManage(){
       <div class="field"><label>New date</label>${renderCalendar()}</div>
       ${state.date ? `<div class="field"><label>New time</label>
         <select data-action="pick-time-slot"><option value="">choose a time</option>
-        ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}</select></div>` : ''}
+        ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date).length ? `<option value="" disabled>no times left today — pick another day</option>` : ''}</select></div>` : ''}
       <div class="field"><label>${within ? 'What happened? <span style="color:var(--pink);">*required</span>' : 'Anything I should know? (optional)'}</label>
         <textarea data-mfield="reason" placeholder="${within ? 'tell me what came up' : 'optional'}">${escapeHTML(f.reason||'')}</textarea></div>
       <button class="cta-btn" data-action="m-send-reschedule" ${state.mBusy?'disabled':''}>${state.mBusy?'Sending…':(m.status==='pending'?'Update my request':'Send reschedule request')}</button>`;
@@ -1962,7 +1979,7 @@ function renderCalendar(){
   for(let d=1; d<=daysInMonth; d++){
     const dateStr = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const isPast = dateStr < today;
-    const squeezable = squeezeApplies() && takenDates.has(dateStr) && !isDayOff(dateStr);
+    const squeezable = squeezeApplies() && isFullDay(dateStr) && !isDayOff(dateStr);
     const ownDay = state.view==='manage' && state.manage && dateStr === mIso(state.manage.date);
     const isBlocked = isDateBlocked(dateStr) && !squeezable && !ownDay;
     const isSelected = state.date === dateStr;
@@ -2172,11 +2189,11 @@ function renderBook(){
     <div class="card">
       <div class="step-label"><span class="step-num">2</span><span class="step-title">Add-ons</span></div>
       ${INSTALL_ADDONS.map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>${a.note ? `<div class="addon-note">${a.note}</div>` : ''}`).join('')}
-      <div class="total-bar"><span class="label">estimated total${squeezeApplies() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div>
+      <div class="total-bar"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
     ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' && state.category!=='consult' ? `
-    <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${squeezeApplies() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
+    <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
     ${showDetails && kitsApply() ? `
     <div class="card">
@@ -2191,12 +2208,14 @@ function renderBook(){
       <div class="squeeze-row ${state.squeezeIn?'on':''}">
         <input type="checkbox" id="squeeze-in" ${state.squeezeIn?'checked':''} data-action="toggle-squeeze"/>
         <label for="squeeze-in"><b>I need a squeeze-in appointment</b> <span class="squeeze-fee">+${money(SQUEEZE_IN_FEE)}</span>
-          <span class="squeeze-sub">Want a day that's already booked? Check this and booked days open up on the calendar below — pick one and I'll see if I can fit you in. Squeeze-ins are only confirmed once I approve.</span></label>
+          <span class="squeeze-sub">Want a day that's already booked, or need me last minute (even today or tomorrow)? Check this and booked days open up on the calendar below — pick one and I'll see if I can fit you in. Squeeze-ins are only confirmed once I approve.</span></label>
       </div>` : ''}
       <div class="field">
         <label>Preferred date <span style="color:var(--pink);">*required</span></label>
         ${renderCalendar()}
         ${dayNote ? `<div class="avail-note" style="margin-top:10px;">${dayNote}</div>` : ''}
+        ${squeezeApplies() && state.date ? `<div class="avail-note" style="margin-top:8px;">${isSqueezeBooking() ? `⚡ Squeeze-in day — the ${money(SQUEEZE_IN_FEE)} fee is added and I'll confirm if I can fit you in.` : `Good news: that day is open, so it's a regular booking — no squeeze-in fee.`}</div>` : ''}
+        ${isSqueezeBooking() && isShortNotice(state.date, state.time) ? `<div class="avail-note" style="margin-top:8px;">⏰ That's less than 24 hours away — totally okay for a squeeze-in. Send your request, then DM me on Instagram so I see it fast.</div>` : ''}
       </div>
 
       ${state.date ? `
@@ -2204,7 +2223,7 @@ function renderBook(){
         <label>Preferred time</label>
         <select data-action="pick-time-slot">
           <option value="">choose a time</option>
-          ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}
+          ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date).length ? `<option value="" disabled>no times left today — pick another day</option>` : ''}
         </select>
       </div>` : ''}
       ${state.bookingType!=='solo' ? `<div class="avail-note">${bookingTypeNoteText()}</div>` : ''}
@@ -2425,6 +2444,7 @@ function renderConfirm(){
   <div class="policy-box" style="text-align:left;">
     ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
+    ${state.wasSqueeze ? `<div style="margin-top:4px;"><b>Squeeze-in:</b> yes — includes the ${money(SQUEEZE_IN_FEE)} squeeze-in fee. Only confirmed once I approve.</div>` : ''}
     ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
     ${giftLabel ? `<div style="margin-top:4px;"><b>Aftercare:</b> ${giftLabel}</div>` : ''}
     ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)'}</div>` : ''}
@@ -2876,11 +2896,12 @@ function attachHandlers(){
           if(!state.treatmentGroupNames){ state.error = "Please add your bestie(s) name/IG so I can match your bookings."; render(); return; }
         }
 
+        state.wasSqueeze = isSqueezeBooking();
         const rawTotal = calcTotal();
         const notesWithLink = state.referenceLink ? `${state.notes}${state.notes ? ' | ' : ''}Reference link: ${state.referenceLink}` : state.notes;
         const booking = {
           name: state.name, phone: state.phone, ig: state.ig, email: state.email, date: state.date, time: state.time, notes: notesWithLink,
-          photos: state.photos, serviceLabel: serviceLabelText() + (squeezeApplies() ? ` — ⚡ SQUEEZE-IN REQUEST (+${money(SQUEEZE_IN_FEE)})` : ''), dealsLabel: dealsLabelText(), dealKeys: state.dealsSelected.join(", "),
+          photos: state.photos, serviceLabel: serviceLabelText() + (isSqueezeBooking() ? ` — ⚡ SQUEEZE-IN REQUEST (+${money(SQUEEZE_IN_FEE)})${isShortNotice(state.date, state.time) ? ' · LESS THAN 24 HRS' : ''}` : ''), dealsLabel: dealsLabelText(), dealKeys: state.dealsSelected.join(", "),
           bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
           giftKit: kitLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)') : '',
