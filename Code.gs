@@ -60,8 +60,17 @@ const PHOTO_FOLDER_NAME = "Ehiffect Booking Photos";  // Drive folder for refere
 const HIDE_MOVED_IN_BOOKINGS = true;
 
 const CALENDAR_SYNC = true;
-const CALENDAR_ID = "";
-const CALENDAR_HOURS = 3;                             // how long a styling appointment blocks on the calendar
+const CALENDAR_ID = "";   // leave blank — menu Ehiffect → "Create Ehiffect appointments calendar" sets this up for you
+// The calendar actually used: CALENDAR_ID if you typed one, else the one the menu created, else the default calendar.
+function calendarId_(){ return CALENDAR_ID || PropertiesService.getScriptProperties().getProperty("calendarId") || ""; }
+const CALENDAR_HOURS = 4;                             // how long a styling appointment blocks on the calendar
+// Phone notifications on every appointment, in minutes before it starts (Google allows up to 5).
+// 1440 = 1 day, 120 = 2 hours, 60 = 1 hour. Change the numbers and every event updates on the next sync.
+const CALENDAR_REMINDERS = [1440, 45, 30];
+// A separate "Buffer" block right BEFORE every styling appointment (e.g. 5:55–6:10 for a 6:10 appointment),
+// so you have time to set up and nothing gets booked back-to-back.
+// No notifications on it. Set to 0 to turn buffers off.
+const CALENDAR_BUFFER_MINUTES = 15;
 
 // Every Nth approved visit gets flagged for a surprise loyalty gift.
 const LOYALTY_SURPRISE_EVERY = 5;
@@ -85,10 +94,35 @@ const VALID_STATUSES = ["pending", "approved", "denied", "rescheduled", "no-show
 // Used in the ready-to-send text messages.
 const CASHTAG = "$ehiixs";
 
-// Must exactly match CONFIG.adminPasscode in index.html. Without this check, anyone who found
-// your Apps Script URL (visible in the site's network requests) could pull your whole client
-// list or approve/deny/mark-paid bookings with no login at all — this is what actually blocks that.
-const ADMIN_KEY = "ehiffect26";
+// DASHBOARD PASSCODE — not written anywhere in code anymore.
+// It's saved privately in this script's Script Properties (key: ADMIN_KEY), which nobody can see
+// from the website or GitHub. Set or change it from the sheet: Ehiffect menu → "Set dashboard passcode".
+// Without it, anyone who found your Apps Script URL could pull your client list or approve/deny
+// bookings, so every admin request is checked here. No passcode set = admin is locked (fails closed).
+const ADMIN_MAX_FAILS = 10;          // wrong tries allowed...
+const ADMIN_LOCK_SECONDS = 900;      // ...within 15 minutes before the dashboard locks for 15 minutes
+function adminKey_(){ return PropertiesService.getScriptProperties().getProperty("ADMIN_KEY") || ""; }
+// Returns "ok", "unauthorized", or "locked". Counts wrong guesses so the passcode can't be brute-forced.
+function checkAdmin_(given){
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get("admin_fails") || 0);
+  if(fails >= ADMIN_MAX_FAILS) return "locked";
+  const real = adminKey_();
+  if(real && String(given || "") === real) return "ok";
+  cache.put("admin_fails", String(fails + 1), ADMIN_LOCK_SECONDS);
+  return "unauthorized";
+}
+// Menu item: set or change the dashboard passcode (stored privately in Script Properties).
+function setAdminPasscode(){
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt("Set dashboard passcode", "Type a new passcode (at least 8 characters). You'll use this to log in at your site's #admin page.", ui.ButtonSet.OK_CANCEL);
+  if(res.getSelectedButton() !== ui.Button.OK) return;
+  const val = res.getResponseText().trim();
+  if(val.length < 8){ ui.alert("Passcode not saved — it needs at least 8 characters."); return; }
+  PropertiesService.getScriptProperties().setProperty("ADMIN_KEY", val);
+  CacheService.getScriptCache().remove("admin_fails");
+  ui.alert("Saved. Use this passcode to log in to your dashboard.");
+}
 
 // These three are just the starting defaults — once the sheet exists, edit them from the
 // "Settings" row on the Dashboard tab instead (row 9) and they'll stick; no need to touch code.
@@ -138,7 +172,9 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "calendarEvent", "calendarEvent"
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "calendarEvent", "hairOrdered", "hairOrderedOn",
+  "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
+  "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -425,7 +461,8 @@ function messageFor(b, depositAmount){
     return hi + "Thanks for your bundle request! I'm confirming pricing and shipping timing and will text you your final price and pickup date shortly.";
   if(b.status === "pending")
     return hi + "Your " + b.serviceLabel + " on " + whenText(b) + " is approved! To lock in your spot, please send the $" + depositAmount +
-           " deposit to " + CASHTAG + " on Cash App (it comes off your total at your appointment). Thank you!";
+           " deposit to " + CASHTAG + " on Cash App (it comes off your total at your appointment). Thank you!" +
+           (manageUrl(b) ? " Please fill out your hair check-in and manage your appointment here: " + manageUrl(b) : "");
   if(b.status === "approved" && !isPaid(b))
     return hi + "Just a reminder to send your $" + depositAmount + " deposit to " + CASHTAG + " on Cash App to keep your spot on " + whenText(b) + ". Thank you!";
   if(b.status === "approved")
@@ -547,7 +584,7 @@ function handleCreate(body){
       giftKit: body.giftKit || "", careKitCost: body.careKitCost || "", kitComp: false, kitPacked: false,
       visitCount: visitCount, loyaltyFlag: loyaltyFlag, dealKeys: dealKeys.join(", "), dealAlert: dealAlert,
       depositPaid: false, depositRefunded: false, checks: "", approvalEmailed: false,
-      shipped: false, serviced: false, servicedOn: ""
+      shipped: false, serviced: false, servicedOn: "", manageToken: newToken_()
     };
     const row = new Array(cols.width).fill("");           // each value goes under its own header
     Object.keys(values).forEach(f => { row[cols.map[f]] = values[f]; });
@@ -563,6 +600,7 @@ function handleCreate(body){
     values.checks = mine ? mine.checks : "";
 
     sendBookingEmail(body, values, photoUrls);
+    if(mine) emailRequestReceived(mine);                  // client's "we got your request" email, with their manage link
     refreshViews(updated);
     return { ok: true, key: id };
   });
@@ -603,8 +641,9 @@ function handleUpdateStatus(body){
     setCell(sheet, cols, "status", target.row, body.status);
     if(body.status === "approved"){
       applyApproval(sheet, cols, target.row);
-      sendApprovalEmail(target);          // target.status is still "pending" here, which is exactly
-    }                                      // the wording messageFor() needs for the approval message
+      sendApprovalEmail(target);
+    }
+    if(body.status === "denied" || body.status === "cancelled") emailStatusChange(target, body.status);
     refreshViews();
     return { ok: true };
   });
@@ -640,16 +679,10 @@ function approvalEmailBody(b, depositAmount){
 function sendApprovalEmail(b){
   if(!b.email || isTrue(b.approvalEmailed)) return;      // no address, or they already got this email
   try{
-    MailApp.sendEmail({
-      to: b.email,
-      subject: "Your Ehiffect appointment is approved!",
-      body: approvalEmailBody(b, getSettings().depositAmount)
-    });
-    try{
-      const sh = getSheet(), cm = getColumns(sh).map;
-      setCell(sh, cm, "approvalEmailed", b.row, true);
-      setCell(sh, cm, "lastEmail", b.row, "Approval (automatic) → " + b.email + " · " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy h:mm a"));
-    }catch(markErr){}
+    const sh = getSheet(), cm = getColumns(sh).map;
+    if(!b.manageToken){ b.manageToken = newToken_(); setCell(sh, cm, "manageToken", b.row, b.manageToken); }
+    if(!emailApproved(b)) throw new Error("the email could not be sent");
+    try{ setCell(sh, cm, "approvalEmailed", b.row, true); }catch(markErr){}
   }catch(err){
     // Never let an email hiccup block the status update — but tell you about it instead of
     // failing completely silently, so a bad address or quota issue doesn't go unnoticed.
@@ -671,6 +704,7 @@ function handleSetDeposit(body){
     const target = readBookings().find(b => b.id === body.key);
     if(!target) return { ok: false };
     setCell(sheet, cols, "depositPaid", target.row, !!body.paid);
+    if(body.paid && !isTrue(target.depositEmailed)){ target.depositPaid = true; if(emailDepositReceived(target)) setCell(sheet, cols, "depositEmailed", target.row, true); }
     refreshViews();
     return { ok: true };
   });
@@ -696,7 +730,11 @@ function toWebsiteShape(b, settings){
     loyaltyFlag: b.loyaltyFlag || false, dealKeys: b.dealKeys || "", dealAlert: b.dealAlert || "",
     depositPaid: isPaid(b), depositRefunded: isRefunded(b), checks: b.checks || "", kit: kitTier(b), isBundle: isBundle(b),
     waiting: b.status === "pending" ? wait.text : "", overdue: b.status === "pending" && wait.overdue,
-    text: messageFor(b, settings.depositAmount), textLabel: messageLabel(b)
+    text: messageFor(b, settings.depositAmount), textLabel: messageLabel(b),
+    email: b.email || "", manageUrl: manageUrl(b),
+    request: hasRequest(b) ? { date: asDate(b.reqDate), time: asTime(b.reqTime), reason: String(b.reqReason || ""), within24: isTrue(b.reqWithin24) } : null,
+    lateNote: String(b.lateNote || ""), checkIn: readCheckIn(b), checkInPhotos: b.checkInPhotos ? String(b.checkInPhotos).split("|") : [],
+    thread: readThread(b), needsReply: isTrue(b.threadNeedsReply), cancelInfo: String(b.cancelInfo || "")
   };
 }
 
@@ -704,7 +742,8 @@ function doGet(e){
   const action = e.parameter.action;
 
   if(action === "list"){
-    if(e.parameter.key !== ADMIN_KEY) return json({ error: "unauthorized" });
+    const auth = checkAdmin_(e.parameter.key);
+    if(auth !== "ok") return json({ error: auth });
     const settings = getSettings();
     return json({ bookings: readBookings().map(b => toWebsiteShape(b, settings)) });
   }
@@ -724,7 +763,7 @@ function doGet(e){
       .filter(b => isActive(b) && !isBundle(b) && !isConsult(b))
       .map(b => asDate(b.date))
       .filter(Boolean);
-    return json({ dates: Array.from(new Set(dates)) });
+    return json({ dates: Array.from(new Set(dates)), daysOff: getDaysOff().map(d => ({ start: d.start, end: d.end })) });
   }
 
   // One small piece of a reference photo (photos are too big for the booking request itself).
@@ -736,11 +775,33 @@ function doGet(e){
     return json({ ok: true });
   }
 
+  // The client's "Manage my appointment" page. Only works with the booking's private link code.
+  if(action === "manage"){
+    let body;
+    try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
+    return json(handleManage(body));
+  }
+
+  // The admin site (admin.html). Same passcode as your dashboard.
+  if(["adminData", "emailDraft", "adminAct", "adminCreate", "customEmail", "saveTemplate", "setDaysOff"].indexOf(action) !== -1){
+    let body;
+    try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
+    const auth = checkAdmin_(body.adminKey); if(auth !== "ok") return json({ ok: false, error: auth });
+    try{ return json(adminApi(action, body)); }catch(err){ return json({ ok: false, error: String(err && err.message || err) }); }
+  }
+
+  if(action === "decideRequest" || action === "reply"){
+    let body;
+    try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ error: "bad payload" }); }
+    const auth = checkAdmin_(body.adminKey); if(auth !== "ok") return json({ error: auth });
+    return json(action === "reply" ? handleReply(body) : handleDecideRequest(body));
+  }
+
   if(action === "create" || action === "updateStatus" || action === "setDeposit"){
     let body;
     try{ body = JSON.parse(e.parameter.payload); }
     catch(err){ return json({ error: "bad payload" }); }
-    if(action !== "create" && body.adminKey !== ADMIN_KEY) return json({ error: "unauthorized" });
+    if(action !== "create"){ const auth = checkAdmin_(body.adminKey); if(auth !== "ok") return json({ error: auth }); }
     if(action === "create") return json(handleCreate(body));
     if(action === "updateStatus") return json(handleUpdateStatus(body));
     return json(handleSetDeposit(body));
@@ -757,10 +818,708 @@ function doPost(e){
   else return json({ error: "no data received" });
   if(body.action === "create") return json(handleCreate(body));
   if(body.action === "updateStatus"){
-    if(body.adminKey !== ADMIN_KEY) return json({ error: "unauthorized" });
+    const auth = checkAdmin_(body.adminKey); if(auth !== "ok") return json({ error: auth });
     return json(handleUpdateStatus(body));
   }
   return json({ error: "unknown action" });
+}
+
+
+/* ================================================================
+   CLIENT SELF-SERVICE — "Manage my appointment" links, client emails, and requests
+   ================================================================
+   Every booking gets a private link (a long random code, never a name or phone number).
+   From that page the client can: reschedule, cancel, say they're running late, fill out the
+   hair check-in (photos + questions), and message you. Anything that needs your OK shows up on
+   the "Client Updates" tab, and you get an email each time.                                     */
+
+const SITE_URL = "https://ssehki.github.io/ehiffect/";
+
+function newToken_(){ return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").slice(0, 40); }
+function manageUrl(b){ return b && b.manageToken ? SITE_URL + "#manage=" + b.manageToken : ""; }
+function nowStamp(){ return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy h:mm a"); }
+function clip(s, n){ return String(s === undefined || s === null ? "" : s).trim().slice(0, n); }
+function esc(s){ return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+// Gives every pending/approved booking a private link if it doesn't have one yet (older bookings).
+function ensureTokens(all){
+  const sheet = getSheet(), cm = getColumns(sheet).map;
+  let n = 0;
+  all.forEach(b => {
+    if(!b.manageToken && isActive(b)){ b.manageToken = newToken_(); setCell(sheet, cm, "manageToken", b.row, b.manageToken); n++; }
+  });
+  return n;
+}
+
+function findByToken(token){
+  token = String(token || "");
+  if(!/^[a-f0-9]{32,48}$/.test(token)) return null;
+  return readBookings().find(b => String(b.manageToken) === token) || null;
+}
+
+function apptStart(b){
+  const d = parseDay(b); if(!d) return null;
+  const m = parseMinutes(b);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, m === null ? 9 * 60 : m);
+}
+function hoursUntil(b){ const s = apptStart(b); return s ? (s.getTime() - Date.now()) / 3600000 : null; }
+function readThread(b){ try{ const t = JSON.parse(b.thread || "[]"); return Array.isArray(t) ? t : []; }catch(e){ return []; } }
+function readCheckIn(b){ try{ return JSON.parse(b.checkIn || "null"); }catch(e){ return null; } }
+function hasRequest(b){ return !!String(b.reqDate || "").trim(); }
+
+function notifyMe(subject, body){ try{ MailApp.sendEmail({ to: NOTIFY_EMAIL, subject: subject, body: body }); }catch(e){} }
+
+// One branded email to a client: plain-text + simple HTML, with a pink "Manage my appointment" button.
+function sendClientEmail(b, subject, paras, opts){
+  opts = opts || {};
+  if(!b || !String(b.email || "").trim()) return false;
+  paras = paras.filter(Boolean);
+  const link = opts.link === false ? "" : manageUrl(b);
+  const label = opts.linkLabel || "Manage my appointment";
+  const plain = ["Hi " + firstName(b) + ",", ""];
+  paras.forEach(p => plain.push(p, ""));
+  if(link) plain.push(label + ": " + link, "");
+  plain.push("Questions? Reply to this email or DM @ehiffect on Instagram.", "", "— The Ehiffect");
+  const html =
+    '<div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px;color:#211A1B;font-size:15px;line-height:1.6">' +
+    '<p style="font-family:Georgia,serif;font-size:24px;margin:0">The Ehiffect</p>' +
+    '<p style="color:#B85C82;font-size:11px;letter-spacing:.18em;margin:2px 0 22px">UNCOMPLICATED &amp; AT YOUR SERVICE</p>' +
+    '<p>Hi ' + esc(firstName(b)) + ',</p>' +
+    paras.map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('') +
+    (link ? '<p style="margin:26px 0"><a href="' + link + '" style="background:#E38AAE;color:#241318;text-decoration:none;padding:13px 22px;border-radius:2px;font-weight:bold;letter-spacing:.05em;display:inline-block">' + esc(label) + '</a></p>' : '') +
+    '<p style="color:#8C7B7E;font-size:13px;margin-top:26px">Questions? Reply to this email or DM @ehiffect on Instagram.</p></div>';
+  try{
+    MailApp.sendEmail({ to: String(b.email).trim(), subject: subject, body: plain.join("\n"), htmlBody: html, name: "The Ehiffect", replyTo: NOTIFY_EMAIL });
+    try{ const sh = getSheet(), cm = getColumns(sh).map; setCell(sh, cm, "lastEmail", b.row, subject + " → " + b.email + " · " + nowStamp()); }catch(e){}
+    return true;
+  }catch(err){
+    notifyMe("⚠ Email to " + (b.name || "a client") + " failed to send", 'Tried to send "' + subject + '" to ' + b.email + ":\n\n" + err.message);
+    return false;
+  }
+}
+
+/* ---------- EMAIL TEMPLATES (editable from the admin site → More → Emails) ----------
+   Words in {curly braces} are filled in for each client:
+   {first} {name} {service} {when} {oldWhen} {newWhen} {total} {deposit} {cashtag} {site}
+   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps}
+   A blank line starts a new paragraph. A paragraph that ends up empty is left out.
+   "button" is the pink button's text (leave blank for no button).                              */
+const EMAIL_DEFAULTS = {
+  received: { label: "Request received", when: "Sent right after someone books",
+    subject: "We got your request — The Ehiffect", button: "Manage my appointment",
+    body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Use the button below." },
+  approved: { label: "Approved", when: "When you approve a booking",
+    subject: "Your Ehiffect appointment is approved! 💗", button: "Hair check-in & manage appointment",
+    body: "Good news — your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
+  deposit: { label: "Deposit received", when: "When you mark a deposit as received",
+    subject: "Deposit received — you're all set! 💗", button: "Manage my appointment",
+    body: "I received your {deposit} deposit — your spot on {when} is locked in!\n\nIt comes off your total at your appointment.\n\n{checkinLine}" },
+  timeChanged: { label: "Time updated", when: "When you change an approved appointment's date or time",
+    subject: "Your Ehiffect appointment time was updated", button: "Manage my appointment",
+    body: "Heads up — your appointment has been updated.\n\nService: {service}\nNew time: {when}\n\nIf this time doesn't work for you, use the button below to request a different one or send me a message." },
+  denied: { label: "Not approved", when: "When you deny a booking",
+    subject: "About your Ehiffect booking request", button: "",
+    body: "Thank you so much for requesting {service} on {when}. Unfortunately I'm not able to take that booking.\n\n{depositNote}\n\nI'd love to find another time that works — you're welcome to book again anytime at {site}" },
+  cancelled: { label: "Cancelled by you", when: "When you cancel someone's appointment",
+    subject: "Your Ehiffect appointment was cancelled", button: "",
+    body: "Your {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime at {site}" },
+  reschedReceived: { label: "Reschedule request received", when: "When a client asks to reschedule",
+    subject: "We got your reschedule request — The Ehiffect", button: "Manage my appointment",
+    body: "I got your request to move your appointment.\n\nCurrent: {oldWhen}\nRequested: {newWhen}\n\n{within24Line}\n\nYour current appointment stays on the books until I approve the change." },
+  reschedApproved: { label: "Reschedule approved", when: "When you approve a reschedule",
+    subject: "Your appointment has been moved — The Ehiffect", button: "Manage my appointment",
+    body: "Your reschedule is approved!\n\nNew time: {newWhen}\n(was {oldWhen})\n\n{depositNote}" },
+  reschedDenied: { label: "Reschedule denied", when: "When you deny a reschedule",
+    subject: "About your reschedule request — The Ehiffect", button: "Manage my appointment",
+    body: "I wasn't able to move your appointment to {newWhen}, so it's staying on {oldWhen}.\n\nIf you need to talk it through, reply to this email or send me a message from your appointment page." },
+  clientCancelled: { label: "Client cancelled", when: "When a client cancels from their link",
+    subject: "Your Ehiffect appointment is cancelled", button: "",
+    body: "Your appointment for {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime at {site}" },
+  custom: { label: "Custom email", when: "A blank email you write yourself",
+    subject: "A note from The Ehiffect", button: "Manage my appointment", body: "" }
+};
+
+function getTemplates(){
+  let saved = {};
+  try{ saved = JSON.parse(PropertiesService.getScriptProperties().getProperty("emailTemplates") || "{}") || {}; }catch(e){}
+  const out = {};
+  Object.keys(EMAIL_DEFAULTS).forEach(k => {
+    const d = EMAIL_DEFAULTS[k], s = saved[k] || {};
+    out[k] = { label: d.label, when: d.when, subject: s.subject !== undefined ? s.subject : d.subject,
+               body: s.body !== undefined ? s.body : d.body, button: s.button !== undefined ? s.button : d.button, edited: !!saved[k] };
+  });
+  return out;
+}
+function saveTemplate(kind, t){
+  if(!EMAIL_DEFAULTS[kind]) return false;
+  const p = PropertiesService.getScriptProperties();
+  let saved = {};
+  try{ saved = JSON.parse(p.getProperty("emailTemplates") || "{}") || {}; }catch(e){}
+  if(t === null) delete saved[kind];
+  else saved[kind] = { subject: clip(t.subject, 200), body: clip(t.body, 4000), button: clip(t.button, 60) };
+  p.setProperty("emailTemplates", JSON.stringify(saved));
+  return true;
+}
+
+// The fill-in values for one client. `extra` can add/override any of them.
+function templateVars(b, extra){
+  const dep = getSettings().depositAmount, owed = isPaid(b) && !isRefunded(b);
+  return Object.assign({
+    first: firstName(b), name: b.name || "", service: b.serviceLabel || "", when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
+    total: (b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed",
+    deposit: "$" + dep, cashtag: CASHTAG, site: SITE_URL,
+    depositLine: isPaid(b) ? "Your deposit is already in — your spot is locked in." : depositLine(dep),
+    depositNote: owed ? "Your $" + dep + " deposit will be sent back to you." : "",
+    checkinLine: readCheckIn(b) ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
+    within24Line: "I'll confirm within 24 hours.",
+    nextSteps: isConsult(b) ? "your consultation details" : "your $" + dep + " deposit details and your hair check-in"
+  }, extra || {});
+}
+function fillTemplate(text, vars){ return String(text || "").replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m); }
+
+// What an email would say, for previewing/editing before it's sent.
+function renderTemplate(kind, b, extra){
+  const t = getTemplates()[kind] || getTemplates().custom, v = templateVars(b, extra);
+  return { kind: kind, to: String(b.email || ""), subject: fillTemplate(t.subject, v), body: fillTemplate(t.body, v), button: t.button || "" };
+}
+
+// Sends one templated email. `override` = { subject, body, button } you edited in the admin site.
+function sendTemplate(b, kind, extra, override){
+  const r = renderTemplate(kind, b, extra);
+  const subject = override && override.subject !== undefined ? override.subject : r.subject;
+  const body = override && override.body !== undefined ? override.body : r.body;
+  const button = override && override.button !== undefined ? override.button : r.button;
+  const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
+  if(!paras.length || !String(subject).trim()) return false;
+  return sendClientEmail(b, subject, paras, button ? { linkLabel: button } : { link: false });
+}
+
+/* ---------- the emails ---------- */
+
+function depositLine(dep){ return "To lock in your spot, send your $" + dep + " deposit to " + CASHTAG + " on Cash App. It comes off your total at your appointment, and you'll get an email as soon as I receive it."; }
+
+function emailRequestReceived(b){
+  if(isBundle(b)) return sendClientEmail(b, "We got your bundle request — The Ehiffect", [
+    "Thanks for your bundle request! I'm confirming pricing and shipping timing, and I'll email you your final price and pickup date shortly.",
+    "Your order: " + b.serviceLabel], { link: false });
+  return sendTemplate(b, "received");
+}
+
+function emailApproved(b, override){
+  const dep = getSettings().depositAmount;
+  if(!override && isBundle(b)) return sendClientEmail(b, "Your Ehiffect bundle order is confirmed!", [
+    "Good news — I'm confirming your bundle order!", "Order: " + b.serviceLabel,
+    "I'll email you shortly to confirm your final price and pickup date."], { link: false });
+  if(!override && isConsult(b)) return sendClientEmail(b, "Your Ehiffect consultation is confirmed!", [
+    "Good news — your consultation is confirmed for " + whenText(b) + ". I'll call you then.",
+    "Your $" + dep + " consultation fee goes to " + CASHTAG + " on Cash App, and it counts toward your deposit if you book a service after."]);
+  return sendTemplate(b, "approved", null, override);
+}
+
+function emailDepositReceived(b, override){
+  return sendTemplate(b, "deposit", null, override);
+}
+
+function emailTimeChanged(b, override){
+  return sendTemplate(b, "timeChanged", null, override);
+}
+
+function emailStatusChange(b, status, override){
+  if(!override && String(b.statusEmailed) === status) return false;          // already told them
+  let ok = false;
+  if(status === "denied" || status === "cancelled") ok = sendTemplate(b, status, null, override);
+  if(ok){ try{ const sh = getSheet(), cm = getColumns(sh).map; setCell(sh, cm, "statusEmailed", b.row, status); }catch(e){} }
+  return ok;
+}
+
+/* ---------- what the "Manage my appointment" page can see ---------- */
+
+function manageShape(b, extra){
+  const h = hoursUntil(b), ci = readCheckIn(b);
+  return Object.assign({
+    ok: true, name: firstName(b), service: b.serviceLabel, date: asDate(b.date), time: asTime(b.time), status: b.status,
+    total: b.total, depositPaid: isPaid(b), deposit: getSettings().depositAmount, cashtag: CASHTAG,
+    isBundle: isBundle(b), isConsult: isConsult(b), hoursUntil: h === null ? null : Math.round(h * 10) / 10,
+    request: hasRequest(b) ? { date: asDate(b.reqDate), time: asTime(b.reqTime), reason: String(b.reqReason || ""), at: asText(b.reqAt) } : null,
+    lateNote: String(b.lateNote || ""), checkIn: ci, checkInAt: asText(b.checkInAt),
+    checkInPhotos: b.checkInPhotos ? String(b.checkInPhotos).split("|") : [], thread: readThread(b)
+  }, extra || {});
+}
+
+/* ---------- actions from the "Manage my appointment" page ---------- */
+
+function handleManage(body){
+  return withLock(() => {
+    const b = findByToken(body.token);
+    if(!b) return { ok: false, error: "notfound" };
+    const sheet = getSheet(), cm = getColumns(sheet).map;
+    const set = (f, v) => { setCell(sheet, cm, f, b.row, v); b[f] = v; };
+    const type = String(body.type || "");
+    if(type === "get") return manageShape(b);
+
+    const closed = ["denied", "cancelled", "no-show", "rescheduled"].indexOf(b.status) !== -1;
+    if(closed && type !== "message") return manageShape(b, { ok: false, error: "This appointment is " + b.status + ", so it can't be changed here. Send me a message instead." });
+    const h = hoursUntil(b), within = h !== null && h < 24;
+    const clearReq = () => { ["reqDate", "reqTime", "reqReason", "reqAt"].forEach(f => set(f, "")); set("reqWithin24", false); };
+
+    if(type === "reschedule"){
+      const date = formatDateStr(clip(body.date, 10)), time = formatTimeStr(clip(body.time, 5)), reason = clip(body.reason, 600);
+      if(!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) return manageShape(b, { ok: false, error: "Pick a new date." });
+      if(within && !reason) return manageShape(b, { ok: false, error: "Since this is within 24 hours, please explain what's going on." });
+      const from = whenText(b), to = whenText({ date: date, time: time });
+      if(b.status === "pending"){                                   // not approved yet → just update the request
+        set("date", date); set("time", time);
+        if(reason) set("notes", (b.notes ? b.notes + " | " : "") + "Changed date: " + reason);
+        notifyMe("📅 " + b.name + " changed her requested date", b.name + " changed her pending request from " + from + " to " + to + "." + (reason ? "\n\nNote: " + reason : ""));
+        sendClientEmail(b, "Your request was updated — The Ehiffect", ["Your requested date is now " + to + ".", "I'll get back to you within 24 hours to confirm."]);
+        refreshViews();
+        return manageShape(b, { done: "updated" });
+      }
+      set("reqDate", date); set("reqTime", time); set("reqReason", reason); set("reqAt", nowStamp()); set("reqWithin24", within);
+      notifyMe((within ? "🚨 Within 24 hrs — " : "📅 ") + b.name + " wants to reschedule",
+        b.name + " (" + b.serviceLabel + ") wants to move from " + from + " to " + to + "." +
+        (within ? "\n\nThis is WITHIN 24 HOURS of the appointment." : "") + (reason ? "\n\nReason: " + reason : "") +
+        "\n\nApprove or deny it on the Client Updates tab in your Sheet, or on your site dashboard.");
+      sendTemplate(b, "reschedReceived", { oldWhen: from, newWhen: to,
+        within24Line: within ? "Since this is within 24 hours of your appointment, it most likely won't be approved unless it's an emergency. I'll review what you sent and let you know." : "I'll confirm within 24 hours." });
+      refreshViews();
+      return manageShape(b, { done: "reschedule" });
+    }
+
+    if(type === "withdrawRequest"){
+      if(hasRequest(b)){ clearReq(); notifyMe("📅 " + b.name + " withdrew her reschedule request", b.name + " is keeping her original time: " + whenText(b) + "."); refreshViews(); }
+      return manageShape(b, { done: "withdrawn" });
+    }
+
+    if(type === "cancel"){
+      const reason = clip(body.reason, 600), dep = getSettings().depositAmount, wasPending = b.status === "pending";
+      const when = whenText(b);
+      set("status", "cancelled"); set("statusEmailed", "cancelled");
+      set("cancelInfo", "Client cancelled " + nowStamp() + (within ? " · WITHIN 24 HRS" : "") + (reason ? " · " + reason : ""));
+      if(hasRequest(b)) clearReq();
+      let depositNote = "";
+      if(!wasPending && isPaid(b)) depositNote = within
+        ? "Since this was less than 24 hours before your appointment, your $" + dep + " deposit is non-refundable per my policy. If this was an emergency, I'll review your note and reach out."
+        : "Since you cancelled more than 24 hours ahead, your $" + dep + " deposit will be refunded.";
+      notifyMe("❌ " + b.name + " cancelled" + (within ? " (within 24 hrs)" : ""),
+        b.name + " cancelled her " + (wasPending ? "pending request" : "appointment") + " for " + when + " (" + b.serviceLabel + ")." +
+        (reason ? "\n\nReason: " + reason : "") + (isPaid(b) ? "\n\nDeposit: paid — " + (within ? "within 24 hrs, so it's yours to keep unless it was an emergency." : "more than 24 hrs ahead, so it should be refunded (tick it on the Denied & Rescheduled tab once sent).") : ""));
+      sendTemplate(b, "clientCancelled", { when: when, depositNote: depositNote });
+      refreshViews();
+      return manageShape(b, { done: "cancelled" });
+    }
+
+    if(type === "late"){
+      const mins = clip(body.minutes, 30), note = clip(body.note, 400);
+      if(!mins) return manageShape(b, { ok: false, error: "Let me know about how late you'll be." });
+      const line = nowStamp() + " — " + mins + (note ? ": " + note : "");
+      set("lateNote", (line + (b.lateNote ? "\n" + b.lateNote : "")).slice(0, 2000));
+      notifyMe("⏰ " + b.name + " is running late — " + mins, b.name + " (" + whenText(b) + ") says she's running " + mins + "." + (note ? "\n\n" + note : ""));
+      refreshViews();
+      return manageShape(b, { done: "late" });
+    }
+
+    if(type === "checkin"){
+      const answers = {};
+      Object.keys(body.answers || {}).slice(0, 20).forEach(k => { answers[clip(k, 80)] = clip(body.answers[k], 500); });
+      const urls = savePhotos(photosFromCache(body.photoIds));
+      set("checkIn", JSON.stringify(answers)); set("checkInAt", nowStamp());
+      if(urls.length) set("checkInPhotos", urls.join("|"));
+      const lines = Object.keys(answers).filter(k => answers[k]).map(k => k + ": " + answers[k]);
+      notifyMe("📋 Hair check-in from " + b.name, b.name + " (" + whenText(b) + ") filled out her hair check-in:\n\n" + lines.join("\n") +
+        (urls.length ? "\n\nPhotos:\n" + urls.join("\n") : "") +
+        ((body.photoIds || []).length > urls.length ? "\n\n(" + ((body.photoIds || []).length - urls.length) + " photo(s) failed to upload — ask her to resend.)" : ""));
+      refreshViews();
+      return manageShape(b, { done: "checkin" });
+    }
+
+    if(type === "message"){
+      const text = clip(body.text, 1000);
+      if(!text) return manageShape(b, { ok: false, error: "Type a message first." });
+      const t = readThread(b); t.push({ from: "client", text: text, at: nowStamp() });
+      set("thread", JSON.stringify(t.slice(-50))); set("threadNeedsReply", true);
+      notifyMe("💬 New message from " + b.name, b.name + " (" + whenText(b) + "):\n\n" + text + "\n\nReply from the Client Updates tab in your Sheet or from your site dashboard.");
+      refreshViews();
+      return manageShape(b, { done: "message" });
+    }
+
+    return manageShape(b, { ok: false, error: "unknown action" });
+  });
+}
+
+/* ---------- your side: approve/deny a reschedule, reply to a message ---------- */
+
+function decideRequest(b, decision, override){
+  if(!b || !hasRequest(b)) return false;
+  const sheet = getSheet(), cm = getColumns(sheet).map;
+  const set = (f, v) => { setCell(sheet, cm, f, b.row, v); b[f] = v; };
+  const from = whenText(b), to = whenText({ date: b.reqDate, time: b.reqTime });
+  if(decision === "approve"){
+    set("date", asDate(b.reqDate)); set("time", asTime(b.reqTime));
+    if(!override || override.send !== false) sendTemplate(b, "reschedApproved", { oldWhen: from, newWhen: to,
+      depositNote: isPaid(b) ? "Your deposit carries over to your new time, so you won't pay it twice." : "" }, override);
+  }else{
+    if(!override || override.send !== false) sendTemplate(b, "reschedDenied", { oldWhen: from, newWhen: to }, override);
+  }
+  ["reqDate", "reqTime", "reqReason", "reqAt"].forEach(f => set(f, "")); set("reqWithin24", false);
+  return true;
+}
+
+function replyToClient(b, text){
+  text = clip(text, 1000);
+  if(!b || !text) return false;
+  const sheet = getSheet(), cm = getColumns(sheet).map;
+  const t = readThread(b); t.push({ from: "me", text: text, at: nowStamp() });
+  setCell(sheet, cm, "thread", b.row, JSON.stringify(t.slice(-50))); b.thread = JSON.stringify(t);
+  setCell(sheet, cm, "threadNeedsReply", b.row, false);
+  sendClientEmail(b, "New message from The Ehiffect 💬", ["You have a new message about your appointment:", "“" + text + "”"], { linkLabel: "Reply & view messages" });
+  return true;
+}
+
+// From the website dashboard (passcode-protected).
+function handleDecideRequest(body){
+  return withLock(() => {
+    const b = readBookings().find(x => x.id === body.key);
+    if(!decideRequest(b, body.decision === "approve" ? "approve" : "deny")) return { ok: false };
+    refreshViews(); return { ok: true };
+  });
+}
+function handleReply(body){
+  return withLock(() => {
+    const b = readBookings().find(x => x.id === body.key);
+    if(!replyToClient(b, body.text)) return { ok: false };
+    refreshViews(); return { ok: true };
+  });
+}
+
+/* ---------- the "Client Updates" tab ---------- */
+
+const UPD_HEAD = 3, UPD_ACT = 6, UPD_SEND = 7, UPD_KIND = 8, UPD_ID = 9;
+
+function writeUpdatesSheet(all){
+  const sheet = getOrCreateSheet("Client Updates");
+  const f = sheet.getFilter(); if(f) f.remove();
+  sheet.setFrozenRows(0);
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  sheet.clear();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+  sheet.setHiddenGridlines(true);
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const upcoming = b => { const d = parseDay(b); return !d || d >= today; };
+  const recent = (stamp, days) => { const t = parseSubmitted(String(stamp).trim()); return t && (Date.now() - t.getTime()) < days * 864e5; };
+  const rows = [];   // [type, client, appt, details, sent, action, send, kind, id, style]
+
+  all.filter(b => hasRequest(b) && isActive(b)).forEach(b => rows.push([
+    isTrue(b.reqWithin24) ? "🚨 Reschedule (within 24 hrs)" : "📅 Reschedule", b.name, whenOf(b),
+    "Wants: " + whenText({ date: b.reqDate, time: b.reqTime }) + (b.reqReason ? "\nReason: " + b.reqReason : ""),
+    asText(b.reqAt), "", false, "req", b.id, "req"]));
+
+  all.filter(b => readThread(b).length && (upcoming(b) || isTrue(b.threadNeedsReply))).sort((a, c) => (isTrue(c.threadNeedsReply) ? 1 : 0) - (isTrue(a.threadNeedsReply) ? 1 : 0)).forEach(b => {
+    const t = readThread(b), last = t[t.length - 1];
+    rows.push([isTrue(b.threadNeedsReply) ? "💬 Message — needs reply" : "💬 Messages", b.name, whenOf(b),
+      t.slice(-4).map(m => (m.from === "me" ? "You: " : firstName(b) + ": ") + m.text).join("\n"),
+      last ? last.at : "", "", false, "msg", b.id, isTrue(b.threadNeedsReply) ? "msg" : "done"]);
+  });
+
+  all.filter(b => b.lateNote && isActive(b) && upcoming(b)).forEach(b => rows.push(["⏰ Running late", b.name, whenOf(b), String(b.lateNote).split("\n").slice(0, 3).join("\n"), String(b.lateNote).split(" — ")[0], "", false, "late", b.id, "late"]));
+
+  all.filter(b => b.checkIn && isActive(b) && upcoming(b)).forEach(b => {
+    const ci = readCheckIn(b) || {};
+    const photos = b.checkInPhotos ? String(b.checkInPhotos).split("|") : [];
+    rows.push(["📋 Hair check-in", b.name, whenOf(b),
+      Object.keys(ci).filter(k => ci[k]).map(k => k + ": " + ci[k]).join("\n") + (photos.length ? "\nPhotos: " + photos.join("  ") : ""),
+      asText(b.checkInAt), "", false, "checkin", b.id, "done"]);
+  });
+
+  all.filter(b => b.status === "cancelled" && /^Client cancelled/.test(String(b.cancelInfo)) && recent(String(b.cancelInfo).replace(/^Client cancelled /, "").split(" · ")[0], 14))
+     .forEach(b => rows.push(["❌ Cancelled by client", b.name, whenOf(b), String(b.cancelInfo).replace(/^Client cancelled [^·]*(· )?/, "") || "—" , String(b.cancelInfo).replace(/^Client cancelled /, "").split(" · ")[0], "", false, "cancel", b.id, "done"]));
+
+  const needs = rows.filter(r => r[9] === "req" || r[9] === "msg").length;
+  const W = UPD_ID;
+  sheet.getRange(1, 1, 1, W - 2).merge().setValue("Client Updates" + (needs ? "  —  " + needs + " need you" : "  —  all caught up ✓"))
+       .setBackground(COLORS.ink).setFontColor(COLORS.cream).setFontFamily("Cormorant Garamond").setFontSize(24).setFontWeight("bold").setVerticalAlignment("middle");
+  sheet.getRange(2, 1, 1, W - 2).merge()
+       .setValue("Reschedule requests: pick approve or deny in \"Your move\" — the client is emailed automatically.  Messages: type your reply in \"Your move\", then tick \"Send\".")
+       .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setWrap(true).setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 46); sheet.setRowHeight(2, 34);
+  const headers = ["What", "Client", "Appointment", "Details", "Sent", "Your move", "Send", "kind", "id"];
+  sheet.getRange(UPD_HEAD, 1, 1, W).setValues([headers]);
+  styleHeaderRow(sheet.getRange(UPD_HEAD, 1, 1, W - 2));
+  sheet.setRowHeight(UPD_HEAD, 32);
+  sheet.setFrozenRows(UPD_HEAD);
+
+  if(rows.length){
+    const n = rows.length, first = UPD_HEAD + 1;
+    sheet.getRange(first, 1, n, W).setNumberFormat("@");
+    sheet.getRange(first, UPD_SEND, n, 1).setNumberFormat("General");
+    sheet.getRange(first, 1, n, W).setValues(rows.map(r => r.slice(0, W)));
+    sheet.getRange(first, 1, n, W).setFontSize(10).setVerticalAlignment("top").setWrap(true)
+         .setBackgrounds(rows.map((r, i) => new Array(W).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
+    sheet.getRange(first, 1, n, 2).setFontWeight("bold");
+    rows.forEach((r, i) => {
+      const row = first + i;
+      if(r[7] === "req"){
+        sheet.getRange(row, UPD_ACT).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(["approve", "deny"], true).setAllowInvalid(false).build())
+             .setBackground(COLORS.alertBg).setFontWeight("bold");
+        sheet.getRange(row, 1).setFontColor(isTrue((all.find(b => b.id === r[8]) || {}).reqWithin24) ? COLORS.alertText : COLORS.ink);
+      }else if(r[7] === "msg"){
+        sheet.getRange(row, UPD_ACT).setBackground(r[9] === "msg" ? COLORS.alertBg : COLORS.blush);
+        sheet.getRange(row, UPD_SEND).insertCheckboxes();
+      }else{
+        sheet.getRange(row, UPD_ACT, 1, 2).setBackground(COLORS.grey);
+      }
+      if(r[9] === "late") sheet.getRange(row, 1).setFontColor("#7A5C14");
+    });
+  }else{
+    sheet.getRange(UPD_HEAD + 1, 1).setValue("Nothing new from clients right now.").setFontColor(COLORS.muted).setFontStyle("italic");
+  }
+  [170, 140, 150, 380, 140, 220, 60, 40, 40].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.hideColumns(UPD_KIND, 2);
+  sheet.setTabColor(needs ? "#C9716F" : COLORS.pink);
+}
+
+function handleUpdatesEdit(sheet, row, col){
+  if(row <= UPD_HEAD || (col !== UPD_ACT && col !== UPD_SEND)) return;
+  const kind = String(sheet.getRange(row, UPD_KIND).getValue()), id = String(sheet.getRange(row, UPD_ID).getValue());
+  const b = readBookings().find(x => x.id === id);
+  if(!b) return;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if(kind === "req" && col === UPD_ACT){
+    const d = String(sheet.getRange(row, UPD_ACT).getValue()).trim();
+    if(d !== "approve" && d !== "deny") return;
+    decideRequest(b, d);
+    refreshViews();
+    ss.toast(d === "approve" ? "Moved " + firstName(b) + "'s appointment and emailed her." : "Kept " + firstName(b) + "'s original time and emailed her.", "Ehiffect", 6);
+  }
+  if(kind === "msg" && col === UPD_SEND && sheet.getRange(row, UPD_SEND).getValue() === true){
+    const text = String(sheet.getRange(row, UPD_ACT).getValue()).trim();
+    if(!text){ sheet.getRange(row, UPD_SEND).setValue(false); ss.toast("Type your reply in \"Your move\" first.", "Ehiffect", 5); return; }
+    replyToClient(b, text);
+    refreshViews();
+    ss.toast("Reply sent to " + firstName(b) + ".", "Ehiffect", 5);
+  }
+}
+
+
+/* ================================================================
+   ADMIN SITE (admin.html) — every call here needs your dashboard passcode
+   ================================================================ */
+
+function isoOf(b){
+  const d = parseDay(b); if(!d) return "";
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function ensureToken(b){
+  if(b.manageToken) return;
+  b.manageToken = newToken_();
+  const sh = getSheet(), cm = getColumns(sh).map; setCell(sh, cm, "manageToken", b.row, b.manageToken);
+}
+
+// Everything the admin site shows about one booking.
+function adminBooking(b, settings){
+  return Object.assign(toWebsiteShape(b, settings), {
+    row: b.row, kitPacked: isPacked(b), shipped: isShipped(b), serviced: isServiced(b), servicedOn: asDate(b.servicedOn) || String(b.servicedOn || ""),
+    amountPaid: String(b.amountPaid) === "" ? "" : Number(b.amountPaid), grandTotal: String(b.grandTotal) === "" ? "" : Number(b.grandTotal),
+    lastEmail: String(b.lastEmail || ""), checkInAt: asText(b.checkInAt), hairOrdered: isHairOrdered(b), hairOrderedOn: String(b.hairOrderedOn || ""),
+    needsHair: needsHairFromMe(b), hairDetails: hairDetails(b), isConsult: isConsult(b), dateIso: isoOf(b), timeMin: parseMinutes(b),
+    approvalEmailed: isTrue(b.approvalEmailed), depositEmailed: isTrue(b.depositEmailed),
+    tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || "")
+  });
+}
+
+// Days off you block from the admin site (on top of any written into the website code).
+function getDaysOff(){
+  try{ const v = JSON.parse(PropertiesService.getScriptProperties().getProperty("daysOff") || "[]"); return Array.isArray(v) ? v : []; }catch(e){ return []; }
+}
+function setDaysOff(list){
+  const ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const clean = (list || []).slice(0, 300).map(d => ({ start: clip(d.start, 10), end: clip(d.end || d.start, 10), note: clip(d.note, 80) }))
+    .filter(d => ok(d.start) && ok(d.end)).map(d => d.end < d.start ? { start: d.end, end: d.start, note: d.note } : d)
+    .sort((a, c) => a.start < c.start ? -1 : 1);
+  PropertiesService.getScriptProperties().setProperty("daysOff", JSON.stringify(clean));
+  return clean;
+}
+
+// Fields you can change from the admin site, and how each is cleaned up before it's saved.
+const ADMIN_EDITABLE = {
+  name: "text", phone: "phone", ig: "text", email: "text", date: "date", time: "time", serviceLabel: "text", total: "num", notes: "text",
+  status: "status", depositPaid: "bool", depositRefunded: "bool", serviced: "bool", amountPaid: "num", grandTotal: "num",
+  kitPacked: "bool", shipped: "bool", hairOrdered: "bool", tip: "num", hairCost: "num", ig: "text"
+};
+function normalizeChanges(ch){
+  const out = {};
+  Object.keys(ch || {}).forEach(f => {
+    const kind = ADMIN_EDITABLE[f]; if(!kind) return;
+    let v = ch[f];
+    if(kind === "date") v = /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? formatDateStr(v) : clip(v, 10);
+    else if(kind === "time") v = /^\d{1,2}:\d{2}$/.test(String(v)) ? formatTimeStr(v) : clip(v, 10);
+    else if(kind === "bool") v = v === true || v === "true";
+    else if(kind === "num") v = (v === "" || v === null || isNaN(Number(v))) ? "" : Number(v);
+    else if(kind === "status"){ if(VALID_STATUSES.indexOf(v) === -1) return; }
+    else if(kind === "phone") v = fmtPhone(clip(v, 30));
+    else v = clip(v, f === "notes" ? 2000 : 300);
+    out[f] = v;
+  });
+  return out;
+}
+
+function adminData(){
+  const all = readBookings();
+  if(ensureTokens(all)) all.splice(0, all.length, ...readBookings());
+  const settings = getSettings();
+  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(),
+           settings: settings, cashtag: CASHTAG, siteUrl: SITE_URL };
+}
+
+// What an email will say — shown to you so you can edit it (or skip it) before anything is sent.
+function emailDraft(body){
+  const b0 = readBookings().find(x => x.id === body.key);
+  if(!b0) return { ok: false, error: "Booking not found" };
+  const b = Object.assign({}, b0, normalizeChanges(body.changes));
+  let extra = null;
+  if(body.kind === "reschedApproved" || body.kind === "reschedDenied")
+    extra = { oldWhen: whenText(b0), newWhen: whenText({ date: b0.reqDate, time: b0.reqTime }),
+              depositNote: isPaid(b0) ? "Your deposit carries over to your new time, so you won't pay it twice." : "" };
+  return Object.assign({ ok: true }, renderTemplate(body.kind, b, extra));
+}
+
+// Save changes to one booking, then send the email you approved (if any).
+function handleAdminAct(body){
+  return withLock(() => {
+    const b = readBookings().find(x => x.id === body.key);
+    if(!b) return { ok: false, error: "Booking not found" };
+    const sheet = getSheet(), cm = getColumns(sheet).map;
+    const set = (f, v) => { setCell(sheet, cm, f, b.row, v); b[f] = v; };
+    const ch = normalizeChanges(body.changes);
+    Object.keys(ch).forEach(f => {
+      const v = ch[f];
+      if(f === "status" && v === "approved" && b.status !== "approved"){ set("status", v); applyApproval(sheet, cm, b.row); return; }
+      if(f === "serviced") stampServiced(sheet, cm, b.row, v);
+      if(f === "hairOrdered" && v !== isHairOrdered(b)) set("hairOrderedOn", v ? nowStamp() : "");
+      set(f, v);
+    });
+
+    const em = body.email || null;
+    const ov = em ? { subject: em.subject, body: em.body, button: em.button, send: em.send !== false } : null;
+    let emailed = false;
+    if(body.request === "approve" || body.request === "deny"){
+      decideRequest(b, body.request, ov);
+      emailed = !!(ov && ov.send);
+    }else if(em && em.send && em.kind){
+      ensureToken(b);
+      if(em.kind === "approved"){ emailed = emailApproved(b, ov); if(emailed) set("approvalEmailed", true); }
+      else if(em.kind === "denied" || em.kind === "cancelled") emailed = emailStatusChange(b, em.kind, ov);
+      else if(em.kind === "deposit"){ emailed = emailDepositReceived(b, ov); if(emailed) set("depositEmailed", true); }
+      else emailed = sendTemplate(b, em.kind, null, ov);
+    }
+    if(ch.depositPaid === true && em && em.kind === "deposit" && !em.send) set("depositEmailed", true);   // you chose not to email
+
+    // quick ticks only redraw their own tab; anything bigger refreshes the whole sheet + calendar
+    const light = Object.keys(ch).every(f => ["hairOrdered", "kitPacked", "shipped", "notes", "tip", "hairCost", "amountPaid"].indexOf(f) !== -1) && !em && !body.request;
+    if(light){ const all = readBookings(); try{ writeHairSheet(all); writeKitsSheet(all); }catch(e){} }
+    else refreshViews();
+    return { ok: true, emailed: emailed, booking: adminBooking(readBookings().find(x => x.id === body.key), getSettings()) };
+  });
+}
+
+function handleCustomEmail(body){
+  const b = readBookings().find(x => x.id === body.key);
+  if(!b) return { ok: false, error: "Booking not found" };
+  ensureToken(b);
+  const ok = sendTemplate(b, "custom", null, { subject: clip(body.subject, 200), body: clip(body.body, 6000), button: clip(body.button, 60) });
+  return { ok: ok, error: ok ? "" : "Email didn't send — check the address, subject, and message." };
+}
+
+// Add an appointment yourself — a DM booking, a walk-in, or an old client from before the site.
+function handleAdminCreate(body){
+  return withLock(() => {
+    const sheet = getSheet(), cols = getColumns(sheet), all = readBookings();
+    const f = normalizeChanges(body.fields || {});
+    if(!String(f.name || "").trim()) return { ok: false, error: "Add her name." };
+    const status = VALID_STATUSES.indexOf(f.status) !== -1 ? f.status : "approved";
+    const id = "b_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+    const values = {
+      id: id, name: f.name, phone: f.phone || "", ig: f.ig || "", email: f.email || "", date: f.date || "", time: f.time || "",
+      notes: f.notes || "", serviceLabel: f.serviceLabel || "Appointment", total: f.total === undefined ? "" : f.total, status: status,
+      submittedAt: formatTimestamp(Date.now()), bookingType: "solo", kitComp: false, kitPacked: false,
+      depositPaid: !!f.depositPaid, depositRefunded: false, checks: "", approvalEmailed: !body.sendEmail, shipped: false,
+      serviced: !!f.serviced, servicedOn: f.serviced ? (f.date || formatDateStr("")) : "", amountPaid: f.amountPaid === undefined ? "" : f.amountPaid,
+      tip: f.tip === undefined ? "" : f.tip, hairCost: f.hairCost === undefined ? "" : f.hairCost, hairOrdered: !!f.hairOrdered,
+      manageToken: newToken_(), source: "added by you", depositEmailed: !!f.depositPaid
+    };
+    if(status === "approved") values.visitCount = approvedCount(all, values.phone, -1) + 1;
+    const row = new Array(cols.width).fill("");
+    Object.keys(values).forEach(k => { if(cols.map[k] !== undefined) row[cols.map[k]] = values[k]; });
+    const targetRow = (all.length ? Math.max.apply(null, all.map(b => b.row)) : 1) + 1;
+    sheet.getRange(targetRow, 1, 1, cols.width).setValues([row]);
+    const b = readBookings().find(x => x.id === id);
+    if(b && body.sendEmail && b.email && status === "approved") emailApproved(b);
+    refreshViews();
+    return { ok: true, booking: adminBooking(readBookings().find(x => x.id === id), getSettings()) };
+  });
+}
+
+/* ---------- daily prep reminder (hair to order, kits to pack, appointments to wrap up) ---------- */
+const PREP_DAYS = 5;          // remind this many days ahead
+
+function prepItems(all){
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const limit = new Date(today.getTime() + PREP_DAYS * 864e5);
+  const prep = [], wrap = [];
+  all.forEach(b => {
+    const d = parseDay(b);
+    if(!d) return;
+    if((b.status === "approved") && d >= today && d <= limit){
+      const hair = needsHairFromMe(b) && !isHairOrdered(b), kit = kitTier(b) !== "—" && !isPacked(b);
+      if(hair || kit) prep.push({ b: b, hair: hair, kit: kit, days: Math.round((d - today) / 864e5) });
+    }
+    if(b.status === "approved" && d < today && !isServiced(b) && (today - d) < 30 * 864e5) wrap.push(b);
+  });
+  prep.sort((a, c) => a.days - c.days);
+  return { prep: prep, wrap: wrap };
+}
+
+function dailyPrepReminder(){
+  const { prep, wrap } = prepItems(readBookings());
+  if(!prep.length && !wrap.length) return;
+  const lines = [];
+  if(prep.length){
+    lines.push("TO PREP (next " + PREP_DAYS + " days):");
+    prep.forEach(p => lines.push("• " + p.b.name + " — " + whenText(p.b) + " (" + (p.days === 0 ? "today" : p.days === 1 ? "tomorrow" : "in " + p.days + " days") + ")" +
+      (p.hair ? "\n   ✂ Order hair: " + hairDetails(p.b) : "") + (p.kit ? "\n   🎁 Pack " + kitTier(p.b) + " care kit" : "")));
+    lines.push("");
+  }
+  if(wrap.length){
+    lines.push("TO WRAP UP (mark done + what they paid & tipped):");
+    wrap.forEach(b => lines.push("• " + b.name + " — " + whenText(b)));
+    lines.push("");
+  }
+  lines.push("Check them off in your admin site: " + SITE_URL + "admin.html");
+  notifyMe("💗 Ehiffect prep: " + (prep.length ? prep.length + " to prep" : "") + (prep.length && wrap.length ? " · " : "") + (wrap.length ? wrap.length + " to wrap up" : ""), lines.join("\n"));
+}
+
+// Makes sure the morning reminder runs every day around 9 AM (never makes a duplicate).
+function ensurePrepTrigger(){
+  const exists = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "dailyPrepReminder");
+  if(!exists) ScriptApp.newTrigger("dailyPrepReminder").timeBased().everyDays(1).atHour(9).create();
+  return !exists;
+}
+function turnOnPrepReminders(){
+  const created = ensurePrepTrigger();
+  SpreadsheetApp.getActiveSpreadsheet().toast(created ? "Done — you'll get a prep email every morning around 9 AM (only when there's something to do)." : "Already on.", "Ehiffect", 8);
+}
+
+function adminApi(action, body){
+  if(action === "adminData"){ try{ ensurePrepTrigger(); }catch(e){} return adminData(); }
+  if(action === "adminCreate") return handleAdminCreate(body);
+  if(action === "emailDraft") return emailDraft(body);
+  if(action === "adminAct") return handleAdminAct(body);
+  if(action === "customEmail") return handleCustomEmail(body);
+  if(action === "saveTemplate"){ saveTemplate(body.kind, body.reset ? null : body.template); return { ok: true, templates: getTemplates() }; }
+  if(action === "setDaysOff"){ const d = setDaysOff(body.daysOff); return { ok: true, daysOff: d }; }
+  if(action === "reply"){ return handleReply(body); }
+  return { ok: false, error: "unknown action" };
 }
 
 
@@ -770,7 +1529,12 @@ function doPost(e){
 
 function onOpen(){
   SpreadsheetApp.getUi().createMenu("Ehiffect")
+    .addItem("Set dashboard passcode", "setAdminPasscode")
+    .addItem("Create Ehiffect appointments calendar", "createEhiffectCalendar")
     .addItem("Refresh dashboard & clients", "refreshViews")
+    .addItem("Open Hair Orders", "openHairOrders")
+    .addItem("Open Client Updates", "openClientUpdates")
+    .addItem("Turn on daily prep reminders", "turnOnPrepReminders")
     .addItem("Set up / restyle all sheets", "formatSheet")
     .addItem("Tidy Bookings (newest first, denied tucked away)", "sortBookingsNewestFirst")
     .addItem("Peek at hidden denied / rescheduled rows in Bookings", "peekHiddenRows")
@@ -924,6 +1688,8 @@ function handleSheetEdit(e){
       return;
     }
     if(sheet.getName() === "Denied & Rescheduled"){ handleMovedEdit(sheet, e.range.getRow(), e.range.getColumn()); return; }
+    if(sheet.getName() === "Hair Orders"){ handleHairEdit(sheet, e.range.getRow(), e.range.getColumn()); return; }
+    if(sheet.getName() === "Client Updates"){ handleUpdatesEdit(sheet, e.range.getRow(), e.range.getColumn()); return; }
     if(sheet.getName() !== "Bookings" || e.range.getRow() < 2) return;
     const cols = getColumns(sheet).map;
     const col = e.range.getColumn();
@@ -934,6 +1700,19 @@ function handleSheetEdit(e){
     if(col === cols.status + 1 && String(e.value).trim() === "approved"){
       const approvedBooking = applyApproval(sheet, cols, e.range.getRow());
       if(approvedBooking) sendApprovalEmail(approvedBooking);
+    }
+    // client emails for the other changes you make by hand in Bookings
+    if(e.range.getNumRows() === 1){
+      const me = readBookings().find(x => x.row === e.range.getRow());
+      if(me){
+        const st = String(e.value || "").trim();
+        if(col === cols.status + 1 && (st === "denied" || st === "cancelled")) emailStatusChange(me, st);
+        if(col === cols.depositPaid + 1 && isPaid(me) && !isTrue(me.depositEmailed) && me.status === "approved"){
+          if(emailDepositReceived(me)) setCell(sheet, cols, "depositEmailed", me.row, true);
+        }
+        if((col === cols.date + 1 || col === cols.time + 1) && me.status === "approved" && e.oldValue !== undefined && String(e.oldValue) !== String(e.value))
+          emailTimeChanged(me);
+      }
     }
     refreshViews();
     if(HIDE_MOVED_IN_BOOKINGS && col === cols.status + 1 && ["denied", "rescheduled", "cancelled"].indexOf(String(e.value).trim()) !== -1)
@@ -1089,6 +1868,7 @@ function sortBookingsNewestFirst(){
 function ensureEditTrigger(){
   const exists = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "handleSheetEdit");
   if(!exists) ScriptApp.newTrigger("handleSheetEdit").forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onEdit().create();
+  try{ ensurePrepTrigger(); }catch(e){}
   return !exists;
 }
 
@@ -1165,6 +1945,8 @@ function refreshViews(prefetched){
     const clients = buildClients(all);
     writeClientsSheet(clients);
     writeKitsSheet(all);
+    try{ writeHairSheet(all); }catch(err){ console.error("hair orders tab failed: " + err); }
+    try{ if(ensureTokens(all)) all = readBookings(); writeUpdatesSheet(all); }catch(err){ console.error("client updates tab failed: " + err); }
     writeMovedSheet(all);
     writeDashboardSheet(all, clients);
   }catch(err){ console.error("refreshViews failed: " + err); }
@@ -1186,7 +1968,7 @@ function syncCalendar(){
 function syncCalendarCore(){
   if(!CALENDAR_SYNC) return { added: 0, updated: 0, removed: 0 };
   let cal;
-  try{ cal = CALENDAR_ID ? CalendarApp.getCalendarById(CALENDAR_ID) : CalendarApp.getDefaultCalendar(); }
+  try{ cal = calendarId_() ? CalendarApp.getCalendarById(calendarId_()) : CalendarApp.getDefaultCalendar(); }
   catch(err){ return { error: "can't open the calendar: " + err.message }; }
   if(!cal) return { error: "couldn't find that calendar — share it with this Google account (Make changes to events) and check CALENDAR_ID" };
 
@@ -1197,7 +1979,7 @@ function syncCalendarCore(){
 
   all.forEach(b => {
     const stored = String(b.calendarEvent || "");
-    const eventId = stored.split("|")[0], oldSig = stored.split("|")[1] || "";
+    const eventId = stored.split("|")[0], oldSig = stored.split("|")[1] || "", bufferId = stored.split("|")[2] || "";
     const day = parseDay(b), mins = parseMinutes(b);
     const want = b.status === "approved" && day && day >= today;
     try{
@@ -1205,6 +1987,7 @@ function syncCalendarCore(){
         if(eventId && b.status !== "approved"){                   // no longer approved → take it off the calendar
           const ev = cal.getEventById(eventId);
           if(ev) ev.deleteEvent();
+          if(bufferId){ try{ const bf = cal.getEventById(bufferId); if(bf) bf.deleteEvent(); }catch(e){} }
           setCell(sheet, cm, "calendarEvent", b.row, "");
           out.removed++;
         }
@@ -1220,7 +2003,7 @@ function syncCalendarCore(){
         b.dealsUsed ? "Deals: " + b.dealsUsed : "", kitTier(b) !== "—" ? "Care kit: " + kitTier(b) : "",
         b.notes ? "Notes: " + b.notes : "", "(Bookings row " + b.row + ")"
       ].filter(Boolean).join("\n");
-      const sig = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [title, start.getTime(), end.getTime(), description].join("§"))).slice(0, 12);
+      const sig = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [title, start.getTime(), end.getTime(), description, CALENDAR_REMINDERS.join(","), "before" + CALENDAR_BUFFER_MINUTES].join("§"))).slice(0, 12);
       let ev = null;
       if(eventId){ try{ ev = cal.getEventById(eventId); }catch(e){} }
       if(ev && sig === oldSig) return;                            // already up to date
@@ -1231,10 +2014,63 @@ function syncCalendarCore(){
         ev = cal.createEvent(title, start, end, { description: description });
         out.added++;
       }
-      setCell(sheet, cm, "calendarEvent", b.row, ev.getId() + "|" + sig);
+      try{ ev.removeAllReminders(); CALENDAR_REMINDERS.slice(0, 5).forEach(m => ev.addPopupReminder(m)); }catch(e){}
+      // buffer block right before the appointment (styling appointments only, not pickups or consultations)
+      let newBufferId = "";
+      let bf = null;
+      if(bufferId){ try{ bf = cal.getEventById(bufferId); }catch(e){} }
+      if(CALENDAR_BUFFER_MINUTES > 0 && !short){
+        const bStart = new Date(start.getTime() - CALENDAR_BUFFER_MINUTES * 60000);
+        if(bf){ bf.setTime(bStart, start); bf.setDescription("Setup time before " + (b.name || "client") + "'s appointment."); }
+        else{ bf = cal.createEvent("⏳ Buffer", bStart, start, { description: "Setup time before " + (b.name || "client") + "'s appointment." }); }
+        try{ bf.removeAllReminders(); }catch(e){}
+        newBufferId = bf.getId();
+      }else if(bf){ bf.deleteEvent(); }
+      setCell(sheet, cm, "calendarEvent", b.row, ev.getId() + "|" + sig + "|" + newBufferId);
     }catch(err){ out.error = "row " + b.row + ": " + err.message; }
   });
   return out;
+}
+
+// Menu item: rebuilds and jumps to the Client Updates tab.
+function openClientUpdates(){
+  const all = readBookings();
+  if(ensureTokens(all)) all.splice(0, all.length, ...readBookings());
+  writeUpdatesSheet(all);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.setActiveSheet(ss.getSheetByName("Client Updates"));
+}
+
+// Menu item: rebuilds and jumps to the Hair Orders tab.
+function openHairOrders(){
+  writeHairSheet(readBookings());
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.setActiveSheet(ss.getSheetByName("Hair Orders"));
+}
+
+// Menu item: makes a dedicated "Ehiffect Appointments" calendar, points the sync at it, and fills it
+// with your approved bookings. Then you share it to the Google account you actually check.
+function createEhiffectCalendar(){
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getScriptProperties();
+  let cal = null;
+  const existing = props.getProperty("calendarId");
+  if(existing){ try{ cal = CalendarApp.getCalendarById(existing); }catch(e){} }
+  if(!cal){
+    cal = CalendarApp.createCalendar("Ehiffect Appointments", { summary:"Approved bookings from your Ehiffect site", timeZone: Session.getScriptTimeZone() });
+    try{ cal.setColor(CalendarApp.Color.PINK); }catch(e){}
+    props.setProperty("calendarId", cal.getId());
+  }
+  const r = syncCalendar();
+  const me = Session.getEffectiveUser().getEmail();
+  ui.alert("Ehiffect Appointments calendar is ready ✓",
+    (r && r.error ? "Heads up — the first sync had a problem: " + r.error + "\n\n" : "Your approved bookings are on it now, and new approvals will keep appearing automatically.\n\n") +
+    "TO SEE IT ON YOUR OTHER GOOGLE ACCOUNT:\n" +
+    "1. On a laptop, open calendar.google.com signed in as " + me + "\n" +
+    "2. On the left, hover \"Ehiffect Appointments\" → ⋮ → Settings and sharing\n" +
+    "3. Under \"Share with specific people\", click Add people → type your other email → choose \"See all event details\" → Send\n" +
+    "4. Open the email on your other account and click the link to add the calendar.\n\n" +
+    "It then shows up in your Google Calendar app on that account too.", ui.ButtonSet.OK);
 }
 
 // Menu item: runs the calendar sync now and tells you what happened.
@@ -1243,7 +2079,7 @@ function syncCalendarNow(){
   const r = syncCalendar();
   if(!r.error){
     ui.alert("Calendar synced ✓", r.added + " added, " + r.updated + " changed, " + r.removed + " removed.\n\nCalendar used: " +
-      (CALENDAR_ID || "the account that owns this sheet (default calendar)") + "\n\nOnly APPROVED bookings with a date from today onward are added.", ui.ButtonSet.OK);
+      (calendarId_() ? "Ehiffect Appointments" : "the account that owns this sheet (default calendar)") + "\n\nOnly APPROVED bookings with a date from today onward are added.", ui.ButtonSet.OK);
     return;
   }
   let hint = "";
@@ -1430,6 +2266,102 @@ function writeKitsSheet(all){
   }
   [150, 120, 100, 200, 90, 70, 90, 90, 100].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
   sheet.setTabColor(COLORS.gold);
+}
+
+/* ================================================================
+   HAIR ORDERS — every upcoming client you're buying hair for
+   ================================================================ */
+
+// True when YOU are supplying the hair: hair packages, braids/crochet where you provide hair, and bundle orders.
+// "Service only" / "Installation only" / client-has-own-hair bookings are left out.
+function needsHairFromMe(b){
+  const s = String(b.serviceLabel || "");
+  if(isBundle(b)) return true;
+  if(/installation only|service only|client has own hair/i.test(s)) return false;
+  return /synthetic hair|human hair|raw hair|needs hair provided|stylist providing hair/i.test(s);
+}
+function isHairOrdered(b){ return isTrue(b.hairOrdered); }
+
+// The hair details, without the parts that don't matter for ordering.
+function hairDetails(b){
+  return String(b.serviceLabel || "").replace(/\s*—\s*⚡ SQUEEZE-IN REQUEST.*$/, "").trim();
+}
+
+const HAIR_HEAD = 3;          // header row of the Hair Orders table
+const HAIR_ORDERED_COL = 6;   // "Ordered?" checkbox column
+const HAIR_ID_COL = 9;        // hidden booking id, so a tick always finds the right client
+
+function writeHairSheet(all){
+  const sheet = getOrCreateSheet("Hair Orders");
+  const f = sheet.getFilter(); if(f) f.remove();
+  sheet.setFrozenRows(0);
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  sheet.clear();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();   // old checkboxes
+  sheet.setHiddenGridlines(true);
+
+  const headers = ["Appointment", "Client", "Phone", "Hair to order", "Status", "Ordered?", "Ordered on", "Notes", "id"];
+  const W = headers.length;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const rows = all.filter(b => isActive(b) && needsHairFromMe(b) && (!parseDay(b) || parseDay(b) >= today))
+    .sort((a, b) => {
+      if(isHairOrdered(a) !== isHairOrdered(b)) return isHairOrdered(a) ? 1 : -1;   // still need ordering first
+      const da = parseDay(a), db = parseDay(b);
+      return (da ? da.getTime() : 9e15) - (db ? db.getTime() : 9e15);              // then soonest appointment first
+    });
+  const toOrder = rows.filter(b => !isHairOrdered(b)).length;
+
+  sheet.getRange(1, 1, 1, W - 1).merge().setValue("Hair Orders" + (rows.length ? "  —  " + toOrder + " still to order" : ""))
+       .setBackground(COLORS.ink).setFontColor(COLORS.cream).setFontFamily("Cormorant Garamond").setFontSize(24).setFontWeight("bold").setVerticalAlignment("middle");
+  sheet.getRange(2, 1, 1, W - 1).merge()
+       .setValue("Upcoming clients you're getting hair for. Tick \"Ordered?\" once you've bought it — the date and time are saved automatically. Use the ▾ on \"Client\" to look up one person.")
+       .setBackground(COLORS.cream).setFontColor(COLORS.muted).setFontSize(9).setWrap(true).setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 46); sheet.setRowHeight(2, 34);
+  sheet.getRange(HAIR_HEAD, 1, 1, W).setValues([headers]);
+  styleHeaderRow(sheet.getRange(HAIR_HEAD, 1, 1, W));
+  sheet.setRowHeight(HAIR_HEAD, 32);
+  sheet.setFrozenRows(HAIR_HEAD);
+
+  if(rows.length){
+    const n = rows.length, first = HAIR_HEAD + 1;
+    sheet.getRange(first, 1, n, W).setNumberFormat("@");
+    sheet.getRange(first, HAIR_ORDERED_COL, n, 1).setNumberFormat("General");
+    sheet.getRange(first, 1, n, W).setValues(rows.map(b => [
+      (asDate(b.date) || "—") + (b.time ? "  " + String(b.time) : ""), b.name, fmtPhone(b.phone), hairDetails(b), b.status,
+      isHairOrdered(b), isHairOrdered(b) ? String(b.hairOrderedOn || "") : "", b.notes || "", String(b.id || "")
+    ]));
+    sheet.getRange(first, HAIR_ORDERED_COL, n, 1).insertCheckboxes();
+    sheet.getRange(first, 1, n, W).setFontSize(10).setVerticalAlignment("middle").setWrap(true)
+         .setBackgrounds(rows.map((b, i) => new Array(W).fill(i % 2 ? COLORS.cream : "#FFFFFF")));
+    sheet.getRange(first, 2, n, 1).setFontWeight("bold");
+    sheet.getRange(first, HAIR_ORDERED_COL, n, 1).setHorizontalAlignment("center");
+    rows.forEach((b, i) => {
+      const r = first + i;
+      if(isHairOrdered(b)) sheet.getRange(r, HAIR_ORDERED_COL, 1, 2).setBackground(COLORS.green).setFontColor("#2F5C2B").setFontWeight("bold");
+      else sheet.getRange(r, HAIR_ORDERED_COL, 1, 2).setBackground(COLORS.alertBg).setFontColor(COLORS.alertText);
+      if(b.status === "pending") sheet.getRange(r, 5).setFontColor(COLORS.muted).setFontStyle("italic");
+    });
+    sheet.getRange(HAIR_HEAD, 1, n + 1, W - 1).createFilter();
+  }else{
+    sheet.getRange(HAIR_HEAD + 1, 1).setValue("No upcoming clients need hair from you right now.").setFontColor(COLORS.muted).setFontStyle("italic");
+  }
+  [130, 150, 115, 320, 90, 85, 150, 220, 40].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.hideColumns(HAIR_ID_COL);
+  sheet.setTabColor(COLORS.pink);
+}
+
+// Ticking / unticking "Ordered?" on the Hair Orders tab saves it on the booking (with the date) and redraws the tab.
+function handleHairEdit(sheet, row, col){
+  if(row <= HAIR_HEAD || col !== HAIR_ORDERED_COL) return;
+  const id = String(sheet.getRange(row, HAIR_ID_COL).getValue());
+  const on = sheet.getRange(row, HAIR_ORDERED_COL).getValue() === true;
+  if(!id) return;
+  const bookings = getSheet(), cm = getColumns(bookings).map;
+  const b = readBookings().find(x => String(x.id) === id);
+  if(!b) return;
+  setCell(bookings, cm, "hairOrdered", b.row, on);
+  setCell(bookings, cm, "hairOrderedOn", b.row, on ? Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy h:mm a") : "");
+  writeHairSheet(readBookings());
 }
 
 // Column widths shared by every table on the Dashboard (A–I).
@@ -2137,7 +3069,7 @@ function formatSheet(){
   let emailNote = "";
   try{ ensureEditTrigger(); }catch(err){ emailNote = " (Approval emails from the Status dropdown could NOT be turned on: " + err.message + ")"; }   // 7. lets the dropdown send email
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ["Dashboard", "Clients", "Kits", "Denied & Rescheduled", "Bookings"].forEach((name, i) => {
+  ["Dashboard", "Client Updates", "Hair Orders", "Clients", "Kits", "Denied & Rescheduled", "Bookings"].forEach((name, i) => {
     const s = ss.getSheetByName(name);
     if(s){ ss.setActiveSheet(s); ss.moveActiveSheet(i + 1); }
   });
@@ -2235,7 +3167,8 @@ function formatBookingsSheet(){
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
 
   // technical columns stay out of sight (their info lives on the Clients tab)
-  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed", "calendarEvent"].forEach(f => sheet.hideColumns(c[f] + 1));
+  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed", "calendarEvent", "manageToken", "checkIn", "thread",
+   "reqWithin24", "threadNeedsReply", "depositEmailed", "statusEmailed"].forEach(f => sheet.hideColumns(c[f] + 1));
 
   // Partner details fold into a group you can open with the small [+] above the headers.
   if(c.partnerContact - c.bookingType === 2){

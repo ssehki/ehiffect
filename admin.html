@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="theme-color" content="#171214" />
+<title>Ehiffect Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#171214; --panel:#1F1719; --panel-2:#2A2023; --pink:#E38AAE; --pink-deep:#C97A9B; --pink-soft:rgba(227,138,174,.12);
+    --cream:#F4EAE5; --muted:#A6969A; --line:rgba(227,138,174,.22); --line-2:rgba(244,234,229,.08);
+    --good:#8fd487; --good-bg:#203320; --bad:#e39997; --bad-bg:#3a1f22; --warn:#f0d48a; --warn-bg:#3a3020;
+    --tab-h:64px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--bg); color:var(--cream); font-family:'Work Sans', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  body{ min-height:100dvh; }
+  button, input, textarea, select{ font-family:inherit; font-size:inherit; color:inherit; }
+  button{ cursor:pointer; }
+  a{ color:var(--pink); }
+  .serif{ font-family:'Cormorant Garamond', Georgia, serif; }
+  .page{ max-width:680px; margin:0 auto; padding:calc(20px + env(safe-area-inset-top)) 16px calc(var(--tab-h) + 40px + env(safe-area-inset-bottom)); }
+
+  /* header */
+  .hello{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin:6px 0 22px; }
+  .hello h1{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:34px; line-height:1.05; margin:0; }
+  .hello p{ margin:6px 0 0; color:var(--muted); font-size:13.5px; }
+  .icon-btn{ flex-shrink:0; width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--cream); font-size:17px; display:flex; align-items:center; justify-content:center; }
+  .icon-btn:hover{ border-color:var(--pink); }
+  .icon-btn.spin span{ display:inline-block; animation:spin 1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  h2.sec{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:22px; margin:26px 0 10px; display:flex; align-items:baseline; gap:8px; }
+  h2.sec .n{ font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; color:#241318; background:var(--pink); border-radius:999px; padding:1px 8px; }
+  h2.sec .n.quiet{ background:var(--panel-2); color:var(--muted); }
+
+  /* today strip: the memorable bit — an appointment-book page */
+  .today{ border:1px solid var(--line); border-radius:4px; background:linear-gradient(180deg, rgba(227,138,174,.07), transparent 70%); padding:16px 16px 6px; }
+  .today-date{ font-family:'Cormorant Garamond', serif; font-size:15px; color:var(--pink); margin-bottom:8px; }
+  .slot{ display:grid; grid-template-columns:72px 1fr; gap:12px; padding:12px 0; border-top:1px solid var(--line-2); align-items:start; cursor:pointer; }
+  .slot:first-of-type{ border-top:none; }
+  .slot-time{ font-family:'Cormorant Garamond', serif; font-size:21px; font-weight:600; line-height:1.1; }
+  .slot-name{ font-weight:500; }
+  .slot-sub{ color:var(--muted); font-size:12.5px; margin-top:2px; }
+  .empty{ color:var(--muted); font-size:13.5px; padding:14px 0; }
+
+  /* rows */
+  .list{ border:1px solid var(--line); border-radius:4px; overflow:hidden; background:var(--panel); }
+  .row{ display:flex; gap:12px; align-items:center; padding:13px 14px; border-top:1px solid var(--line-2); cursor:pointer; }
+  .row:first-child{ border-top:none; }
+  .row:hover{ background:var(--panel-2); }
+  .row-main{ flex:1; min-width:0; }
+  .row-title{ font-weight:500; font-size:14.5px; }
+  .row-sub{ color:var(--muted); font-size:12.5px; margin-top:2px; line-height:1.4; overflow:hidden; text-overflow:ellipsis; }
+  .row-note{ font-size:12.5px; margin-top:6px; color:var(--cream); background:var(--panel-2); border-left:2px solid var(--pink); padding:6px 8px; border-radius:0 3px 3px 0; }
+  .row-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .chev{ color:var(--muted); font-size:18px; }
+
+  .pill{ display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap; vertical-align:middle; }
+  .p-pending{ background:#4d3f17; color:#f5e3b3; } .p-approved{ background:#264a24; color:#c9e3c6; }
+  .p-denied{ background:#4d2626; color:#e9c9c9; } .p-cancelled{ background:#3d3638; color:#d9d0d2; }
+  .p-no-show{ background:#352a4d; color:#d6c9f0; } .p-rescheduled{ background:#243a52; color:#d3e3f4; }
+  .tag{ display:inline-block; font-size:11px; padding:1px 7px; border-radius:3px; border:1px solid var(--line); color:var(--muted); margin:4px 4px 0 0; }
+  .tag.good{ border-color:#4c7a47; color:var(--good); } .tag.bad{ border-color:#8a4f4d; color:var(--bad); } .tag.warn{ border-color:#7a6633; color:var(--warn); }
+
+  /* buttons */
+  .btn{ border:1px solid var(--line); background:transparent; color:var(--cream); padding:9px 13px; border-radius:3px; font-size:13px; font-weight:500; white-space:nowrap; }
+  .btn:hover{ border-color:var(--pink); background:var(--pink-soft); }
+  .btn.primary{ background:var(--pink); border-color:var(--pink); color:#241318; font-weight:600; }
+  .btn.primary:hover{ background:#eda0bf; }
+  .btn.ok{ border-color:#4c7a47; color:var(--good); } .btn.no{ border-color:#8a4f4d; color:var(--bad); }
+  .btn.block{ display:block; width:100%; padding:14px; font-size:14px; }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .link-btn{ border:none; background:none; padding:0; color:var(--pink); font-size:13px; text-decoration:underline; text-underline-offset:3px; }
+
+  /* tabs */
+  .tabs{ position:fixed; left:0; right:0; bottom:0; z-index:20; background:rgba(23,18,20,.96); backdrop-filter:blur(8px); border-top:1px solid var(--line);
+         padding-bottom:env(safe-area-inset-bottom); }
+  .tabs-in{ max-width:680px; margin:0 auto; display:grid; grid-template-columns:repeat(5,1fr); height:var(--tab-h); }
+  .tab{ border:none; background:none; color:var(--muted); font-size:11.5px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; position:relative; }
+  .tab .ic{ font-size:19px; line-height:1; }
+  .tab.on{ color:var(--pink); }
+  .tab .badge{ position:absolute; top:8px; left:calc(50% + 8px); background:var(--pink); color:#241318; font-size:10px; font-weight:700; border-radius:999px; min-width:17px; height:17px; padding:0 4px; display:flex; align-items:center; justify-content:center; }
+
+  /* inputs */
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px; }
+  .in, .field input, .field textarea, .field select{ width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:3px; padding:11px 12px; font-size:15px; color:var(--cream); }
+  .field textarea{ min-height:90px; resize:vertical; line-height:1.5; }
+  .in:focus, .field input:focus, .field textarea:focus, .field select:focus{ outline:2px solid var(--pink); outline-offset:1px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .check{ display:flex; align-items:center; gap:10px; padding:10px 0; font-size:14px; }
+  .check input{ width:20px; height:20px; accent-color:var(--pink); }
+  .hint{ font-size:12px; color:var(--muted); line-height:1.5; }
+  .search{ margin-bottom:14px; }
+
+  /* sheets (booking detail / email composer) */
+  .veil{ position:fixed; inset:0; z-index:40; background:rgba(8,5,6,.6); display:flex; align-items:flex-end; justify-content:center; }
+  @media (min-width:700px){ .veil{ align-items:center; padding:24px; } }
+  .sheet{ width:100%; max-width:640px; max-height:94dvh; display:flex; flex-direction:column; background:var(--bg); border:1px solid var(--line); border-radius:12px 12px 0 0; overflow:hidden; animation:up .22s ease-out; }
+  @media (min-width:700px){ .sheet{ border-radius:8px; max-height:90vh; } }
+  @keyframes up{ from{ transform:translateY(24px); opacity:0; } to{ transform:none; opacity:1; } }
+  @media (prefers-reduced-motion: reduce){ .sheet{ animation:none; } .icon-btn.spin span{ animation:none; } }
+  .sheet-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:18px 18px 12px; border-bottom:1px solid var(--line-2); }
+  .sheet-head h3{ font-family:'Cormorant Garamond', serif; font-size:26px; font-weight:600; margin:0; line-height:1.1; }
+  .sheet-head p{ margin:4px 0 0; color:var(--muted); font-size:13px; }
+  .sheet-body{ overflow-y:auto; padding:16px 18px 24px; -webkit-overflow-scrolling:touch; }
+  .sheet-foot{ padding:12px 18px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--line-2); display:flex; gap:8px; }
+  .sheet-foot .btn{ flex:1; padding:13px; }
+
+  .kv{ display:grid; grid-template-columns:110px 1fr; gap:6px 12px; font-size:14px; margin:4px 0 6px; }
+  .kv dt{ color:var(--muted); } .kv dd{ margin:0; word-break:break-word; }
+  .box{ border:1px solid var(--line); border-radius:4px; padding:12px 14px; margin-top:14px; background:var(--panel); }
+  .box h4{ margin:0 0 8px; font-size:14px; font-weight:600; }
+  .box.alert{ border-color:#8a4f4d; background:var(--bad-bg); } .box.warn{ border-color:#7a6633; background:var(--warn-bg); }
+  .photos{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .photos img{ width:64px; height:64px; object-fit:cover; border-radius:3px; border:1px solid var(--line); cursor:pointer; }
+  .thread{ display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; }
+  .bub{ max-width:85%; padding:8px 11px; border-radius:11px; font-size:13.5px; line-height:1.45; }
+  .bub span{ display:block; font-size:10.5px; opacity:.7; margin-top:3px; }
+  .bub.me{ align-self:flex-end; background:var(--pink); color:#241318; border-bottom-right-radius:3px; }
+  .bub.them{ align-self:flex-start; background:var(--panel-2); border:1px solid var(--line); border-bottom-left-radius:3px; }
+  details.fold{ border:1px solid var(--line); border-radius:4px; margin-top:14px; background:var(--panel); }
+  details.fold > summary{ list-style:none; padding:13px 14px; font-weight:600; font-size:14px; cursor:pointer; display:flex; justify-content:space-between; }
+  details.fold > summary::-webkit-details-marker{ display:none; }
+  details.fold > summary::after{ content:'+'; color:var(--pink); font-weight:400; font-size:18px; line-height:1; }
+  details.fold[open] > summary::after{ content:'–'; }
+  details.fold > div{ padding:0 14px 14px; }
+
+  .email-preview{ background:#fff; color:#211A1B; border-radius:4px; padding:16px; margin-top:6px; font-size:14px; line-height:1.55; }
+  .email-preview .ep-btn{ display:inline-block; background:var(--pink); color:#241318; padding:9px 14px; border-radius:2px; font-weight:600; font-size:13px; margin-top:6px; }
+
+  .toast{ position:fixed; left:50%; bottom:calc(var(--tab-h) + 18px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60; background:var(--cream); color:#211A1B; padding:11px 16px; border-radius:6px; font-size:13.5px; font-weight:500; box-shadow:0 8px 24px rgba(0,0,0,.35); max-width:calc(100% - 32px); }
+  .busy{ position:fixed; inset:0; z-index:70; background:rgba(8,5,6,.55); display:flex; align-items:center; justify-content:center; }
+  .busy div{ background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 22px; font-size:14px; text-align:center; max-width:280px; }
+  .busy small{ display:block; color:var(--muted); margin-top:6px; font-size:12px; }
+
+  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat{ border:1px solid var(--line); border-radius:4px; padding:14px; background:var(--panel); }
+  .stat b{ display:block; font-family:'Cormorant Garamond', serif; font-size:30px; font-weight:600; line-height:1; }
+  .stat span{ font-size:12.5px; color:var(--muted); }
+
+  .day-head{ font-family:'Cormorant Garamond', serif; font-size:19px; font-weight:600; margin:20px 0 8px; display:flex; justify-content:space-between; align-items:baseline; }
+  .day-head small{ font-family:'Work Sans', sans-serif; font-size:12px; color:var(--muted); font-weight:400; }
+  .row.pend{ border-left:3px dashed var(--warn); }
+  .off{ color:var(--warn); font-size:12.5px; }
+
+  .login{ max-width:360px; margin:12vh auto 0; padding:0 20px; text-align:center; }
+  .login h1{ font-family:'Cormorant Garamond', serif; font-size:40px; font-weight:600; margin:0; }
+  .login p{ color:var(--muted); margin:4px 0 26px; }
+  .login .in{ text-align:center; letter-spacing:.15em; font-size:18px; }
+  .err{ color:var(--bad); font-size:13px; margin-top:10px; }
+  :focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="layer"></div>
+
+<script>
+/* ============== settings ============== */
+// Same Google Apps Script web app the booking site uses.
+const API_URL = "https://script.google.com/macros/s/AKfycbwBeEDZZDNOq_pkL5eW422wCTWIOe0xPfxuVJ0w8hrsbIrl1IV6Ar1a1KWddFR_Du8a/exec";
+const SITE_URL = "https://ssehki.github.io/ehiffect/";
+const KEY_STORE = "ehiffectAdminKey";
+
+/* ============== state ============== */
+const S = {
+  key: "", data: null, tab: "inbox", loading: false, loginErr: "", search: "",
+  open: null,          // booking key whose detail sheet is open
+  client: null,        // phone key whose client sheet is open
+  compose: null,       // email composer { title, key, kind, changes, request, draft, okLabel, toast }
+  tpl: null,           // template being edited
+  showPast: false, toast: "", busy: "", dayOffDraft: { start:"", end:"", note:"" },
+  wrap: null,          // booking key being wrapped up (paid / tip / hair cost)
+  adding: false,       // "Add appointment" sheet
+  month: null          // revenue month being viewed, "YYYY-MM"
+};
+const PREP_DAYS = 5;
+const SERVICE_PICKS = ["Sew-In — Installation only", "Sew-In — Human hair package — 2 bundles", "Sew-In — Human hair package — 3 bundles", "Quick Weave — Service only",
+  "Quick Weave — + synthetic hair (3 bundles)", "Box Braids", "Twists", "Marley Twists", "Two Strand Twists", "Mini Twists", "Cornrows — 6 rows", "Cornrows — 8–10 rows",
+  "Crochet", "Takedown — Full Sew-In Takedown", "Hair massage", "Consultation", "Bundle purchase only"];
+
+/* ============== helpers ============== */
+const esc = s => String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const money = n => (n === "" || n === null || n === undefined || isNaN(Number(n))) ? "—" : "$" + Number(n).toFixed(0);
+const first = name => String(name || "").trim().split(/\s+/)[0] || "Client";
+const todayIso = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+const isoToDate = iso => { const [y,m,d] = iso.split("-").map(Number); return new Date(y, m-1, d); };
+const dayLabel = iso => isoToDate(iso).toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" });
+const shortDay = iso => isoToDate(iso).toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
+const when = b => [b.dateIso ? shortDay(b.dateIso) : (b.date || "no date"), b.time].filter(Boolean).join(" · ");
+const phoneKey = b => String(b.phone || "").replace(/\D/g, "").slice(-10) || ("n:" + String(b.name || "").toLowerCase().trim());
+const photoThumb = u => { const m = String(u).match(/\/d\/([\w-]+)/) || String(u).match(/[?&]id=([\w-]+)/); return m ? "https://drive.google.com/thumbnail?id=" + m[1] + "&sz=w400" : u; };
+const byWhen = (a, b) => (a.dateIso || "9999").localeCompare(b.dateIso || "9999") || ((a.timeMin ?? 9999) - (b.timeMin ?? 9999));
+const statusLabel = s => ({ pending:"Pending", approved:"Approved", denied:"Denied", cancelled:"Cancelled", "no-show":"No-show", rescheduled:"Rescheduled" }[s] || s);
+const pill = s => `<span class="pill p-${esc(s)}">${esc(statusLabel(s))}</span>`;
+const get = key => S.data && S.data.bookings.find(b => b.key === key);
+const num = v => (v === "" || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+// What she actually paid: what you entered, or the price if you marked it done without entering an amount.
+const paidOf = b => num(b.amountPaid) !== null ? num(b.amountPaid) : (b.serviced ? (num(b.grandTotal) ?? num(b.total) ?? 0) : 0);
+const profitOf = b => paidOf(b) + (num(b.tip) || 0) - (num(b.hairCost) || 0);
+const daysAway = iso => Math.round((isoToDate(iso) - isoToDate(todayIso())) / 864e5);
+const store = { get(){ try{ return localStorage.getItem(KEY_STORE) || sessionStorage.getItem(KEY_STORE) || ""; }catch(e){ return ""; } },
+                set(v, remember){ try{ (remember ? localStorage : sessionStorage).setItem(KEY_STORE, v); }catch(e){} },
+                clear(){ try{ localStorage.removeItem(KEY_STORE); sessionStorage.removeItem(KEY_STORE); }catch(e){} } };
+
+async function api(action, body){
+  const payload = Object.assign({ adminKey: S.key }, body || {});
+  const res = await fetch(API_URL + "?action=" + action + "&payload=" + encodeURIComponent(JSON.stringify(payload)));
+  const json = await res.json();
+  if(json && (json.error === "unauthorized" || json.error === "locked")){ store.clear(); S.key = ""; S.data = null;
+    S.loginErr = json.error === "locked" ? "Too many wrong tries — wait 15 minutes." : (S.loading ? "Wrong passcode." : "Please log in again."); render(); throw new Error(json.error); }
+  return json;
+}
+function toast(t){ S.toast = t; renderLayer(); clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = ""; renderLayer(); }, 3200); }
+
+async function load(silent){
+  if(!silent){ S.loading = true; render(); }
+  try{
+    const d = await api("adminData");
+    if(d && d.ok){ S.data = d; }
+    else if(!silent){ S.loginErr = (d && d.error) || "Couldn't load."; }
+  }catch(err){ if(S.key && !silent) toast("Couldn't reach your Sheet — check your connection."); }
+  S.loading = false; render();
+}
+
+/* ============== derived lists ============== */
+function lists(){
+  const all = S.data.bookings, t = todayIso();
+  const upcoming = b => !b.dateIso || b.dateIso >= t;
+  return {
+    today: all.filter(b => b.dateIso === t && b.status === "approved").sort(byWhen),
+    requests: all.filter(b => b.request && (b.status === "approved" || b.status === "pending")).sort(byWhen),
+    pending: all.filter(b => b.status === "pending").sort((a, b) => String(a.submittedAt).localeCompare(String(b.submittedAt))),
+    messages: all.filter(b => b.needsReply),
+    late: all.filter(b => b.lateNote && b.dateIso === t && b.status === "approved"),
+    deposits: all.filter(b => b.status === "approved" && !b.isBundle && !b.depositPaid && upcoming(b)).sort(byWhen),
+    refunds: all.filter(b => ["cancelled","denied"].includes(b.status) && b.depositPaid && !b.depositRefunded && !/WITHIN 24 HRS/.test(b.cancelInfo)),
+    checkins: all.filter(b => b.checkIn && b.status === "approved" && upcoming(b)).sort(byWhen),
+    prep: all.filter(b => b.status === "approved" && b.dateIso && b.dateIso >= t && daysAway(b.dateIso) <= PREP_DAYS &&
+                ((b.needsHair && !b.hairOrdered) || (b.kit && b.kit !== "—" && !b.kitPacked))).sort(byWhen),
+    wrap: all.filter(b => b.status === "approved" && !b.serviced && b.dateIso && (b.dateIso < t || (b.dateIso === t && b.timeMin !== null && b.timeMin + 240 < new Date().getHours()*60 + new Date().getMinutes()))).sort(byWhen),
+  };
+}
+function needsCount(){ if(!S.data) return 0; const L = lists(); return L.requests.length + L.pending.length + L.messages.length + L.prep.length + L.wrap.length; }
+
+/* ============== screens ============== */
+function render(){
+  const app = document.getElementById("app");
+  if(!S.key || (!S.data && !S.loading)){ app.innerHTML = loginScreen(); renderLayer(); const i = document.getElementById("pass"); if(i) i.focus(); return; }
+  if(S.loading && !S.data){ app.innerHTML = `<div class="login"><h1>The Ehiffect</h1><p>Loading your bookings…</p></div>`; renderLayer(); return; }
+  const screen = { inbox, schedule, clients, hair, more }[S.tab] || inbox;
+  const n = needsCount();
+  app.innerHTML = `<div class="page">${screen()}</div>
+  <nav class="tabs" aria-label="Sections"><div class="tabs-in">
+    ${[["inbox","✉︎","Inbox"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"]].map(([k,ic,l]) =>
+      `<button class="tab ${S.tab===k?'on':''}" data-a="tab" data-k="${k}" aria-current="${S.tab===k?'page':'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k==='inbox' && n ? `<span class="badge">${n}</span>` : ''}</button>`).join("")}
+  </div></nav>`;
+  renderLayer();
+}
+
+function loginScreen(){
+  return `<div class="login">
+    <h1>The Ehiffect</h1><p>Admin</p>
+    <input id="pass" class="in" type="password" placeholder="passcode" autocomplete="current-password"/>
+    <label class="check" style="justify-content:center;"><input type="checkbox" id="remember" checked/> Remember me on this phone</label>
+    <button class="btn primary block" data-a="login">Log in</button>
+    ${S.loginErr ? `<div class="err">${esc(S.loginErr)}</div>` : ''}
+    <p class="hint" style="margin-top:22px;">Set or change your passcode in your Google Sheet: Ehiffect menu → Set dashboard passcode.</p>
+  </div>`;
+}
+
+function header(title, sub){
+  return `<div class="hello"><div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>
+    <div style="display:flex; gap:8px;">
+      <button class="icon-btn" data-a="add" aria-label="Add an appointment" title="Add an appointment"><span>＋</span></button>
+      <button class="icon-btn ${S.loading?'spin':''}" data-a="refresh" aria-label="Refresh"><span>↻</span></button>
+    </div></div>`;
+}
+
+function bookingRow(b, opts){
+  opts = opts || {};
+  return `<div class="row" data-a="open" data-k="${esc(b.key)}">
+    <div class="row-main">
+      <div class="row-title">${esc(b.name || "No name")} ${opts.noPill ? '' : pill(b.status)}</div>
+      <div class="row-sub">${esc(opts.sub !== undefined ? opts.sub : (when(b) + " · " + b.serviceLabel))}</div>
+      ${opts.note ? `<div class="row-note">${opts.note}</div>` : ''}
+    </div>
+    ${opts.actions ? `<div class="row-actions">${opts.actions}</div>` : '<span class="chev" aria-hidden="true">›</span>'}
+  </div>`;
+}
+
+function inbox(){
+  const L = lists(), t = todayIso();
+  const hour = new Date().getHours();
+  const hi = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const sec = (title, items, body, quiet) => items.length ? `<h2 class="sec">${title}<span class="n ${quiet?'quiet':''}">${items.length}</span></h2><div class="list">${body}</div>` : '';
+  const all = L.requests.length + L.pending.length + L.messages.length + L.deposits.length + L.refunds.length + L.prep.length + L.wrap.length;
+  const prepRow = b => `<div class="row" style="align-items:flex-start; cursor:default;">
+      <div class="row-main" data-a="open" data-k="${esc(b.key)}" style="cursor:pointer;">
+        <div class="row-title">${esc(b.name)} <span class="tag warn">${daysAway(b.dateIso) === 0 ? 'today' : daysAway(b.dateIso) === 1 ? 'tomorrow' : 'in ' + daysAway(b.dateIso) + ' days'}</span></div>
+        <div class="row-sub">${esc(when(b))}</div>
+        ${b.needsHair ? `<div class="row-note">✂ ${esc(b.hairDetails)}</div>` : ''}
+      </div>
+      <div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">
+        ${b.needsHair ? `<label class="check" style="padding:4px 0; font-size:12.5px;"><input type="checkbox" data-a="tick" data-f="hairOrdered" data-k="${esc(b.key)}" ${b.hairOrdered?'checked':''}/>Hair ordered</label>` : ''}
+        ${b.kit && b.kit !== '—' ? `<label class="check" style="padding:4px 0; font-size:12.5px;"><input type="checkbox" data-a="tick" data-f="kitPacked" data-k="${esc(b.key)}" ${b.kitPacked?'checked':''}/>${esc(b.kit)} kit packed</label>` : ''}
+      </div></div>`;
+  return header(hi + ", Indie", dayLabel(t)) + `
+    <div class="today">
+      <div class="today-date">Today</div>
+      ${L.today.length ? L.today.map(b => `<div class="slot" data-a="open" data-k="${esc(b.key)}">
+          <div class="slot-time">${esc((b.time||"—").replace(" ", " "))}</div>
+          <div><div class="slot-name">${esc(b.name)}</div><div class="slot-sub">${esc(b.serviceLabel)}</div>
+            <span class="tag ${b.depositPaid?'good':'bad'}">${b.depositPaid?'deposit in':'no deposit yet'}</span>${b.checkIn?'<span class="tag good">check-in ✓</span>':''}${b.lateNote?'<span class="tag warn">running late</span>':''}</div>
+        </div>`).join("") : `<div class="empty">No appointments today.</div>`}
+    </div>
+    ${sec("Prep this week", L.prep, L.prep.map(prepRow).join(""))}
+    ${sec("Wrap up", L.wrap, L.wrap.map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + b.serviceLabel,
+        actions: `<button class="btn primary" data-a="wrap" data-k="${esc(b.key)}">Wrap up</button>` })).join(""))}
+    ${sec("Running late", L.late, L.late.map(b => bookingRow(b, { noPill:true, sub: b.time + " · " + b.serviceLabel, note: "⏰ " + esc(b.lateNote.split("\n")[0]) })).join(""))}
+    ${sec("Reschedule requests", L.requests, L.requests.map(b => bookingRow(b, { noPill:true,
+        sub: "Now: " + when(b), note: (b.request.within24 ? "🚨 Within 24 hrs · " : "") + "Wants " + esc(b.request.date + " " + b.request.time) + (b.request.reason ? "<br>“" + esc(b.request.reason) + "”" : ""),
+        actions: `<button class="btn ok" data-a="req" data-d="approve" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="req" data-d="deny" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
+    ${sec("New requests", L.pending, L.pending.map(b => bookingRow(b, { noPill:true,
+        sub: when(b) + " · " + b.serviceLabel + " · " + money(b.total) + (b.waiting ? " · waiting " + b.waiting : ""),
+        note: [b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
+        actions: `<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
+    ${sec("Messages", L.messages, L.messages.map(b => { const m = b.thread[b.thread.length-1] || {}; return bookingRow(b, { noPill:true, sub: when(b), note: "💬 " + esc(m.text || "") }); }).join(""))}
+    ${sec("Waiting on deposit", L.deposits, L.deposits.map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + b.serviceLabel,
+        actions: `<button class="btn" data-a="deposit" data-k="${esc(b.key)}">Received</button>` })).join(""), true)}
+    ${sec("Refunds to send", L.refunds, L.refunds.map(b => bookingRow(b, { sub: when(b) + " · deposit paid", note: b.cancelInfo ? esc(b.cancelInfo) : "",
+        actions: `<button class="btn" data-a="refunded" data-k="${esc(b.key)}">Refunded</button>` })).join(""), true)}
+    ${sec("Hair check-ins", L.checkins, L.checkins.slice(0, 6).map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + (b.checkInPhotos.length) + " photo(s)" })).join(""), true)}
+    ${!all ? `<p class="empty" style="text-align:center; margin-top:26px;">You're all caught up ✨</p>` : ''}`;
+}
+
+function schedule(){
+  const t = todayIso(), all = S.data.bookings;
+  const shown = all.filter(b => (b.status === "approved" || b.status === "pending") && b.dateIso && (S.showPast || b.dateIso >= t)).sort(byWhen);
+  const off = S.data.daysOff || [];
+  const isOff = iso => off.find(d => iso >= d.start && iso <= d.end);
+  const days = {}; shown.forEach(b => (days[b.dateIso] = days[b.dateIso] || []).push(b));
+  const d = S.dayOffDraft;
+  return header("Schedule", "Your upcoming appointments and days off") + `
+    <details class="fold" ${S.openDaysOff?'open':''} data-keep="openDaysOff"><summary>Days off ${off.filter(x=>x.end>=t).length ? '('+off.filter(x=>x.end>=t).length+')' : ''}</summary><div>
+      <p class="hint" style="margin-top:0;">Days you block here can't be booked on your site. Squeeze-ins can't land on them either.</p>
+      ${off.filter(x => x.end >= t).map((x, i) => `<div class="row" style="cursor:default; padding:10px 0; border-top:1px solid var(--line-2);">
+          <div class="row-main"><div class="row-title">${x.start === x.end ? shortDay(x.start) : shortDay(x.start) + " – " + shortDay(x.end)}</div>${x.note ? `<div class="row-sub">${esc(x.note)}</div>` : ''}</div>
+          <button class="btn no" data-a="dayoff-del" data-k="${off.indexOf(x)}">Remove</button></div>`).join("") || `<div class="empty" style="padding-top:0;">No days off coming up.</div>`}
+      <div class="grid2" style="margin-top:10px;">
+        <div class="field"><label>From</label><input type="date" id="do-start" value="${esc(d.start)}" min="${t}"/></div>
+        <div class="field"><label>To (optional)</label><input type="date" id="do-end" value="${esc(d.end)}" min="${t}"/></div>
+      </div>
+      <div class="field"><label>Note (only you see this)</label><input type="text" id="do-note" value="${esc(d.note)}" placeholder="e.g. Thanksgiving, exams"/></div>
+      <button class="btn primary block" data-a="dayoff-add">Block these days</button>
+    </div></details>
+    <label class="check"><input type="checkbox" data-a="past" ${S.showPast?'checked':''}/> Show past appointments</label>
+    ${Object.keys(days).length ? Object.keys(days).map(iso => `
+      <div class="day-head">${iso === t ? "Today" : dayLabel(iso)} <small>${days[iso].length} booked${isOff(iso) ? ' · <span class="off">marked off</span>' : ''}</small></div>
+      <div class="list">${days[iso].map(b => `<div class="row ${b.status==='pending'?'pend':''}" data-a="open" data-k="${esc(b.key)}">
+        <div style="width:64px; font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:600;">${esc(b.time || "—")}</div>
+        <div class="row-main"><div class="row-title">${esc(b.name)} ${b.status==='pending' ? pill('pending') : ''}</div>
+          <div class="row-sub">${esc(b.serviceLabel)}</div>
+          ${b.status==='approved' && !b.isBundle ? `<span class="tag ${b.depositPaid?'good':'bad'}">${b.depositPaid?'deposit in':'no deposit'}</span>` : ''}${b.needsHair ? `<span class="tag ${b.hairOrdered?'good':'warn'}">${b.hairOrdered?'hair ordered':'hair to order'}</span>` : ''}${b.request ? '<span class="tag warn">wants to move</span>' : ''}
+        </div><span class="chev" aria-hidden="true">›</span></div>`).join("")}</div>`).join("")
+      : `<p class="empty">Nothing on the books ${S.showPast ? '' : 'coming up'} yet.</p>`}`;
+}
+
+function clientGroups(){
+  const groups = {};
+  S.data.bookings.forEach(b => { const k = phoneKey(b); (groups[k] = groups[k] || []).push(b); });
+  const t = todayIso();
+  return Object.keys(groups).map(k => {
+    const bs = groups[k].slice().sort(byWhen), latest = bs[bs.length - 1];
+    const visits = bs.filter(b => b.serviced || (b.status === "approved" && b.dateIso && b.dateIso < t));
+    const spent = bs.reduce((s, b) => s + (b.amountPaid !== "" && !isNaN(Number(b.amountPaid)) ? Number(b.amountPaid) : (b.serviced ? Number(b.total) || 0 : 0)), 0);
+    const next = bs.find(b => b.dateIso && b.dateIso >= t && (b.status === "approved" || b.status === "pending"));
+    return { k, name: latest.name, phone: latest.phone, ig: latest.ig, email: (bs.slice().reverse().find(b => b.email) || {}).email || "",
+             bookings: bs, visits: visits.length, spent, noShows: bs.filter(b => b.status === "no-show").length, next };
+  }).sort((a, c) => (c.next ? 1 : 0) - (a.next ? 1 : 0) || String(a.name).localeCompare(String(c.name)));
+}
+
+function clients(){
+  const q = S.search.trim().toLowerCase(), qd = q.replace(/\D/g, "");
+  const gs = clientGroups().filter(g => !q || String(g.name).toLowerCase().includes(q) || String(g.ig).toLowerCase().includes(q) || (qd.length >= 3 && String(g.phone).replace(/\D/g,"").includes(qd)));
+  return header("Clients", gs.length + " " + (gs.length === 1 ? "client" : "clients")) + `
+    <input class="in search" id="search" type="search" placeholder="Search name, phone, or IG" value="${esc(S.search)}"/>
+    <div class="list">${gs.map(g => `<div class="row" data-a="client" data-k="${esc(g.k)}">
+      <div class="row-main"><div class="row-title">${esc(g.name)}</div>
+        <div class="row-sub">${g.visits} visit${g.visits===1?'':'s'} · ${money(g.spent)} spent${g.next ? ' · next ' + esc(shortDay(g.next.dateIso)) : ''}</div>
+        ${g.noShows ? `<span class="tag bad">${g.noShows} no-show${g.noShows>1?'s':''}</span>` : ''}${g.visits >= 2 ? '<span class="tag good">returning</span>' : ''}
+      </div><span class="chev" aria-hidden="true">›</span></div>`).join("") || `<div class="empty" style="padding:14px;">No clients match that search.</div>`}</div>`;
+}
+
+function hair(){
+  const t = todayIso();
+  const orders = S.data.bookings.filter(b => b.needsHair && (b.status === "approved" || b.status === "pending") && (!b.dateIso || b.dateIso >= t))
+    .sort((a, c) => (a.hairOrdered ? 1 : 0) - (c.hairOrdered ? 1 : 0) || byWhen(a, c));
+  const kits = S.data.bookings.filter(b => b.kit && b.kit !== "—" && (b.status === "approved" || b.status === "pending") && (!b.dateIso || b.dateIso >= t)).sort(byWhen);
+  const left = orders.filter(b => !b.hairOrdered).length;
+  return header("Hair & kits", left ? left + " still to order" : "Every order is in ✓") + `
+    <h2 class="sec">Hair to order</h2>
+    <div class="list">${orders.map(b => `<div class="row" style="align-items:flex-start;">
+      <input type="checkbox" data-a="tick" data-f="hairOrdered" data-k="${esc(b.key)}" ${b.hairOrdered?'checked':''} style="width:22px;height:22px;accent-color:var(--pink);margin-top:2px;" aria-label="Hair ordered for ${esc(b.name)}"/>
+      <div class="row-main" data-a="open" data-k="${esc(b.key)}"><div class="row-title">${esc(b.name)} ${b.status==='pending'?pill('pending'):''}</div>
+        <div class="row-sub">${esc(when(b))}</div><div class="row-note">${esc(b.hairDetails)}</div>
+        ${b.hairOrdered ? `<div class="hint" style="margin-top:4px; color:var(--good);">Ordered ${esc(b.hairOrderedOn)}</div>` : ''}</div></div>`).join("") || `<div class="empty" style="padding:14px;">No upcoming clients need hair from you.</div>`}</div>
+    <h2 class="sec">Care kits</h2>
+    <div class="list">${kits.map(b => `<div class="row" style="cursor:default;">
+      <div class="row-main" data-a="open" data-k="${esc(b.key)}" style="cursor:pointer;"><div class="row-title">${esc(b.name)} <span class="tag ${b.kit==='Luxury'?'warn':''}">${esc(b.kit)}</span></div><div class="row-sub">${esc(when(b))}</div></div>
+      <label class="check" style="padding:0; font-size:12.5px;"><input type="checkbox" data-a="tick" data-f="kitPacked" data-k="${esc(b.key)}" ${b.kitPacked?'checked':''}/>Packed</label>
+    </div>`).join("") || `<div class="empty" style="padding:14px;">No kits to pack right now.</div>`}</div>`;
+}
+
+function more(){
+  const now = new Date();
+  const ym = S.month || (now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0"));
+  const [yy, mm] = ym.split("-").map(Number);
+  const label = new Date(yy, mm - 1, 1).toLocaleDateString(undefined, { month:"long", year:"numeric" });
+  const inMonth = S.data.bookings.filter(b => b.dateIso && b.dateIso.slice(0,7) === ym);
+  const done = inMonth.filter(b => b.serviced).sort(byWhen);
+  const revenue = done.reduce((s, b) => s + paidOf(b), 0);
+  const tips = inMonth.reduce((s, b) => s + (num(b.tip) || 0), 0);
+  const hairSpend = inMonth.reduce((s, b) => s + (num(b.hairCost) || 0), 0);
+  const profit = revenue + tips - hairSpend;
+  const upcomingBooked = inMonth.filter(b => b.status === "approved" && !b.serviced).reduce((s, b) => s + (num(b.grandTotal) ?? num(b.total) ?? 0), 0);
+  const T = S.data.templates;
+  return header("Money", "Revenue, tips, and profit") + `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin:-6px 0 14px;">
+      <button class="icon-btn" data-a="month" data-k="-1" aria-label="Previous month">‹</button>
+      <div class="serif" style="font-size:22px; font-weight:600;">${esc(label)}</div>
+      <button class="icon-btn" data-a="month" data-k="1" aria-label="Next month">›</button>
+    </div>
+    <div class="stat" style="margin-bottom:8px;"><b style="font-size:40px;">${money(profit)}</b><span>profit · what you kept after hair costs</span></div>
+    <div class="stat-grid">
+      <div class="stat"><b>${money(revenue)}</b><span>paid for services</span></div>
+      <div class="stat"><b>${money(tips)}</b><span>tips</span></div>
+      <div class="stat"><b>${money(hairSpend)}</b><span>spent on hair</span></div>
+      <div class="stat"><b>${done.length}</b><span>appointments done${done.length ? ' · avg ' + money((revenue + tips) / done.length) : ''}</span></div>
+    </div>
+    ${upcomingBooked ? `<p class="hint">${money(upcomingBooked)} more is booked for the rest of ${esc(label.split(" ")[0])}.</p>` : ''}
+    ${done.length ? `<h2 class="sec">Done this month</h2><div class="list">${done.map(b => bookingRow(b, { noPill:true,
+        sub: when(b) + " · paid " + money(paidOf(b)) + (num(b.tip) ? " + " + money(b.tip) + " tip" : "") + (num(b.hairCost) ? " · hair " + money(b.hairCost) : ""),
+        actions: `<span class="serif" style="font-size:19px; font-weight:600; color:${profitOf(b) >= 0 ? 'var(--good)' : 'var(--bad)'};">${money(profitOf(b))}</span>` })).join("")}</div>` : `<p class="empty">Nothing marked done in ${esc(label.split(" ")[0])} yet. Use "Wrap up" in your Inbox after each appointment.</p>`}
+    <h2 class="sec">Emails</h2>
+    <p class="hint" style="margin-top:-4px;">The wording clients get. Change it here and every future email uses it. You can still tweak any single email before it sends.</p>
+    <div class="list">${Object.keys(T).filter(k => k !== "custom").map(k => `<div class="row" data-a="tpl" data-k="${k}">
+      <div class="row-main"><div class="row-title">${esc(T[k].label)} ${T[k].edited ? '<span class="tag good">edited</span>' : ''}</div><div class="row-sub">${esc(T[k].when)}</div></div>
+      <span class="chev" aria-hidden="true">›</span></div>`).join("")}</div>
+    <h2 class="sec">Links</h2>
+    <div class="list">
+      <a class="row" href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;"><div class="row-main"><div class="row-title">Open booking site</div></div><span class="chev">↗</span></a>
+      <div class="row" data-a="logout"><div class="row-main"><div class="row-title">Log out of this phone</div></div></div>
+    </div>`;
+}
+
+/* ============== layered sheets ============== */
+function renderLayer(){
+  const L = document.getElementById("layer");
+  let h = "";
+  if(S.open && get(S.open)) h += detailSheet(get(S.open));
+  else if(S.client) h += clientSheet();
+  if(S.wrap && get(S.wrap)) h += wrapSheet(get(S.wrap));
+  if(S.adding) h += addSheet();
+  if(S.compose) h += composeSheet();
+  if(S.tpl) h += tplSheet();
+  if(S.busy) h += `<div class="busy" role="status"><div>${esc(S.busy)}<small>Updating your Sheet and calendar — a few seconds.</small></div></div>`;
+  if(S.toast) h += `<div class="toast" role="status">${esc(S.toast)}</div>`;
+  const keepScroll = (L.querySelector(".sheet-body") || {}).scrollTop || 0;
+  L.innerHTML = h;
+  const body = L.querySelector(".sheet-body"); if(body && S.keepScroll) body.scrollTop = keepScroll;
+  S.keepScroll = false;
+  document.body.style.overflow = (S.open || S.client || S.compose || S.tpl || S.wrap || S.adding) ? "hidden" : "";
+}
+
+function detailSheet(b){
+  const st = b.status, upcoming = !b.dateIso || b.dateIso >= todayIso();
+  const quick = [];
+  if(st === "pending") quick.push(`<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button>`, `<button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>`);
+  if(st === "approved"){
+    if(!b.isBundle) quick.push(b.depositPaid ? `<span class="tag good" style="padding:8px 10px;">Deposit in ✓</span>` : `<button class="btn" data-a="deposit" data-k="${esc(b.key)}">Deposit received</button>`);
+    quick.push(b.serviced ? `<button class="btn" data-a="wrap" data-k="${esc(b.key)}">Done ✓ · edit paid & tip</button>` : `<button class="btn primary" data-a="wrap" data-k="${esc(b.key)}">Wrap up</button>`);
+    if(upcoming) quick.push(`<button class="btn no" data-a="status" data-s="cancelled" data-k="${esc(b.key)}">Cancel</button>`);
+    else quick.push(`<button class="btn no" data-a="status" data-s="no-show" data-k="${esc(b.key)}">No-show</button>`);
+  }
+  if(["denied","cancelled","no-show","rescheduled"].includes(st)) quick.push(`<button class="btn" data-a="status" data-s="pending" data-k="${esc(b.key)}">Move back to pending</button>`);
+  if((st === "cancelled" || st === "denied") && b.depositPaid) quick.push(b.depositRefunded ? `<span class="tag good" style="padding:8px 10px;">Refunded ✓</span>` : `<button class="btn" data-a="refunded" data-k="${esc(b.key)}">Mark refunded</button>`);
+  const ci = b.checkIn || {};
+  return `<div class="veil" data-a="close" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(b.name)}">
+    <div class="sheet-head"><div><h3>${esc(b.name || "No name")}</h3><p>${pill(st)} ${esc(when(b))}</p></div>
+      <button class="icon-btn" data-a="close" aria-label="Close">×</button></div>
+    <div class="sheet-body">
+      <div class="btn-row">${quick.join("")}</div>
+      ${b.request ? `<div class="box ${b.request.within24?'alert':'warn'}"><h4>${b.request.within24?'🚨 Wants to move (within 24 hrs)':'📅 Wants to move'}</h4>
+        <div>To ${esc(b.request.date + " " + b.request.time)}</div>${b.request.reason ? `<div class="hint" style="margin-top:4px;">“${esc(b.request.reason)}”</div>` : ''}
+        <div class="btn-row" style="margin-top:10px;"><button class="btn ok" data-a="req" data-d="approve" data-k="${esc(b.key)}">Approve move</button><button class="btn no" data-a="req" data-d="deny" data-k="${esc(b.key)}">Deny</button></div></div>` : ''}
+      ${b.lateNote ? `<div class="box warn"><h4>⏰ Running late</h4><div style="white-space:pre-line; font-size:13.5px;">${esc(b.lateNote)}</div></div>` : ''}
+      ${b.dealAlert || String(b.checks||"").includes("⚠") ? `<div class="box alert"><div style="font-size:13.5px;">${esc([b.dealAlert, b.checks].filter(Boolean).join(" · "))}</div></div>` : ''}
+      ${b.serviced || num(b.amountPaid) !== null || num(b.tip) !== null || num(b.hairCost) !== null ? `<div class="box"><h4>Money</h4><dl class="kv" style="margin:0;">
+        <dt>Paid</dt><dd>${money(paidOf(b))}</dd><dt>Tip</dt><dd>${money(num(b.tip) || 0)}</dd><dt>Hair cost</dt><dd>${money(num(b.hairCost) || 0)}</dd>
+        <dt>Profit</dt><dd class="serif" style="font-size:20px; font-weight:600; color:${profitOf(b) >= 0 ? 'var(--good)' : 'var(--bad)'};">${money(profitOf(b))}</dd></dl></div>` : ''}
+      <dl class="kv" style="margin-top:16px;">
+        <dt>Service</dt><dd>${esc(b.serviceLabel)}</dd>
+        <dt>Total</dt><dd>${money(b.total)}${b.grandTotal !== "" ? ` (final ${money(b.grandTotal)})` : ''}${b.amountPaid !== "" ? ` · paid ${money(b.amountPaid)}` : ''}</dd>
+        ${b.phone ? `<dt>Phone</dt><dd><a href="tel:${esc(String(b.phone).replace(/[^\d+]/g,''))}">${esc(b.phone)}</a> · <a href="sms:${esc(String(b.phone).replace(/[^\d+]/g,''))}">text</a></dd>` : ''}
+        ${b.email ? `<dt>Email</dt><dd>${esc(b.email)}</dd>` : '<dt>Email</dt><dd class="hint">none on file</dd>'}
+        ${b.ig ? `<dt>Instagram</dt><dd>${esc(b.ig)}</dd>` : ''}
+        ${b.dealsUsed ? `<dt>Deals</dt><dd>${esc(b.dealsUsed)}</dd>` : ''}
+        ${b.kit && b.kit !== '—' ? `<dt>Care kit</dt><dd>${esc(b.kit)}${b.kitPacked ? ' · packed' : ''}</dd>` : ''}
+        ${b.bookingType && b.bookingType !== 'solo' ? `<dt>Booking</dt><dd>${esc(b.bookingType)} with ${esc(b.partnerName || b.partnerContact || '?')}</dd>` : ''}
+        ${b.needsHair ? `<dt>Hair</dt><dd>${b.hairOrdered ? 'Ordered ' + esc(b.hairOrderedOn) : '<span style="color:var(--warn)">Not ordered yet</span>'}</dd>` : ''}
+        ${b.notes ? `<dt>Notes</dt><dd>${esc(b.notes)}</dd>` : ''}
+        ${b.cancelInfo ? `<dt>Cancel</dt><dd>${esc(b.cancelInfo)}</dd>` : ''}
+        <dt>Booked</dt><dd>${esc(b.submittedAt || '—')}</dd>
+        ${b.lastEmail ? `<dt>Last email</dt><dd class="hint">${esc(b.lastEmail)}</dd>` : ''}
+      </dl>
+      ${b.photos && b.photos.length ? `<div class="photos">${b.photos.map(p => `<img src="${esc(photoThumb(p))}" alt="Reference photo" data-a="photo" data-src="${esc(p)}"/>`).join("")}</div>` : ''}
+      <div class="btn-row" style="margin-top:14px;">
+        ${b.email ? `<button class="btn" data-a="custom" data-k="${esc(b.key)}">Write an email</button>` : ''}
+        ${b.manageUrl ? `<button class="btn" data-a="copy-link" data-k="${esc(b.key)}">Copy their manage link</button>` : ''}
+        ${b.text ? `<button class="btn" data-a="copy-text" data-k="${esc(b.key)}">Copy ${esc(String(b.textLabel || 'text').toLowerCase())}</button>` : ''}
+      </div>
+      ${b.checkIn ? `<details class="fold" open><summary>📋 Hair check-in</summary><div>
+        <dl class="kv" style="grid-template-columns:1fr; gap:2px 0;">${Object.keys(ci).filter(k => ci[k]).map(k => `<dt style="margin-top:8px;">${esc(k)}</dt><dd>${esc(ci[k])}</dd>`).join("")}</dl>
+        ${b.checkInPhotos.length ? `<div class="photos">${b.checkInPhotos.map(p => `<img src="${esc(photoThumb(p))}" alt="Check-in photo" data-a="photo" data-src="${esc(p)}"/>`).join("")}</div>` : ''}
+        <div class="hint" style="margin-top:8px;">Sent ${esc(b.checkInAt)}</div></div></details>` : ''}
+      <details class="fold" ${b.needsReply || (b.thread && b.thread.length) ? 'open' : ''}><summary>💬 Messages ${b.thread && b.thread.length ? '(' + b.thread.length + ')' : ''}</summary><div>
+        ${b.thread && b.thread.length ? `<div class="thread">${b.thread.map(m => `<div class="bub ${m.from==='me'?'me':'them'}"><div>${esc(m.text)}</div><span>${m.from==='me'?'You':esc(first(b.name))} · ${esc(m.at||'')}</span></div>`).join("")}</div>`
+          : `<p class="hint" style="margin-top:0;">No messages yet. ${b.email ? 'Anything you send here is emailed to her, and she can reply from her appointment page.' : 'She has no email on file.'}</p>`}
+        ${b.email ? `<div class="field" style="margin-top:10px;"><textarea id="reply" placeholder="Write a message to ${esc(first(b.name))}">${esc(S.replyDraft || '')}</textarea></div>
+        <button class="btn primary block" data-a="reply" data-k="${esc(b.key)}">Send message</button>` : ''}
+      </div></details>
+      <details class="fold" id="edit-fold"><summary>✏️ Edit details</summary><div>
+        <div class="grid2">
+          <div class="field"><label>Date</label><input type="date" id="e-date" value="${esc(b.dateIso)}"/></div>
+          <div class="field"><label>Time</label><input type="time" id="e-time" value="${esc(to24(b.time))}" step="300"/></div>
+        </div>
+        <div class="field"><label>Name</label><input type="text" id="e-name" value="${esc(b.name)}"/></div>
+        <div class="field"><label>Service</label><input type="text" id="e-serviceLabel" value="${esc(b.serviceLabel)}"/></div>
+        <div class="grid2">
+          <div class="field"><label>Total ($)</label><input type="number" inputmode="decimal" id="e-total" value="${esc(b.total)}"/></div>
+          <div class="field"><label>Amount paid ($)</label><input type="number" inputmode="decimal" id="e-amountPaid" value="${esc(b.amountPaid)}" placeholder="after appt"/></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Tip ($)</label><input type="number" inputmode="decimal" id="e-tip" value="${esc(b.tip)}"/></div>
+          <div class="field"><label>Hair cost ($)</label><input type="number" inputmode="decimal" id="e-hairCost" value="${esc(b.hairCost)}" placeholder="what you spent"/></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Phone</label><input type="tel" id="e-phone" value="${esc(b.phone)}"/></div>
+          <div class="field"><label>Email</label><input type="email" id="e-email" value="${esc(b.email)}"/></div>
+        </div>
+        <div class="field"><label>Status</label><select id="e-status">${["pending","approved","denied","cancelled","no-show","rescheduled"].map(s => `<option value="${s}" ${s===st?'selected':''}>${statusLabel(s)}</option>`).join("")}</select></div>
+        <div class="field"><label>Notes</label><textarea id="e-notes">${esc(b.notes)}</textarea></div>
+        ${!b.isBundle ? `<label class="check"><input type="checkbox" id="e-depositPaid" ${b.depositPaid?'checked':''}/> Deposit received</label>` : ''}
+        <label class="check"><input type="checkbox" id="e-depositRefunded" ${b.depositRefunded?'checked':''}/> Deposit refunded</label>
+        <label class="check"><input type="checkbox" id="e-serviced" ${b.serviced?'checked':''}/> Serviced (appointment done)</label>
+        ${b.needsHair ? `<label class="check"><input type="checkbox" id="e-hairOrdered" ${b.hairOrdered?'checked':''}/> Hair ordered</label>` : ''}
+        <button class="btn primary block" data-a="save" data-k="${esc(b.key)}" style="margin-top:8px;">Save changes</button>
+        <p class="hint">If you change an approved appointment's date or time, you'll see the email to her before it sends.</p>
+      </div></details>
+    </div></div></div>`;
+}
+
+function clientSheet(){
+  const g = clientGroups().find(x => x.k === S.client);
+  if(!g) return "";
+  return `<div class="veil" data-a="close" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(g.name)}">
+    <div class="sheet-head"><div><h3>${esc(g.name)}</h3><p>${g.visits} visit${g.visits===1?'':'s'} · ${money(g.spent)} spent${g.noShows ? ' · ' + g.noShows + ' no-show' + (g.noShows>1?'s':'') : ''}</p></div>
+      <button class="icon-btn" data-a="close" aria-label="Close">×</button></div>
+    <div class="sheet-body">
+      <dl class="kv">${g.phone ? `<dt>Phone</dt><dd><a href="tel:${esc(String(g.phone).replace(/[^\d+]/g,''))}">${esc(g.phone)}</a></dd>` : ''}${g.email ? `<dt>Email</dt><dd>${esc(g.email)}</dd>` : ''}${g.ig ? `<dt>Instagram</dt><dd>${esc(g.ig)}</dd>` : ''}</dl>
+      <h2 class="sec" style="margin-top:14px;">History</h2>
+      <div class="list">${g.bookings.slice().reverse().map(b => bookingRow(b)).join("")}</div>
+    </div></div></div>`;
+}
+
+function wrapSheet(b){
+  const paid = num(b.amountPaid) !== null ? b.amountPaid : (num(b.grandTotal) ?? num(b.total) ?? "");
+  return `<div class="veil" data-a="close-wrap" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="Wrap up ${esc(b.name)}">
+    <div class="sheet-head"><div><h3>Wrap up ${esc(first(b.name))}</h3><p>${esc(when(b))} · ${esc(b.serviceLabel)}</p></div><button class="icon-btn" data-a="close-wrap" aria-label="Close">×</button></div>
+    <div class="sheet-body">
+      <div class="field"><label>She paid ($) — total for the service, deposit included</label><input type="number" inputmode="decimal" id="w-paid" value="${esc(paid)}"/></div>
+      <div class="field"><label>Tip ($)</label><input type="number" inputmode="decimal" id="w-tip" value="${esc(b.tip)}" placeholder="0"/></div>
+      <div class="field"><label>What you spent on hair ($)</label><input type="number" inputmode="decimal" id="w-hair" value="${esc(b.hairCost)}" placeholder="${b.needsHair ? 'bundles, packs, etc.' : '0'}"/></div>
+      <div class="box" style="margin-top:4px;"><dl class="kv" style="margin:0;"><dt>Profit</dt><dd id="w-profit" class="serif" style="font-size:22px; font-weight:600;">${money((num(paid) || 0) + (num(b.tip) || 0) - (num(b.hairCost) || 0))}</dd></dl></div>
+      ${!b.serviced ? `<p class="hint" style="margin-top:14px;">She didn't show up? <button class="link-btn" data-a="status" data-s="no-show" data-k="${esc(b.key)}">Mark as no-show</button></p>` : ''}
+    </div>
+    <div class="sheet-foot"><button class="btn" data-a="close-wrap">Cancel</button><button class="btn primary" data-a="wrap-save" data-k="${esc(b.key)}">${b.serviced ? 'Save' : 'Mark done'}</button></div>
+  </div></div>`;
+}
+
+function addSheet(){
+  const t = todayIso();
+  return `<div class="veil" data-a="close-add" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="Add an appointment">
+    <div class="sheet-head"><div><h3>Add an appointment</h3><p>A DM booking, a walk-in, or an old client from before the site</p></div><button class="icon-btn" data-a="close-add" aria-label="Close">×</button></div>
+    <div class="sheet-body">
+      <div class="field"><label>Name *</label><input type="text" id="a-name" autocomplete="off"/></div>
+      <div class="grid2">
+        <div class="field"><label>Phone</label><input type="tel" id="a-phone"/></div>
+        <div class="field"><label>Instagram</label><input type="text" id="a-ig" placeholder="@"/></div>
+      </div>
+      <div class="field"><label>Email</label><input type="email" id="a-email"/></div>
+      <div class="field"><label>Service</label><input type="text" id="a-service" list="svc-list" placeholder="pick or type"/>
+        <datalist id="svc-list">${SERVICE_PICKS.map(x => `<option value="${esc(x)}">`).join("")}</datalist></div>
+      <div class="grid2">
+        <div class="field"><label>Date</label><input type="date" id="a-date"/></div>
+        <div class="field"><label>Time</label><input type="time" id="a-time" step="300"/></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Price ($)</label><input type="number" inputmode="decimal" id="a-total"/></div>
+        <div class="field"><label>Status</label><select id="a-status"><option value="approved">Booked (upcoming)</option><option value="done">Already done (past)</option><option value="pending">Pending</option></select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="a-deposit"/> Deposit received</label>
+      <div class="grid2">
+        <div class="field"><label>She paid ($)</label><input type="number" inputmode="decimal" id="a-paid" placeholder="if done"/></div>
+        <div class="field"><label>Tip ($)</label><input type="number" inputmode="decimal" id="a-tip" placeholder="if done"/></div>
+      </div>
+      <div class="field"><label>Hair cost ($)</label><input type="number" inputmode="decimal" id="a-hair" placeholder="what you spent on hair"/></div>
+      <div class="field"><label>Notes</label><textarea id="a-notes" style="min-height:70px;"></textarea></div>
+      <label class="check"><input type="checkbox" id="a-send"/> Email her the approval email (with her hair check-in link)</label>
+    </div>
+    <div class="sheet-foot"><button class="btn" data-a="close-add">Cancel</button><button class="btn primary" data-a="add-save">Add appointment</button></div>
+  </div></div>`;
+}
+
+function composeSheet(){
+  const c = S.compose, d = c.draft;
+  return `<div class="veil" data-a="close-compose" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(c.title)}">
+    <div class="sheet-head"><div><h3>${esc(c.title)}</h3><p>${d ? (d.to ? 'Email to ' + esc(d.to) : 'No email on file — nothing will be sent') : 'Getting the email ready…'}</p></div>
+      <button class="icon-btn" data-a="close-compose" aria-label="Close">×</button></div>
+    <div class="sheet-body">${!d ? `<div class="empty">Loading…</div>` : `
+      ${c.kind !== 'custom' && d.to ? `<label class="check"><input type="checkbox" id="c-send" ${c.send !== false ? 'checked' : ''} data-a="c-toggle"/> Email ${esc(first(get(c.key) && get(c.key).name))} about this</label>` : ''}
+      <div id="c-fields" style="${(c.send === false || !d.to) && c.kind !== 'custom' ? 'opacity:.4; pointer-events:none;' : ''}">
+        <div class="field"><label>Subject</label><input type="text" id="c-subject" value="${esc(d.subject)}"/></div>
+        <div class="field"><label>Message</label><textarea id="c-body" style="min-height:260px;">${esc(d.body)}</textarea></div>
+        <div class="field"><label>Pink button (leave blank for none)</label><input type="text" id="c-button" value="${esc(d.button)}"/></div>
+        <p class="hint">Changes here only affect this one email. To change the wording for everyone, go to More → Emails.</p>
+      </div>`}
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" data-a="close-compose">Back</button>
+      <button class="btn primary" data-a="c-go" ${!d ? 'disabled' : ''}>${esc(c.kind === 'custom' ? 'Send email' : (c.send === false || !(d && d.to)) ? c.okLabel + ' without email' : c.okLabel + ' & send')}</button>
+    </div></div></div>`;
+}
+
+function tplSheet(){
+  const k = S.tpl, t = S.data.templates[k];
+  return `<div class="veil" data-a="close-tpl" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.label)} email">
+    <div class="sheet-head"><div><h3>${esc(t.label)}</h3><p>${esc(t.when)}</p></div><button class="icon-btn" data-a="close-tpl" aria-label="Close">×</button></div>
+    <div class="sheet-body">
+      <div class="field"><label>Subject</label><input type="text" id="t-subject" value="${esc(t.subject)}"/></div>
+      <div class="field"><label>Message</label><textarea id="t-body" style="min-height:280px;">${esc(t.body)}</textarea></div>
+      <div class="field"><label>Pink button (leave blank for none)</label><input type="text" id="t-button" value="${esc(t.button)}"/></div>
+      <details class="fold" style="margin-top:4px;"><summary>Fill-in words you can use</summary><div class="hint">
+        <b>{first}</b> her first name · <b>{service}</b> · <b>{when}</b> date and time · <b>{total}</b> · <b>{deposit}</b> · <b>{cashtag}</b> · <b>{site}</b> your booking site<br>
+        Reschedules: <b>{oldWhen}</b> <b>{newWhen}</b><br>
+        Automatic lines: <b>{depositLine}</b> deposit instructions or "already in" · <b>{depositNote}</b> refund note · <b>{checkinLine}</b> check-in reminder · <b>{nextSteps}</b><br>
+        A blank line starts a new paragraph. Lines that end up empty are skipped.</div></details>
+    </div>
+    <div class="sheet-foot">
+      ${t.edited ? `<button class="btn" data-a="tpl-reset">Reset to original</button>` : `<button class="btn" data-a="close-tpl">Cancel</button>`}
+      <button class="btn primary" data-a="tpl-save">Save wording</button>
+    </div></div></div>`;
+}
+
+function to24(t){ const m = String(t || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); if(!m) return ""; let h = Number(m[1]) % 12 + (m[3].toUpperCase() === "PM" ? 12 : 0); return String(h).padStart(2,"0") + ":" + m[2]; }
+
+/* ============== actions ============== */
+// Opens the email composer: fetches the draft for `kind`, lets you edit/skip it, then runs `act`.
+async function compose(o){
+  S.compose = Object.assign({ draft:null, send:true }, o); renderLayer();
+  try{
+    const d = await api("emailDraft", { key: o.key, kind: o.kind, changes: o.changes || {} });
+    if(S.compose && S.compose.key === o.key){ S.compose.draft = d.ok ? d : { to:"", subject:"", body:"", button:"" }; renderLayer(); }
+  }catch(err){ if(S.compose){ S.compose.draft = { to:"", subject:"", body:"", button:"" }; renderLayer(); } }
+}
+async function act(body, busyText, doneText){
+  S.busy = busyText || "Saving…"; renderLayer();
+  try{
+    const r = await api("adminAct", body);
+    if(r && r.ok){
+      const i = S.data.bookings.findIndex(b => b.key === body.key);
+      if(i >= 0 && r.booking) S.data.bookings[i] = r.booking;
+      S.busy = ""; S.compose = null; render(); toast(doneText + (r.emailed ? " — email sent" : ""));
+      load(true);
+    }else{ S.busy = ""; renderLayer(); toast((r && r.error) || "That didn't save — try again."); }
+  }catch(err){ S.busy = ""; renderLayer(); if(S.key) toast("Couldn't reach your Sheet — try again."); }
+}
+
+const STATUS_FLOW = {
+  approved: { kind:"approved", title:"Approve", ok:"Approve", done:"Approved" },
+  denied: { kind:"denied", title:"Deny", ok:"Deny", done:"Denied" },
+  cancelled: { kind:"cancelled", title:"Cancel appointment", ok:"Cancel it", done:"Cancelled" }
+};
+
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-a]"); if(!el) return;
+  const a = el.dataset.a, k = el.dataset.k;
+  if(el.dataset.bg && e.target !== el) return;            // taps inside a sheet don't close it
+  if(el.tagName === "INPUT" && el.type === "checkbox" && a !== "c-toggle" && a !== "tick" && a !== "past") return;
+
+  if(a === "login"){
+    const v = document.getElementById("pass").value.trim(); if(!v){ S.loginErr = "Enter your passcode."; render(); return; }
+    S.key = v; S.loginErr = ""; S.loading = true; render();
+    try{ const d = await api("adminData"); if(d && d.ok){ S.data = d; store.set(v, document.getElementById("remember") ? document.getElementById("remember").checked : true); } else { S.key = ""; S.loginErr = (d && d.error) || "Couldn't log in."; } }
+    catch(err){ if(S.key){ S.key = ""; S.loginErr = "Couldn't reach your Sheet — check your connection."; } }
+    S.loading = false; render(); return;
+  }
+  if(a === "logout"){ store.clear(); S.key = ""; S.data = null; S.loginErr = ""; render(); return; }
+  if(a === "tab"){ S.tab = k; S.open = null; S.client = null; window.scrollTo(0, 0); render(); return; }
+  if(a === "refresh"){ load(false); return; }
+  if(a === "open"){ S.open = k; S.replyDraft = ""; renderLayer(); return; }
+  if(a === "client"){ S.client = k; renderLayer(); return; }
+  if(a === "close"){ if(S.open && S.client){ S.open = null; } else { S.open = null; S.client = null; } renderLayer(); return; }
+  if(a === "close-compose"){ S.compose = null; renderLayer(); return; }
+  if(a === "close-tpl"){ S.tpl = null; renderLayer(); return; }
+  if(a === "photo"){ window.open(el.dataset.src, "_blank", "noopener"); return; }
+  if(a === "past"){ S.showPast = el.checked; render(); return; }
+
+  if(a === "add"){ S.adding = true; renderLayer(); const n = document.getElementById("a-name"); if(n) n.focus(); return; }
+  if(a === "close-add"){ S.adding = false; renderLayer(); return; }
+  if(a === "add-save"){
+    const v = id => (document.getElementById(id) || {}).value || "";
+    const st = v("a-status");
+    const fields = { name:v("a-name").trim(), phone:v("a-phone"), ig:v("a-ig"), email:v("a-email").trim(), serviceLabel:v("a-service").trim() || "Appointment",
+      date:v("a-date"), time:v("a-time"), total:v("a-total"), status: st === "done" ? "approved" : st, serviced: st === "done",
+      depositPaid: document.getElementById("a-deposit").checked, amountPaid:v("a-paid"), tip:v("a-tip"), hairCost:v("a-hair"), notes:v("a-notes") };
+    if(!fields.name){ toast("Add her name."); return; }
+    const send = document.getElementById("a-send").checked;
+    if(send && !fields.email){ toast("Add her email to send the approval email."); return; }
+    S.busy = "Adding…"; renderLayer();
+    try{ const r = await api("adminCreate", { fields, sendEmail: send }); S.busy = "";
+      if(r && r.ok){ S.data.bookings.push(r.booking); S.adding = false; render(); toast("Added " + first(fields.name) + (send ? " — email sent" : "")); load(true); }
+      else{ renderLayer(); toast((r && r.error) || "Didn't save — try again."); } }
+    catch(err){ S.busy = ""; renderLayer(); }
+    return;
+  }
+  if(a === "wrap"){ S.wrap = k; renderLayer(); return; }
+  if(a === "close-wrap"){ S.wrap = null; renderLayer(); return; }
+  if(a === "wrap-save"){
+    const v = id => (document.getElementById(id) || {}).value;
+    S.wrap = null;
+    act({ key:k, changes:{ serviced:true, amountPaid:v("w-paid"), tip:v("w-tip"), hairCost:v("w-hair") } }, "Saving…", "Wrapped up " + first(get(k).name) + " 💗");
+    return;
+  }
+  if(a === "month"){
+    const now = new Date(); const cur = S.month || (now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0"));
+    const [y, m] = cur.split("-").map(Number); const d = new Date(y, m - 1 + Number(k), 1);
+    S.month = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0"); render(); return;
+  }
+  if(a === "status"){
+    if(S.wrap) S.wrap = null;
+    const b = get(k), s = el.dataset.s, f = STATUS_FLOW[s];
+    if(f){ compose({ key:k, kind:f.kind, changes:{ status:s }, title: f.title + " " + first(b.name), okLabel: f.ok, doneText: f.done + " " + first(b.name) }); }
+    else act({ key:k, changes:{ status:s } }, "Saving…", statusLabel(s) + " — " + first(b.name));
+    return;
+  }
+  if(a === "req"){
+    const b = get(k), d = el.dataset.d;
+    compose({ key:k, kind: d === "approve" ? "reschedApproved" : "reschedDenied", request:d, title:(d === "approve" ? "Move " : "Keep ") + first(b.name) + "'s time",
+              okLabel: d === "approve" ? "Approve move" : "Deny", doneText: d === "approve" ? "Moved " + first(b.name) + "'s appointment" : "Kept " + first(b.name) + "'s time" });
+    return;
+  }
+  if(a === "deposit"){ const b = get(k); compose({ key:k, kind:"deposit", changes:{ depositPaid:true }, title:"Deposit from " + first(b.name), okLabel:"Mark received", doneText:"Deposit marked" }); return; }
+  if(a === "refunded"){ act({ key:k, changes:{ depositRefunded:true } }, "Saving…", "Marked refunded"); return; }
+  if(a === "serviced"){ act({ key:k, changes:{ serviced:true } }, "Saving…", "Marked serviced"); return; }
+  if(a === "tick"){ act({ key:k, changes:{ [el.dataset.f]: el.checked } }, "Saving…", el.checked ? "Checked off" : "Unchecked"); return; }
+  if(a === "custom"){ const b = get(k); compose({ key:k, kind:"custom", title:"Email " + first(b.name), okLabel:"Send email", doneText:"Email sent" }); return; }
+  if(a === "c-toggle"){ S.compose.send = el.checked; const sub = document.getElementById("c-subject"), bod = document.getElementById("c-body"), btn = document.getElementById("c-button");
+    if(S.compose.draft && sub){ S.compose.draft.subject = sub.value; S.compose.draft.body = bod.value; S.compose.draft.button = btn.value; } S.keepScroll = true; renderLayer(); return; }
+  if(a === "c-go"){
+    const c = S.compose; if(!c || !c.draft) return;
+    const email = { kind:c.kind, subject:(document.getElementById("c-subject")||{}).value, body:(document.getElementById("c-body")||{}).value, button:(document.getElementById("c-button")||{}).value,
+                    send: c.kind === "custom" ? true : (c.send !== false && !!c.draft.to) };
+    if(c.kind === "custom"){
+      if(!String(email.subject).trim() || !String(email.body).trim()){ toast("Add a subject and a message first."); return; }
+      S.busy = "Sending…"; renderLayer();
+      try{ const r = await api("customEmail", { key:c.key, subject:email.subject, body:email.body, button:email.button }); S.busy = ""; if(r.ok){ S.compose = null; toast("Email sent to " + first(get(c.key).name)); load(true); } else toast(r.error || "Email didn't send."); }
+      catch(err){ S.busy = ""; toast("Couldn't reach your Sheet — try again."); }
+      renderLayer(); return;
+    }
+    act({ key:c.key, changes:c.changes || {}, request:c.request, email }, "Saving…", c.doneText);
+    return;
+  }
+  if(a === "reply"){
+    const t = (document.getElementById("reply") || {}).value || ""; if(!t.trim()){ toast("Write a message first."); return; }
+    S.busy = "Sending…"; renderLayer();
+    try{ const r = await api("reply", { key:k, text:t }); S.busy = ""; if(r && r.ok){ S.replyDraft = ""; toast("Message sent"); await load(true); } else { renderLayer(); toast("Message didn't send — try again."); } }
+    catch(err){ S.busy = ""; renderLayer(); }
+    return;
+  }
+  if(a === "save"){
+    const b = get(k), v = id => { const x = document.getElementById("e-" + id); return x ? (x.type === "checkbox" ? x.checked : x.value) : undefined; };
+    const changes = {};
+    const cmp = { name:[v("name"), b.name], tip:[v("tip"), String(b.tip)], hairCost:[v("hairCost"), String(b.hairCost)], date:[v("date"), b.dateIso], time:[v("time"), to24(b.time)], serviceLabel:[v("serviceLabel"), b.serviceLabel], total:[v("total"), String(b.total)],
+                  amountPaid:[v("amountPaid"), String(b.amountPaid)], phone:[v("phone"), b.phone], email:[v("email"), b.email], status:[v("status"), b.status], notes:[v("notes"), b.notes],
+                  depositPaid:[v("depositPaid"), b.depositPaid], depositRefunded:[v("depositRefunded"), b.depositRefunded], serviced:[v("serviced"), b.serviced], hairOrdered:[v("hairOrdered"), b.hairOrdered] };
+    Object.keys(cmp).forEach(f => { const [n, o] = cmp[f]; if(n !== undefined && String(n) !== String(o === undefined || o === null ? "" : o)) changes[f] = n; });
+    if(!Object.keys(changes).length){ toast("Nothing changed."); return; }
+    const status = changes.status || b.status;
+    if(changes.status && STATUS_FLOW[changes.status]){ const f = STATUS_FLOW[changes.status]; compose({ key:k, kind:f.kind, changes, title:f.title + " " + first(b.name), okLabel:"Save", doneText:"Saved" }); return; }
+    if((changes.date || changes.time) && status === "approved"){ compose({ key:k, kind:"timeChanged", changes, title:"New time for " + first(b.name), okLabel:"Save", doneText:"Saved" }); return; }
+    if(changes.depositPaid === true && status === "approved"){ compose({ key:k, kind:"deposit", changes, title:"Deposit from " + first(b.name), okLabel:"Save", doneText:"Saved" }); return; }
+    act({ key:k, changes }, "Saving…", "Saved");
+    return;
+  }
+  if(a === "copy-link" || a === "copy-text"){
+    const b = get(k), text = a === "copy-link" ? b.manageUrl : b.text;
+    try{ await navigator.clipboard.writeText(text); toast("Copied"); }catch(err){ prompt("Copy this:", text); }
+    return;
+  }
+  if(a === "tpl"){ S.tpl = k; renderLayer(); return; }
+  if(a === "tpl-save" || a === "tpl-reset"){
+    S.busy = "Saving…"; renderLayer();
+    try{
+      const body = a === "tpl-reset" ? { kind:S.tpl, reset:true } : { kind:S.tpl, template:{ subject:document.getElementById("t-subject").value, body:document.getElementById("t-body").value, button:document.getElementById("t-button").value } };
+      const r = await api("saveTemplate", body);
+      S.busy = ""; if(r && r.ok){ S.data.templates = r.templates; S.tpl = null; render(); toast(a === "tpl-reset" ? "Back to the original wording" : "Wording saved"); } else { renderLayer(); toast("Didn't save — try again."); }
+    }catch(err){ S.busy = ""; renderLayer(); }
+    return;
+  }
+  if(a === "dayoff-add" || a === "dayoff-del"){
+    let list = (S.data.daysOff || []).slice();
+    if(a === "dayoff-add"){
+      const s = document.getElementById("do-start").value, en = document.getElementById("do-end").value || s, note = document.getElementById("do-note").value;
+      if(!s){ toast("Pick a start date."); return; }
+      list.push({ start:s, end:en, note });
+    }else list.splice(Number(k), 1);
+    S.busy = "Saving…"; renderLayer();
+    try{ const r = await api("setDaysOff", { daysOff:list }); S.busy = ""; if(r && r.ok){ S.data.daysOff = r.daysOff; S.dayOffDraft = { start:"", end:"", note:"" }; S.openDaysOff = true; render(); toast(a === "dayoff-add" ? "Days blocked" : "Day off removed"); } else { renderLayer(); toast("Didn't save — try again."); } }
+    catch(err){ S.busy = ""; renderLayer(); }
+    return;
+  }
+});
+
+document.addEventListener("input", e => {
+  if(["w-paid","w-tip","w-hair"].includes(e.target.id)){
+    const g = id => Number((document.getElementById(id) || {}).value) || 0;
+    const el = document.getElementById("w-profit"); if(el) el.textContent = money(g("w-paid") + g("w-tip") - g("w-hair"));
+  }
+  if(e.target.id === "search"){ S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = document.getElementById("search"); if(s){ s.focus(); s.setSelectionRange(pos, pos); } }
+  if(e.target.id === "reply") S.replyDraft = e.target.value;
+  if(["do-start","do-end","do-note"].includes(e.target.id)) S.dayOffDraft[e.target.id.slice(3)] = e.target.value;
+});
+document.addEventListener("toggle", e => { if(e.target.dataset && e.target.dataset.keep) S[e.target.dataset.keep] = e.target.open; }, true);
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape"){ if(S.wrap){ S.wrap = null; } else if(S.adding){ S.adding = false; } else if(S.tpl){ S.tpl = null; } else if(S.compose){ S.compose = null; } else if(S.open || S.client){ S.open = null; S.client = null; } renderLayer(); }
+  if(e.key === "Enter" && e.target.id === "pass") document.querySelector('[data-a="login"]').click();
+});
+// Refresh quietly when you come back to the app.
+document.addEventListener("visibilitychange", () => { if(!document.hidden && S.key && S.data && !S.busy && !S.compose) load(true); });
+
+/* ============== start ============== */
+S.key = store.get();
+if(S.key) load(false); else render();
+</script>
+</body>
+</html>

@@ -441,6 +441,39 @@
   .gal-nav.prev{ left:10px; } .gal-nav.next{ right:10px; }
   .gal-x:hover, .gal-nav:hover{ background:#F4EAE5; color:#211A1B; }
   @media (prefers-reduced-motion: reduce){ .gal-tile img, .gal-tile video{ transition:none; } }
+  /* manage my appointment */
+  .m-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+  .m-hi{ font-family:'Cormorant Garamond', serif; font-size:24px; font-weight:600; color:var(--cream); }
+  .m-pill{ font-size:10.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:20px; white-space:nowrap; background:var(--pink-soft); color:var(--pink); border:1px solid var(--line); }
+  .m-approved{ background:#2f5c2b; color:#c9e3c6; border-color:#2f5c2b; } .m-pending{ background:#5c4a14; color:#f5e3b3; border-color:#5c4a14; }
+  .m-cancelled,.m-denied,.m-no-show{ background:#4a4244; color:#d9d0d2; border-color:#4a4244; }
+  .m-row{ display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-top:1px solid var(--line); font-size:13.5px; }
+  .m-row span{ color:var(--muted); } .m-row b{ font-weight:500; color:var(--cream); text-align:right; }
+  .m-good{ color:#8fd487 !important; } .m-bad{ color:var(--pink) !important; }
+  .m-info{ background:var(--pink-soft); border-left:3px solid var(--pink); padding:11px 13px; font-size:13px; line-height:1.55; color:var(--cream); margin-bottom:12px; }
+  .m-warn{ background:#3a1f22; border-left:3px solid #c9716f; padding:11px 13px; font-size:13px; line-height:1.55; color:#f0c4c2; margin-bottom:12px; }
+  .m-warn b, .m-info b{ color:inherit; }
+  .m-link{ display:block; margin-top:8px; padding:0; border:none; background:none; color:var(--pink); font-family:'Work Sans', sans-serif; font-size:12.5px; text-decoration:underline; cursor:pointer; }
+  .m-notice{ background:#1f2e1e; border-left:3px solid #5fa858; color:#c9e3c6; padding:12px 14px; font-size:13.5px; line-height:1.5; margin-bottom:14px; }
+  .m-checkin-cta{ display:block; width:100%; text-align:left; margin-top:14px; padding:16px 18px; background:var(--pink); color:#241318; border:none; border-radius:2px; cursor:pointer; font-family:'Work Sans', sans-serif; }
+  .m-checkin-cta b{ display:block; font-size:14.5px; } .m-checkin-cta span{ font-size:12.5px; opacity:.85; }
+  .m-actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  .m-act{ padding:13px 8px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:13px; cursor:pointer; border-radius:2px; }
+  .m-act:hover{ border-color:var(--pink); background:var(--pink-soft); }
+  .m-act.on{ background:var(--pink); color:#241318; border-color:var(--pink); }
+  .m-act-quiet{ color:var(--muted); }
+  .m-panel{ margin-top:14px; }
+  .m-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .m-chip{ padding:9px 12px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12.5px; cursor:pointer; border-radius:999px; }
+  .m-chip.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
+  .m-danger{ background:#c9716f; } .m-danger:hover{ background:#e39997; }
+  .m-thread{ display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto; }
+  .m-bubble{ max-width:85%; padding:9px 12px; border-radius:12px; font-size:13.5px; line-height:1.45; }
+  .m-bubble span{ display:block; font-size:10.5px; opacity:.7; margin-top:3px; }
+  .m-bubble.you{ align-self:flex-end; background:var(--pink); color:#241318; border-bottom-right-radius:3px; }
+  .m-bubble.her{ align-self:flex-start; background:var(--panel-2); color:var(--cream); border:1px solid var(--line); border-bottom-left-radius:3px; }
+  .m-foot{ text-align:center; font-size:11.5px; color:var(--muted); margin:18px 10px 0; line-height:1.5; }
+  .m-act:focus-visible, .m-chip:focus-visible, .m-checkin-cta:focus-visible, .m-link:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
   .quiz-over{ font-size:12.5px; color:var(--pink); margin-top:6px; }
   .quiz-consult{ border-color:var(--pink); }
   .quiz-disclaimer{ font-size:11.5px; line-height:1.55; color:var(--muted); text-align:center; margin:20px 8px 10px; }
@@ -914,6 +947,7 @@ const BLOCKED_DATES = [
 // closes itself off the moment someone books it — no manual "block this date" needed for it.
 // Denying, cancelling, or rescheduling frees the day back up automatically (it just stops showing up here).
 let takenDates = new Set();
+let remoteDaysOff = [];
 async function refreshTakenDates(){
   try{
     const res = await fetch(CONFIG.apiUrl + "?action=takenDates");
@@ -924,16 +958,17 @@ async function refreshTakenDates(){
       if(m) next.add(m[3] + '-' + m[1] + '-' + m[2]);
     });
     takenDates = next;
+    remoteDaysOff = Array.isArray(json.daysOff) ? json.daysOff : [];   // days you blocked from the admin site
     render();
   }catch(err){ /* live sync failed — manual BLOCKED_DATES still works, just no auto-block this load */ }
 }
 // Squeeze-ins: a request for a day that's already booked. Always needs your approval.
 const SQUEEZE_IN_FEE = 20;
 function squeezeApplies(){ return !!state.squeezeIn && state.category && state.category!=='bundles' && state.category!=='consult'; }
-function isDayOff(dateStr){ return BLOCKED_DATES.some(b => typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end)); }
+function isDayOff(dateStr){ return BLOCKED_DATES.concat(remoteDaysOff).some(b => typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end)); }
 function isDateBlocked(dateStr){
   if(takenDates.has(dateStr)) return true;
-  return BLOCKED_DATES.some(b => typeof b === 'string' ? b === dateStr : (dateStr >= b.start && dateStr <= b.end));
+  return isDayOff(dateStr);
 }
 
 function timeSlotsFor(dateStr){
@@ -1185,6 +1220,7 @@ let state = {
   customDetails: "",
   takedownKey: null, takedownWashConfirmed: false,
   showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
+  manageToken: "", manage: null, mLoading: false, mErr: "", mTab: "", mForm: {}, mPhotos: [], mNotice: "", mErrText: "", mBusy: false,
   installTexture: "",
   dealsSelected: [],
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
@@ -1231,6 +1267,7 @@ function render(){
   else if(state.view === "questions") app.innerHTML = renderQuestions();
   else if(state.view === "aftercare") app.innerHTML = renderAftercare();
   else if(state.view === "gallery") app.innerHTML = renderGallery();
+  else if(state.view === "manage") app.innerHTML = renderManage();
   // Style Finder modal: keep the scroll position inside it unless they moved to a new step
   const prevQmScroll = (document.querySelector('.qm-body')||{}).scrollTop || 0;
   if(state.quizOpen) app.insertAdjacentHTML('beforeend', renderQuiz());
@@ -1651,6 +1688,161 @@ function renderGallery(){
   </div>`;
 }
 
+/* ============== "Manage my appointment" (the private link in their emails) ============== */
+// Hair check-in questions. Edit, add, or remove lines here — the page and your Sheet follow along.
+// type "choice" = tap one option; type "text" = they type an answer.
+const CHECKIN_QUESTIONS = [
+  { q:"How long is your hair at the nape (back of your neck)?", type:"choice", options:["Above the nape (short)", "At the nape", "Past the nape", "Not sure"] },
+  { q:"What's your hair like right now?", type:"choice", options:["Natural", "Relaxed", "Texturized", "Color-treated", "Other"] },
+  { q:"How thick is your hair?", type:"choice", options:["Fine / thin", "Medium", "Thick / dense", "Not sure"] },
+  { q:"Do you have a sensitive scalp?", type:"choice", options:["Yes", "No", "Sometimes"] },
+  { q:"Any thinning, breakage, or spots I should know about?", type:"text", placeholder:"e.g. thinner edges, none" },
+  { q:"Any product allergies or reactions (like to bonding glue)?", type:"text", placeholder:"e.g. none" },
+  { q:"When was your last relaxer, color, or chemical treatment?", type:"text", placeholder:"e.g. relaxer in August, never" },
+  { q:"Anything else I should know?", type:"text", placeholder:"optional" },
+];
+const LATE_OPTIONS = ["5–10 minutes", "10–20 minutes", "20–30 minutes", "30+ minutes"];
+
+async function manageCall(type, extra){
+  const payload = Object.assign({ token: state.manageToken, type: type }, extra || {});
+  const res = await fetch(CONFIG.apiUrl + "?action=manage&payload=" + encodeURIComponent(JSON.stringify(payload)));
+  return res.json();
+}
+async function loadManage(){
+  state.mLoading = true; state.mErr = ""; render();
+  try{
+    const d = await manageCall("get");
+    if(d && d.ok){ state.manage = d; } else { state.manage = null; state.mErr = (d && d.error === "notfound") ? "notfound" : "load"; }
+  }catch(err){ state.manage = null; state.mErr = "load"; }
+  state.mLoading = false;
+  refreshTakenDates();
+  render();
+}
+function mIso(us){ const m = String(us||"").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + "-" + m[1] + "-" + m[2] : ""; }
+function mWithin24(){ const h = state.manage && state.manage.hoursUntil; return h !== null && h !== undefined && h < 24; }
+function mWhen(d, t){ return [d, t].filter(Boolean).join(" at ") || "date to be confirmed"; }
+
+function renderManage(){
+  const shell = inner => `
+  <div class="wrap m-wrap">
+    <div class="hero" style="margin-bottom:20px;">
+      <p class="eyebrow" style="margin-bottom:6px;">The Ehiffect</p>
+      <h1 class="title" style="margin:0 0 8px;">Your Appointment</h1>
+      <p class="tagline">uncomplicated &amp; at your service</p>
+    </div>
+    ${inner}
+    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
+  </div>`;
+  if(state.mLoading) return shell(`<div class="loading">Loading your appointment…</div>`);
+  if(!state.manage){
+    return shell(`<div class="card"><div class="step-title" style="margin-bottom:8px;">${state.mErr==='notfound' ? "We couldn't find that appointment" : "Couldn't load your appointment"}</div>
+      <p class="opt-sub">${state.mErr==='notfound' ? "This link may be incomplete. Open the button in your confirmation email again, or DM @ehiffect on Instagram." : "Check your connection and try again."}</p>
+      ${state.mErr!=='notfound' ? `<button class="cta-btn" data-action="m-reload" style="margin:14px 0 0;">Try again</button>` : ''}</div>`);
+  }
+  const m = state.manage, tab = state.mTab, f = state.mForm, within = mWithin24();
+  const closed = ['denied','cancelled','no-show','rescheduled'].includes(m.status);
+  const pillTxt = { pending:'Waiting for approval', approved:'Confirmed', cancelled:'Cancelled', denied:'Not approved', rescheduled:'Rescheduled', 'no-show':'Missed' }[m.status] || m.status;
+  const showCheckin = !m.isBundle && !m.isConsult && !closed;
+  const btn = (key, label, extra='') => `<button class="m-act ${tab===key?'on':''} ${extra}" data-action="m-tab" data-key="${key}">${label}</button>`;
+
+  let panel = '';
+  if(tab === 'reschedule'){
+    panel = `
+      <div class="step-title" style="margin-bottom:6px;">Request a new time</div>
+      ${within ? `<div class="m-warn"><b>Heads up:</b> your appointment is less than 24 hours away, so this request most likely won't be approved unless it's an emergency. Please explain what's going on below.</div>`
+               : `<p class="opt-sub" style="margin:0 0 12px;">${m.status==='pending' ? "Your request isn't approved yet, so this just updates the date you're asking for." : "Pick a new day and time. Your current appointment stays on the books until I approve the change."}</p>`}
+      <div class="field"><label>New date</label>${renderCalendar()}</div>
+      ${state.date ? `<div class="field"><label>New time</label>
+        <select data-action="pick-time-slot"><option value="">choose a time</option>
+        ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}</select></div>` : ''}
+      <div class="field"><label>${within ? 'What happened? <span style="color:var(--pink);">*required</span>' : 'Anything I should know? (optional)'}</label>
+        <textarea data-mfield="reason" placeholder="${within ? 'tell me what came up' : 'optional'}">${escapeHTML(f.reason||'')}</textarea></div>
+      <button class="cta-btn" data-action="m-send-reschedule" ${state.mBusy?'disabled':''}>${state.mBusy?'Sending…':(m.status==='pending'?'Update my request':'Send reschedule request')}</button>`;
+  }else if(tab === 'cancel'){
+    const depNote = m.status==='pending' ? "Your request hasn't been approved yet, so there's nothing to refund."
+      : !m.depositPaid ? "You haven't sent a deposit, so there's nothing to refund."
+      : within ? `Your appointment is less than 24 hours away, so your $${m.deposit} deposit is non-refundable per my policy. If this is an emergency, explain below and I'll review it.`
+      : `You're cancelling more than 24 hours ahead, so your $${m.deposit} deposit will be refunded.`;
+    panel = `
+      <div class="step-title" style="margin-bottom:6px;">Cancel ${m.status==='pending' ? 'my request' : 'my appointment'}</div>
+      <div class="${within && m.depositPaid ? 'm-warn' : 'm-info'}">${depNote}</div>
+      <div class="field"><label>Reason (optional)</label><textarea data-mfield="cancelReason" placeholder="optional">${escapeHTML(f.cancelReason||'')}</textarea></div>
+      <button class="cta-btn m-danger" data-action="m-send-cancel" ${state.mBusy?'disabled':''}>${state.mBusy?'Cancelling…':'Yes, cancel it'}</button>
+      <button class="cta-btn secondary" data-action="m-tab" data-key="" style="margin-bottom:0;">Keep my appointment</button>`;
+  }else if(tab === 'late'){
+    panel = `
+      <div class="step-title" style="margin-bottom:6px;">Running late?</div>
+      <p class="opt-sub" style="margin:0 0 12px;">Thanks for letting me know! Heads up: there's a $${CONFIG.lateFeeAmount} late fee after ${CONFIG.lateFeeMinutes} minutes, and appointments may be cancelled after ${CONFIG.lateCancelMinutes} minutes unless you let me know at least 2 hours ahead.</p>
+      <div class="field"><label>About how late?</label>
+        <div class="m-chips">${LATE_OPTIONS.map(o=>`<button class="m-chip ${f.minutes===o?'on':''}" data-action="m-pick" data-field="minutes" data-key="${o}">${o}</button>`).join('')}</div></div>
+      <div class="field"><label>What's going on? (optional)</label><textarea data-mfield="lateNote" placeholder="e.g. stuck in traffic">${escapeHTML(f.lateNote||'')}</textarea></div>
+      <button class="cta-btn" data-action="m-send-late" ${state.mBusy?'disabled':''}>${state.mBusy?'Sending…':'Let her know'}</button>`;
+  }else if(tab === 'checkin'){
+    const prev = m.checkIn || {};
+    panel = `
+      <div class="step-title" style="margin-bottom:6px;">Hair check-in</div>
+      <p class="opt-sub" style="margin:0 0 14px;">${m.checkIn ? `You sent this on ${m.checkInAt}. You can update it anytime.` : "A few photos and quick questions so I can prep everything for your appointment."}</p>
+      <div class="field"><label>Photos of your natural hair: front, back (nape), and side if you can. Up to 3.</label>
+        <div class="photo-row">
+          ${state.mPhotos.map((p,i)=>`<div class="photo-thumb"><img src="${p}"/><div class="rm" data-action="m-remove-photo" data-key="${i}">×</div></div>`).join('')}
+          ${state.mPhotos.length < 3 ? `<div class="photo-add" id="m-photo-add">+</div>` : ''}
+        </div>
+        <input type="file" id="m-photo-input" accept="image/*" multiple style="display:none;"/>
+        ${m.checkInPhotos.length && !state.mPhotos.length ? `<div class="opt-sub" style="margin-top:6px;">${m.checkInPhotos.length} photo(s) already sent. Adding new ones replaces them.</div>` : ''}
+      </div>
+      ${CHECKIN_QUESTIONS.map((c,i)=>{
+        const val = f['ci'+i] !== undefined ? f['ci'+i] : (prev[c.q] || '');
+        return c.type==='choice'
+          ? `<div class="field"><label>${c.q}</label><div class="m-chips">${c.options.map(o=>`<button class="m-chip ${val===o?'on':''}" data-action="m-pick" data-field="ci${i}" data-key="${escapeHTML(o)}">${o}</button>`).join('')}</div></div>`
+          : `<div class="field"><label>${c.q}</label><input type="text" data-mfield="ci${i}" value="${escapeHTML(val)}" placeholder="${c.placeholder||''}"/></div>`;
+      }).join('')}
+      <button class="cta-btn" data-action="m-send-checkin" ${state.mBusy?'disabled':''}>${state.mBusy?(state.mBusyText||'Sending…'):(m.checkIn?'Update my check-in':'Send my check-in')}</button>`;
+  }else if(tab === 'message'){
+    panel = `
+      <div class="step-title" style="margin-bottom:10px;">Messages</div>
+      <div class="m-thread">
+        ${m.thread.length ? m.thread.map(t=>`<div class="m-bubble ${t.from==='me'?'her':'you'}"><div>${escapeHTML(t.text)}</div><span>${t.from==='me'?'The Ehiffect':'You'} · ${escapeHTML(t.at||'')}</span></div>`).join('')
+          : `<p class="opt-sub" style="margin:0;">Questions about your hair, products, or your appointment? Send a message — you'll get an email when I reply.</p>`}
+      </div>
+      <div class="field" style="margin-top:12px;"><textarea data-mfield="msg" placeholder="type your message">${escapeHTML(f.msg||'')}</textarea></div>
+      <button class="cta-btn" data-action="m-send-message" ${state.mBusy?'disabled':''}>${state.mBusy?'Sending…':'Send message'}</button>`;
+  }
+
+  return shell(`
+    ${state.mNotice ? `<div class="m-notice">${state.mNotice}</div>` : ''}
+    <div class="card">
+      <div class="m-top"><div class="m-hi">Hi ${escapeHTML(m.name)}!</div><span class="m-pill m-${m.status}">${pillTxt}</span></div>
+      <div class="m-row"><span>Service</span><b>${escapeHTML(m.service||'')}</b></div>
+      <div class="m-row"><span>When</span><b>${mWhen(m.date, m.time)}</b></div>
+      ${m.total!=='' && !isNaN(Number(m.total)) ? `<div class="m-row"><span>Estimated total</span><b>$${Number(m.total).toFixed(0)}</b></div>` : ''}
+      ${!m.isBundle && m.status==='approved' ? `<div class="m-row"><span>Deposit</span><b class="${m.depositPaid?'m-good':'m-bad'}">${m.depositPaid ? 'Received ✓' : `Send $${m.deposit} to ${escapeHTML(m.cashtag)} on Cash App`}</b></div>` : ''}
+      ${m.status==='pending' ? `<p class="opt-sub" style="margin:12px 0 0;">I'll get back to you within 24 hours. You'll get an email once it's approved.</p>` : ''}
+      ${m.request ? `<div class="m-info" style="margin-top:14px;"><b>Reschedule requested:</b> ${mWhen(m.request.date, m.request.time)}. Waiting for approval — you'll get an email.
+        <button class="m-link" data-action="m-withdraw">Never mind, keep my original time</button></div>` : ''}
+      ${m.lateNote && !closed ? `<div class="m-info" style="margin-top:10px;"><b>Running late note sent:</b> ${escapeHTML(m.lateNote.split('\n')[0])}</div>` : ''}
+    </div>
+    ${showCheckin && !m.checkIn ? `<button class="m-checkin-cta" data-action="m-tab" data-key="checkin"><b>📋 Fill out your hair check-in</b><span>Photos + a few quick questions so I can prep for you</span></button>` : ''}
+    <div class="m-actions">
+      ${showCheckin && m.checkIn ? btn('checkin','📋 Hair check-in ✓') : ''}
+      ${!closed && !m.isBundle ? btn('reschedule','📅 Reschedule') : ''}
+      ${!closed && !m.isBundle && !m.isConsult ? btn('late','⏰ Running late') : ''}
+      ${btn('message','💬 Message' + (m.thread.length ? ' (' + m.thread.length + ')' : ''))}
+      ${!closed ? btn('cancel','Cancel', 'm-act-quiet') : ''}
+    </div>
+    ${panel ? `<div class="card m-panel">${state.mErrText ? `<div class="error-text" style="margin:0 0 10px;">${state.mErrText}</div>` : ''}${panel}</div>` : ''}
+    <p class="m-foot">Confirmations, reschedule and cancellation updates, and deposit info are all sent to your email.</p>`);
+}
+
+async function manageSubmit(type, extra, okText, el){
+  state.mBusy = true; state.mErrText = ''; render();
+  try{
+    const d = await manageCall(type, extra);
+    if(d && d.ok){ state.manage = d; state.mNotice = okText; state.mTab = ''; state.mForm = {}; state.mPhotos = []; state.date = ''; state.time = ''; window.scrollTo(0,0); }
+    else{ state.mErrText = (d && d.error) || "Something went wrong — try again."; if(d && d.status) state.manage = Object.assign(state.manage, d, { ok:true }); }
+  }catch(err){ state.mErrText = "Couldn't send — check your connection and try again."; }
+  state.mBusy = false; state.mBusyText = '';
+}
+
 /* ============== aftercare guide ============== */
 // Content comes from your aftercare.html (sew-in) and your quick weave aftercare PDF.
 // Each section: { h: heading, note?: small italic line, items: [...] }. "POROSITY" marks where the porosity toggle goes.
@@ -1771,7 +1963,8 @@ function renderCalendar(){
     const dateStr = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const isPast = dateStr < today;
     const squeezable = squeezeApplies() && takenDates.has(dateStr) && !isDayOff(dateStr);
-    const isBlocked = isDateBlocked(dateStr) && !squeezable;
+    const ownDay = state.view==='manage' && state.manage && dateStr === mIso(state.manage.date);
+    const isBlocked = isDateBlocked(dateStr) && !squeezable && !ownDay;
     const isSelected = state.date === dateStr;
     const cls = ['cal-day'];
     if(isPast) cls.push('past');
@@ -2087,7 +2280,7 @@ function renderBook(){
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can call you"/></div>
       <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="opt-sub">Add at least one — phone or Instagram.</div>
-      <div class="field" style="margin-top:12px;"><label>Email (optional)</label><input type="email" id="f-email" value="${state.email}" placeholder="to get an email once it's confirmed"/></div>
+      <div class="field" style="margin-top:12px;"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
     </div>` : ''}
 
     ${showDetails && state.category!=='consult' ? `
@@ -2096,7 +2289,7 @@ function renderBook(){
       <div class="field"><label>Name <span style="color:var(--pink);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number <span style="color:var(--pink);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
-      <div class="field"><label>Email (optional)</label><input type="email" id="f-email" value="${state.email}" placeholder="to get an email once you're approved"/></div>
+      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
 
       <div class="field">
         <label>Reference photos (optional, up to 3)</label>
@@ -2191,7 +2384,7 @@ function renderBundles(){
       <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
-      <div class="field"><label>Email (optional)</label><input type="email" id="f-email" value="${state.email}" placeholder="to get an email once you're approved"/></div>
+      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field">
         <label>Preferred pickup date</label>
         <input type="date" id="f-date" value="${state.date}"/>
@@ -2240,12 +2433,13 @@ function renderConfirm(){
   ${state.category==='bundles' ? `
   <p style="margin-top:16px;">I'll review your bundle request and <b>text you to confirm your final price</b> — have it ready for pickup on ${state.date||'your selected date'}.</p>
   ` : state.category==='consult' ? `
-  <p style="margin-top:16px;">Your consultation request is <b>waiting for confirmation</b> — you'll get a text within <b>24 hours</b> confirming your time.</p>
+  <p style="margin-top:16px;">Your consultation request is <b>waiting for confirmation</b> — you'll get an email within <b>24 hours</b> confirming your time.</p>
   <p>Send your <b>${money(CONFIG.depositAmount)}</b> fee to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to lock in your time — it'll go toward your deposit if you book a service after.</p>
   ` : `
-  <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get a text within <b>24 hours</b> letting you know if it's approved or not.</p>
+  <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get an email within <b>24 hours</b> letting you know if it's approved or not.</p>
   <p>Once approved, send your <b>${money(CONFIG.depositAmount)}</b> deposit to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to hold your spot.</p>
   `}
+  <div class="m-info" style="text-align:left; margin-top:14px;">📧 Check your email${state.email ? ` (<b>${escapeHTML(state.email)}</b>)` : ''} — your confirmation is on its way, with a link to change or cancel your request. Don't see it? Check spam or promotions.</div>
   <button data-action="book-again">${state.category==='bundles' ? 'Order More Bundles' : 'Book another'}</button>
   <button data-action="go-landing" style="margin-top:10px;">Homepage</button>
   <div class="back-link" data-action="go-questions" style="margin-top:16px;">Questions about your appointment? ›</div>
@@ -2261,7 +2455,11 @@ function renderQuestions(){
     <div class="card">
       <span class="back-link" data-action="go-landing">&lsaquo; back</span>
       <div class="step-label"><span class="step-title">Haven't heard back yet?</span></div>
-      <p class="opt-sub">I confirm every request by text within 24 hours. If it's been longer than that, DM me on Instagram and I'll take a look.</p>
+      <p class="opt-sub">I confirm every request by email within 24 hours (check spam too). If it's been longer than that, DM me on Instagram and I'll take a look.</p>
+    </div>
+    <div class="card">
+      <div class="step-label"><span class="step-title">Need to change, cancel, or running late?</span></div>
+      <p class="opt-sub">Open the "Manage my appointment" button in your confirmation email. From there you can reschedule, cancel, fill out your hair check-in, message me, or let me know you're running late.</p>
     </div>
     <div class="card">
       <div class="step-label"><span class="step-title">Policies</span></div>
@@ -2372,6 +2570,17 @@ function renderAdmin(){
           <div><span class="k">Submitted:</span> ${b.submittedAt || ''}</div>
         </div>
         ${b.photos && b.photos.length ? `<div class="booking-photos">${b.photos.map(p=>`<img src="${photoThumb(p)}" data-action="view-photo" data-src="${p}"/>`).join('')}</div>` : ''}
+        ${b.request ? `<div class="admin-warn ${b.request.within24?'':'ok'}" style="margin-top:12px;"><b>${b.request.within24?'🚨 Reschedule request (within 24 hrs)':'📅 Reschedule request'}:</b> wants ${b.request.date} ${b.request.time}${b.request.reason?`<br>“${escapeHTML(b.request.reason)}”`:''}
+          <div class="booking-actions" style="margin-top:8px;"><button class="approve" data-action="admin-decide" data-key="${b.key}" data-status="approve">Approve move</button><button class="deny" data-action="admin-decide" data-key="${b.key}" data-status="deny">Deny</button></div></div>` : ''}
+        ${b.lateNote ? `<div class="admin-warn" style="margin-top:10px; background:#3a3020; border-left-color:#d9b25b; color:#f3e4bf;"><b>⏰ Running late:</b> ${escapeHTML(b.lateNote.split('\n')[0])}</div>` : ''}
+        ${b.cancelInfo ? `<div class="booking-detail"><span class="k">Cancel:</span> ${escapeHTML(b.cancelInfo)}</div>` : ''}
+        ${b.checkIn ? `<details class="policy-box" style="margin-top:10px;"><summary>📋 Hair check-in</summary><div class="policy-body">
+          ${Object.keys(b.checkIn).filter(k=>b.checkIn[k]).map(k=>`<div><b>${escapeHTML(k)}</b> ${escapeHTML(b.checkIn[k])}</div>`).join('')}
+          ${b.checkInPhotos.length ? `<div class="booking-photos">${b.checkInPhotos.map(p=>`<img src="${photoThumb(p)}" data-action="view-photo" data-src="${p}"/>`).join('')}</div>` : ''}</div></details>` : ''}
+        ${b.thread && b.thread.length ? `<details class="policy-box" style="margin-top:10px;" ${b.needsReply?'open':''}><summary>💬 Messages${b.needsReply?' — needs reply':''}</summary><div class="policy-body">
+          <div class="m-thread">${b.thread.map(t=>`<div class="m-bubble ${t.from==='me'?'you':'her'}"><div>${escapeHTML(t.text)}</div><span>${t.from==='me'?'You':escapeHTML(String(b.name).split(' ')[0])} · ${escapeHTML(t.at||'')}</span></div>`).join('')}</div>
+          <textarea id="reply-${b.key}" placeholder="write a reply" style="width:100%; margin-top:8px; min-height:60px; background:var(--panel-2); color:var(--cream); border:1px solid var(--line); padding:8px;"></textarea>
+          <div class="booking-actions"><button data-action="admin-reply" data-key="${b.key}">Send reply</button></div></div></details>` : ''}
 
         ${(b.status==='approved' && !b.isBundle) ? `
         <div class="addon-row" style="margin-top:10px;">
@@ -2385,7 +2594,9 @@ function renderAdmin(){
           <button class="pending ${b.status==='rescheduled'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="rescheduled">Rescheduled</button>
           <button class="deny ${b.status==='no-show'?'active':''}" data-action="set-status" data-key="${b.key}" data-status="no-show">No-show</button>
         </div>
-        ${b.text ? `<div class="booking-actions"><button data-action="copy-text" data-key="${b.key}">${state.copiedKey===b.key ? 'Copied ✓' : 'Copy ' + String(b.textLabel||'text').toLowerCase()}</button></div>` : ''}
+        ${b.text || b.manageUrl ? `<div class="booking-actions">
+          ${b.text ? `<button data-action="copy-text" data-key="${b.key}">${state.copiedKey===b.key ? 'Copied ✓' : 'Copy ' + String(b.textLabel||'text').toLowerCase()}</button>` : ''}
+          ${b.manageUrl ? `<button data-action="copy-manage" data-key="${b.key}">${state.copiedKey===('m'+b.key) ? 'Copied ✓' : 'Copy manage link'}</button>` : ''}</div>` : ''}
       </div>`;}).join('')}
   </div>`;
 }
@@ -2466,6 +2677,63 @@ function attachHandlers(){
           if(key==='crochet' && state.quizAnswers.hair==='own') state.crochetHairSource = 'own';
         }
         window.scrollTo(0,0);
+      }
+      else if(action==='m-reload'){ loadManage(); return; }
+      else if(action==='m-tab'){
+        state.mTab = (state.mTab===key || !key) ? '' : key; state.mErrText = ''; state.mNotice = '';
+        if(state.mTab==='reschedule'){ state.date = ''; state.time = ''; state.calendarMonth = null; }
+      }
+      else if(action==='m-pick'){ state.mForm[el.getAttribute('data-field')] = key; }
+      else if(action==='m-remove-photo'){ state.mPhotos.splice(parseInt(key),1); }
+      else if(action==='m-withdraw'){ await manageSubmit('withdrawRequest', {}, "Got it — you're keeping your original time."); }
+      else if(action==='m-send-reschedule'){
+        if(!state.date){ state.mErrText = "Pick a new date first."; }
+        else if(!state.time){ state.mErrText = "Pick a new time."; }
+        else if(mWithin24() && !(state.mForm.reason||'').trim()){ state.mErrText = "Since it's within 24 hours, please tell me what happened."; }
+        else await manageSubmit('reschedule', { date: state.date, time: state.time, reason: state.mForm.reason||'' },
+          state.manage.status==='pending' ? "Your requested date was updated. Check your email for confirmation." : "Reschedule request sent! You'll get an email once I approve or deny it.");
+      }
+      else if(action==='m-send-cancel'){ await manageSubmit('cancel', { reason: state.mForm.cancelReason||'' }, "Your appointment has been cancelled. A confirmation is on its way to your email."); }
+      else if(action==='m-send-late'){
+        if(!state.mForm.minutes){ state.mErrText = "Pick about how late you'll be."; }
+        else await manageSubmit('late', { minutes: state.mForm.minutes, note: state.mForm.lateNote||'' }, "Thanks for the heads up — she's been notified. Drive safe! 💗");
+      }
+      else if(action==='m-send-message'){
+        if(!(state.mForm.msg||'').trim()){ state.mErrText = "Type a message first."; }
+        else await manageSubmit('message', { text: state.mForm.msg }, "Message sent! You'll get an email when she replies.");
+      }
+      else if(action==='m-send-checkin'){
+        const prev = state.manage.checkIn || {}, answers = {};
+        CHECKIN_QUESTIONS.forEach((c,i)=>{ const v = state.mForm['ci'+i] !== undefined ? state.mForm['ci'+i] : (prev[c.q]||''); answers[c.q] = String(v).trim(); });
+        if(!state.mPhotos.length && !state.manage.checkInPhotos.length){ state.mErrText = "Please add at least one photo of your natural hair."; }
+        else{
+          let photoIds = [];
+          if(state.mPhotos.length){
+            state.mBusy = true; state.mBusyText = 'Uploading photos…'; render();
+            try{ photoIds = await uploadPhotos(state.mPhotos); }
+            catch(err){ state.mBusy = false; state.mErrText = "Your photos didn't upload — check your connection and try again."; render(); return; }
+          }
+          state.mBusyText = 'Sending…';
+          await manageSubmit('checkin', { answers, photoIds }, "Hair check-in sent — thank you! 💗");
+        }
+      }
+      else if(action==='admin-decide'){
+        await submitViaGet('decideRequest', { key, decision: el.getAttribute('data-status'), adminKey: ADMIN_SESSION_KEY });
+        await new Promise(r=>setTimeout(r, 1500));
+        try{ state.bookings = await listBookings(); }catch(err){}
+      }
+      else if(action==='admin-reply'){
+        const ta = document.getElementById('reply-' + key);
+        const text = ta ? ta.value.trim() : '';
+        if(!text) return;
+        el.disabled = true; el.textContent = 'Sending…';
+        await submitViaGet('reply', { key, text, adminKey: ADMIN_SESSION_KEY });
+        await new Promise(r=>setTimeout(r, 1500));
+        try{ state.bookings = await listBookings(); }catch(err){}
+      }
+      else if(action==='copy-manage'){
+        const b = state.bookings.find(x=>x.key===key);
+        if(b && b.manageUrl){ try{ await navigator.clipboard.writeText(b.manageUrl); }catch(err){} state.copiedKey = 'm' + key; setTimeout(()=>{ state.copiedKey=''; if(state.view==='admin') render(); }, 2000); }
       }
       else if(action==='go-gallery'){ state.view = 'gallery'; state.galleryOpen = null; window.scrollTo(0,0); }
       else if(action==='gal-open'){ state.galleryOpen = Number(key); }
@@ -2561,6 +2829,9 @@ function attachHandlers(){
         const partnerContactEl = document.getElementById('f-partner-contact');
         if(partnerContactEl) state.partnerContact = partnerContactEl.value.trim();
 
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(state.email || '')){
+          state.error = "Please add a valid email — your confirmation and appointment updates are sent there."; render(); return;
+        }
         if(state.category==='consult'){
           if(!state.phone && !state.ig){ state.error = "Please add a phone number or Instagram so I can reach you."; render(); return; }
         } else if(!state.name || !state.phone){
@@ -2734,6 +3005,18 @@ function attachHandlers(){
     });
   }
 
+  document.querySelectorAll('[data-mfield]').forEach(el2 => el2.addEventListener('input', e => { state.mForm[el2.getAttribute('data-mfield')] = e.target.value; }));
+  const mAdd = document.getElementById('m-photo-add'), mInput = document.getElementById('m-photo-input');
+  if(mAdd && mInput){
+    mAdd.addEventListener('click', () => mInput.click());
+    mInput.addEventListener('change', async e => {
+      const files = Array.from(e.target.files).slice(0, 3 - state.mPhotos.length);
+      for(const f of files){ try{ state.mPhotos.push(await fileToCompressedDataURL(f)); }catch(err){} }
+      if(state.mPhotos.length) state.mErrText = '';
+      mInput.value = ''; render();
+    });
+  }
+
   const photoAddBtn = document.getElementById('photo-add-btn');
   const photoInput = document.getElementById('photo-input');
   if(photoAddBtn && photoInput){
@@ -2791,7 +3074,12 @@ document.addEventListener('keydown', (e)=>{
 })();
 
 function checkRoute(){
-  if(window.location.hash === '#admin'){ state.view = (state.view==='admin') ? 'admin' : 'admin-gate'; }
+  const mm = window.location.hash.match(/^#manage=([A-Za-z0-9]{1,64})/);
+  if(mm){
+    if(state.manageToken !== mm[1] || !state.manage){ state.view = 'manage'; state.manageToken = mm[1]; state.mTab = ''; state.mNotice = ''; loadManage(); }
+    return;
+  }
+  if(window.location.hash === '#admin'){ window.location.replace('admin.html'); return; }   // the full admin site lives at admin.html
   else if(window.location.hash === '#work'){ state.view = 'gallery'; }
   else if(window.location.hash === '#aftercare' || window.location.hash === '#aftercare-quickweave'){
     state.view = 'aftercare'; state.aftercareTab = window.location.hash === '#aftercare-quickweave' ? 'qw' : 'si';
