@@ -601,7 +601,7 @@ function handleCreate(body){
 
     sendBookingEmail(body, values, photoUrls);
     if(mine) emailRequestReceived(mine);                  // client's "we got your request" email, with their manage link
-    refreshViews(updated);
+    refreshSoon();
     return { ok: true, key: id };
   });
 }
@@ -644,7 +644,7 @@ function handleUpdateStatus(body){
       sendApprovalEmail(target);
     }
     if(body.status === "denied" || body.status === "cancelled") emailStatusChange(target, body.status);
-    refreshViews();
+    refreshSoon();
     return { ok: true };
   });
 }
@@ -705,7 +705,7 @@ function handleSetDeposit(body){
     if(!target) return { ok: false };
     setCell(sheet, cols, "depositPaid", target.row, !!body.paid);
     if(body.paid && !isTrue(target.depositEmailed)){ target.depositPaid = true; if(emailDepositReceived(target)) setCell(sheet, cols, "depositEmailed", target.row, true); }
-    refreshViews();
+    refreshSoon();
     return { ok: true };
   });
 }
@@ -1072,7 +1072,7 @@ function handleManage(body){
         if(reason) set("notes", (b.notes ? b.notes + " | " : "") + "Changed date: " + reason);
         notifyMe("📅 " + b.name + " changed her requested date", b.name + " changed her pending request from " + from + " to " + to + "." + (reason ? "\n\nNote: " + reason : ""));
         sendClientEmail(b, "Your request was updated — The Ehiffect", ["Your requested date is now " + to + ".", "I'll get back to you within 24 hours to confirm."]);
-        refreshViews();
+        refreshSoon();
         return manageShape(b, { done: "updated" });
       }
       set("reqDate", date); set("reqTime", time); set("reqReason", reason); set("reqAt", nowStamp()); set("reqWithin24", within);
@@ -1082,12 +1082,12 @@ function handleManage(body){
         "\n\nApprove or deny it on the Client Updates tab in your Sheet, or on your site dashboard.");
       sendTemplate(b, "reschedReceived", { oldWhen: from, newWhen: to,
         within24Line: within ? "Since this is within 24 hours of your appointment, it most likely won't be approved unless it's an emergency. I'll review what you sent and let you know." : "I'll confirm within 24 hours." });
-      refreshViews();
+      refreshSoon();
       return manageShape(b, { done: "reschedule" });
     }
 
     if(type === "withdrawRequest"){
-      if(hasRequest(b)){ clearReq(); notifyMe("📅 " + b.name + " withdrew her reschedule request", b.name + " is keeping her original time: " + whenText(b) + "."); refreshViews(); }
+      if(hasRequest(b)){ clearReq(); notifyMe("📅 " + b.name + " withdrew her reschedule request", b.name + " is keeping her original time: " + whenText(b) + "."); refreshSoon(); }
       return manageShape(b, { done: "withdrawn" });
     }
 
@@ -1105,7 +1105,7 @@ function handleManage(body){
         b.name + " cancelled her " + (wasPending ? "pending request" : "appointment") + " for " + when + " (" + b.serviceLabel + ")." +
         (reason ? "\n\nReason: " + reason : "") + (isPaid(b) ? "\n\nDeposit: paid — " + (within ? "within 24 hrs, so it's yours to keep unless it was an emergency." : "more than 24 hrs ahead, so it should be refunded (tick it on the Denied & Rescheduled tab once sent).") : ""));
       sendTemplate(b, "clientCancelled", { when: when, depositNote: depositNote });
-      refreshViews();
+      refreshSoon();
       return manageShape(b, { done: "cancelled" });
     }
 
@@ -1115,7 +1115,7 @@ function handleManage(body){
       const line = nowStamp() + " — " + mins + (note ? ": " + note : "");
       set("lateNote", (line + (b.lateNote ? "\n" + b.lateNote : "")).slice(0, 2000));
       notifyMe("⏰ " + b.name + " is running late — " + mins, b.name + " (" + whenText(b) + ") says she's running " + mins + "." + (note ? "\n\n" + note : ""));
-      refreshViews();
+      refreshSoon();
       return manageShape(b, { done: "late" });
     }
 
@@ -1129,7 +1129,7 @@ function handleManage(body){
       notifyMe("📋 Hair check-in from " + b.name, b.name + " (" + whenText(b) + ") filled out her hair check-in:\n\n" + lines.join("\n") +
         (urls.length ? "\n\nPhotos:\n" + urls.join("\n") : "") +
         ((body.photoIds || []).length > urls.length ? "\n\n(" + ((body.photoIds || []).length - urls.length) + " photo(s) failed to upload — ask her to resend.)" : ""));
-      refreshViews();
+      refreshSoon();
       return manageShape(b, { done: "checkin" });
     }
 
@@ -1139,7 +1139,7 @@ function handleManage(body){
       const t = readThread(b); t.push({ from: "client", text: text, at: nowStamp() });
       set("thread", JSON.stringify(t.slice(-50))); set("threadNeedsReply", true);
       notifyMe("💬 New message from " + b.name, b.name + " (" + whenText(b) + "):\n\n" + text + "\n\nReply from the Client Updates tab in your Sheet or from your site dashboard.");
-      refreshViews();
+      refreshSoon();
       return manageShape(b, { done: "message" });
     }
 
@@ -1181,14 +1181,14 @@ function handleDecideRequest(body){
   return withLock(() => {
     const b = readBookings().find(x => x.id === body.key);
     if(!decideRequest(b, body.decision === "approve" ? "approve" : "deny")) return { ok: false };
-    refreshViews(); return { ok: true };
+    refreshSoon(); return { ok: true };
   });
 }
 function handleReply(body){
   return withLock(() => {
     const b = readBookings().find(x => x.id === body.key);
     if(!replyToClient(b, body.text)) return { ok: false };
-    refreshViews(); return { ok: true };
+    refreshSoon(); return { ok: true };
   });
 }
 
@@ -1415,10 +1415,7 @@ function handleAdminAct(body){
     }
     if(ch.depositPaid === true && em && em.kind === "deposit" && !em.send) set("depositEmailed", true);   // you chose not to email
 
-    // quick ticks only redraw their own tab; anything bigger refreshes the whole sheet + calendar
-    const light = Object.keys(ch).every(f => ["hairOrdered", "kitPacked", "shipped", "notes", "tip", "hairCost", "amountPaid"].indexOf(f) !== -1) && !em && !body.request;
-    if(light){ const all = readBookings(); try{ writeHairSheet(all); writeKitsSheet(all); }catch(e){} }
-    else refreshViews();
+    refreshSoon();                                   // tabs + calendar catch up in a few seconds; don't make the phone wait for it
     return { ok: true, emailed: emailed, booking: adminBooking(readBookings().find(x => x.id === body.key), getSettings()) };
   });
 }
@@ -1455,7 +1452,7 @@ function handleAdminCreate(body){
     sheet.getRange(targetRow, 1, 1, cols.width).setValues([row]);
     const b = readBookings().find(x => x.id === id);
     if(b && body.sendEmail && b.email && status === "approved") emailApproved(b);
-    refreshViews();
+    refreshSoon();
     return { ok: true, booking: adminBooking(readBookings().find(x => x.id === id), getSettings()) };
   });
 }
@@ -1927,6 +1924,29 @@ function peekHiddenRows(){
   const sheet = getSheet();
   if(sheet.getLastRow() > 1) sheet.showRows(2, sheet.getLastRow() - 1);
   SpreadsheetApp.getActiveSpreadsheet().toast("Showing denied / rescheduled rows — they tuck away again at the next refresh.", "Ehiffect", 6);
+}
+
+// Web requests (the website, the admin site, a client's manage-appointment page) shouldn't make a phone wait
+// while every tab and the calendar are rebuilt — that's what made saving slow. They call refreshSoon(), which
+// answers immediately and schedules ONE rebuild a few seconds later; saves that arrive meanwhile share it.
+// The data itself is already written and any email already sent before this; only the sheet's tabs catch up.
+function refreshSoon(){
+  const props = PropertiesService.getScriptProperties();
+  const pending = Number(props.getProperty("refreshPending") || 0);
+  if(pending && Date.now() - pending < 3 * 60000) return;        // one is already scheduled
+  try{
+    ScriptApp.newTrigger("runQueuedRefresh").timeBased().after(5000).create();
+    props.setProperty("refreshPending", String(Date.now()));
+  }catch(err){
+    refreshViews();                                              // couldn't schedule one, so just do it now
+  }
+}
+
+function runQueuedRefresh(){
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === "runQueuedRefresh")
+    .forEach(t => { try{ ScriptApp.deleteTrigger(t); }catch(e){} });
+  PropertiesService.getScriptProperties().deleteProperty("refreshPending");   // cleared first, so a save during the rebuild schedules a fresh one
+  withLock(() => refreshViews());
 }
 
 function refreshViews(prefetched){
