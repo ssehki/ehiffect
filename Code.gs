@@ -48,7 +48,38 @@
    1. SETTINGS — the only part you'll normally want to edit
    ================================================================ */
 
-const NOTIFY_EMAIL = "ehivoltk@gmail.com";           // where new-booking emails go
+// Every email goes out through sendMail_ below, so this is the one place to change it.
+// BUSINESS_EMAIL is where new-booking / question notices arrive AND the address clients reply to.
+// NOTE: Google sends mail from the account that OWNS this script. For clients to see this address as the
+// sender, the sheet + script must be owned by this Google account (the dashboard line under EHIFFECT tells you
+// which address emails are really coming from right now).
+const BUSINESS_EMAIL = "thehiffect@gmail.com";
+const NOTIFY_EMAIL = BUSINESS_EMAIL;                  // where new-booking emails go
+const SENDER_NAME = "The Ehiffect";                   // the name clients see on your emails
+
+function sendMail_(opts){
+  return MailApp.sendEmail(Object.assign({ name: SENDER_NAME, replyTo: BUSINESS_EMAIL }, opts));
+}
+
+// Which address emails are really sent from (the account that owns this script).
+function senderAddress_(){
+  try{ return String(Session.getEffectiveUser().getEmail() || ""); }catch(e){ return ""; }
+}
+
+// Menu item: tells you plainly where emails are coming from.
+function checkEmailSender(){
+  const ui = SpreadsheetApp.getUi();
+  const from = senderAddress_();
+  if(!from){ ui.alert("Couldn't read the sending address", "Run this again after re-authorizing the script (Apps Script editor → Run any function → Allow).", ui.ButtonSet.OK); return; }
+  if(from.toLowerCase() === BUSINESS_EMAIL.toLowerCase()){
+    ui.alert("Emails send from " + from + " ✓", "Clients see " + SENDER_NAME + " <" + from + ">, and replies come back to " + BUSINESS_EMAIL + ".", ui.ButtonSet.OK);
+  }else{
+    ui.alert("Emails are NOT coming from " + BUSINESS_EMAIL,
+      "Right now they're sent from " + from + " because that account owns this script.\n\n" +
+      "Clients will see the name \"" + SENDER_NAME + "\" and replies go to " + BUSINESS_EMAIL + ", but the address underneath is still " + from + ".\n\n" +
+      "To send from " + BUSINESS_EMAIL + ", the sheet has to be owned by that account (make a copy of the sheet while signed in as " + BUSINESS_EMAIL + ", then deploy from there).", ui.ButtonSet.OK);
+  }
+}
 const PHOTO_FOLDER_NAME = "Ehiffect Booking Photos";  // Drive folder for reference photos
 
 // GOOGLE CALENDAR: every APPROVED booking becomes a calendar event (moved if you change the date/time,
@@ -608,7 +639,7 @@ function handleCreate(body){
 
 function sendBookingEmail(body, v, photoUrls){
   try{
-    MailApp.sendEmail({
+    sendMail_({
       to: NOTIFY_EMAIL,
       subject: (hasWarning(v) ? "⚠ HEADS UP — " : "") + (isSqueeze(v) ? (/LESS THAN 24 HRS/.test(String(v.serviceLabel)) ? "⏰⚡ LAST-MINUTE SQUEEZE-IN — " : "⚡ SQUEEZE-IN — ") : "") + "New Ehiffect booking request — " + (v.name || "unknown"),
       body:
@@ -687,7 +718,7 @@ function sendApprovalEmail(b){
     // Never let an email hiccup block the status update — but tell you about it instead of
     // failing completely silently, so a bad address or quota issue doesn't go unnoticed.
     try{
-      MailApp.sendEmail({
+      sendMail_({
         to: NOTIFY_EMAIL,
         subject: "⚠ Approval email to " + (b.name || "a client") + " failed to send",
         body: "Tried to email " + (b.email || "(no email)") + " when approving this booking, but it failed:\n\n" + err.message
@@ -783,11 +814,18 @@ function doGet(e){
   }
 
   // The admin site (admin.html). Same passcode as your dashboard.
-  if(["adminData", "emailDraft", "adminAct", "adminCreate", "customEmail", "saveTemplate", "setDaysOff"].indexOf(action) !== -1){
+  if(["adminData", "emailDraft", "adminAct", "adminCreate", "customEmail", "saveTemplate", "setDaysOff", "adminDelete", "inquiryDone"].indexOf(action) !== -1){
     let body;
     try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
     const auth = checkAdmin_(body.adminKey); if(auth !== "ok") return json({ ok: false, error: auth });
     try{ return json(adminApi(action, body)); }catch(err){ return json({ ok: false, error: String(err && err.message || err) }); }
+  }
+
+  // A question typed into the website's "Ask me a question" form.
+  if(action === "inquiry"){
+    let body;
+    try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
+    try{ return json(handleInquiry(body)); }catch(err){ return json({ ok: false, error: "Couldn't send — please DM @ehiffect on Instagram." }); }
   }
 
   if(action === "decideRequest" || action === "reply"){
@@ -867,7 +905,7 @@ function readThread(b){ try{ const t = JSON.parse(b.thread || "[]"); return Arra
 function readCheckIn(b){ try{ return JSON.parse(b.checkIn || "null"); }catch(e){ return null; } }
 function hasRequest(b){ return !!String(b.reqDate || "").trim(); }
 
-function notifyMe(subject, body){ try{ MailApp.sendEmail({ to: NOTIFY_EMAIL, subject: subject, body: body }); }catch(e){} }
+function notifyMe(subject, body){ try{ sendMail_({ to: NOTIFY_EMAIL, subject: subject, body: body }); }catch(e){} }
 
 // One branded email to a client: plain-text + simple HTML, with a pink "Manage my appointment" button.
 function sendClientEmail(b, subject, paras, opts){
@@ -889,7 +927,7 @@ function sendClientEmail(b, subject, paras, opts){
     (link ? '<p style="margin:26px 0"><a href="' + link + '" style="background:#E38AAE;color:#241318;text-decoration:none;padding:13px 22px;border-radius:2px;font-weight:bold;letter-spacing:.05em;display:inline-block">' + esc(label) + '</a></p>' : '') +
     '<p style="color:#8C7B7E;font-size:13px;margin-top:26px">Questions? Reply to this email or DM @ehiffect on Instagram.</p></div>';
   try{
-    MailApp.sendEmail({ to: String(b.email).trim(), subject: subject, body: plain.join("\n"), htmlBody: html, name: "The Ehiffect", replyTo: NOTIFY_EMAIL });
+    sendMail_({ to: String(b.email).trim(), subject: subject, body: plain.join("\n"), htmlBody: html, name: "The Ehiffect", replyTo: NOTIFY_EMAIL });
     try{ const sh = getSheet(), cm = getColumns(sh).map; setCell(sh, cm, "lastEmail", b.row, subject + " → " + b.email + " · " + nowStamp()); }catch(e){}
     return true;
   }catch(err){
@@ -1371,6 +1409,7 @@ function adminData(){
   if(ensureTokens(all)) all.splice(0, all.length, ...readBookings());
   const settings = getSettings();
   return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(),
+           inquiries: readInquiries_().filter(q => q.status !== "done").reverse().slice(0, 40),
            settings: settings, cashtag: CASHTAG, siteUrl: SITE_URL };
 }
 
@@ -1420,6 +1459,82 @@ function handleAdminAct(body){
     refreshSoon();                                   // tabs + calendar catch up in a few seconds; don't make the phone wait for it
     return { ok: true, emailed: emailed, booking: adminBooking(readBookings().find(x => x.id === body.key), getSettings()) };
   });
+}
+
+// Permanently removes a booking from Bookings (and its calendar events). A copy is kept in the
+// "Deleted bookings" tab first, so a mistake can be undone by hand.
+function handleAdminDelete(body){
+  return withLock(() => {
+    const b = readBookings().find(x => x.id === body.key);
+    if(!b) return { ok: false, error: "Booking not found" };
+    const sheet = getSheet();
+    const arch = getOrCreateSheet("Deleted bookings");
+    if(arch.getLastRow() === 0){
+      arch.getRange(1, 1, 1, 8).setValues([["deletedAt", "name", "phone", "email", "date", "time", "service", "everything (JSON)"]]);
+      styleHeaderRow(arch.getRange(1, 1, 1, 8)); arch.setFrozenRows(1); arch.setTabColor(COLORS.muted);
+    }
+    const all = {}; HEADERS.forEach(f => { all[f] = b[f]; });
+    arch.appendRow([formatTimestamp(Date.now()), b.name, String(b.phone), b.email, asDate(b.date), asTime(b.time), b.serviceLabel, JSON.stringify(all)]);
+    try{                                                         // take its events off the calendar
+      const cal = calendarId_() ? CalendarApp.getCalendarById(calendarId_()) : CalendarApp.getDefaultCalendar();
+      String(b.calendarEvent || "").split("|").forEach((id, i) => { if(i !== 1 && id){ try{ const ev = cal.getEventById(id); if(ev) ev.deleteEvent(); }catch(e){} } });
+    }catch(e){}
+    sheet.deleteRow(b.row);
+    refreshSoon();
+    return { ok: true };
+  });
+}
+
+// ---- Questions people send from the website ("Inquiries" tab) ----
+const INQUIRY_HEADERS = ["id", "receivedAt", "name", "phone", "email", "message", "appointment", "status"];
+function inquirySheet_(){
+  const sh = getOrCreateSheet("Inquiries");
+  if(sh.getLastRow() === 0){
+    sh.getRange(1, 1, 1, INQUIRY_HEADERS.length).setValues([INQUIRY_HEADERS]);
+    styleHeaderRow(sh.getRange(1, 1, 1, INQUIRY_HEADERS.length)); sh.setFrozenRows(1); sh.setTabColor(COLORS.pink);
+    [150, 140, 140, 120, 190, 380, 160, 80].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  }
+  return sh;
+}
+function readInquiries_(){
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inquiries");
+  if(!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, INQUIRY_HEADERS.length).getValues().map((r, i) => ({
+    row: i + 2, id: String(r[0]), at: asText(r[1]), name: String(r[2]), phone: String(r[3]), email: String(r[4]),
+    message: String(r[5]), appointment: String(r[6]), status: String(r[7] || "new")
+  })).filter(q => q.id);
+}
+function handleInquiry(body){
+  if(body.website) return { ok: true };                          // hidden field only bots fill in
+  const name = clip(body.name, 80).trim(), phone = clip(body.phone, 30).trim(), email = clip(body.email, 120).trim();
+  const message = clip(body.message, 1200).trim(), appt = clip(body.appointment, 80).trim();
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if(!name || message.length < 3) return { ok: false, error: "Add your name and your question." };
+  if(!emailOk && phone.replace(/\D/g, "").length < 10) return { ok: false, error: "Add an email or phone number so I can reply." };
+  const cache = CacheService.getScriptCache();                   // flood protection: 20 an hour overall, 1 a minute per person
+  const hourly = Number(cache.get("inq_hour") || 0);
+  if(hourly >= 20) return { ok: false, error: "Lots of messages right now — please DM @ehiffect on Instagram." };
+  const who = "inq_" + (emailOk ? email.toLowerCase() : phone.replace(/\D/g, ""));
+  if(cache.get(who)) return { ok: true };
+  cache.put(who, "1", 60); cache.put("inq_hour", String(hourly + 1), 3600);
+  const id = "q_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+  inquirySheet_().appendRow([id, formatTimestamp(Date.now()), name, phone, email, message, appt, "new"]);
+  sendMail_({
+    to: BUSINESS_EMAIL, replyTo: emailOk ? email : BUSINESS_EMAIL,
+    subject: "💬 Question from " + name,
+    body: name + " sent a question from your website:\n\n\"" + message + "\"\n\n" +
+          (appt ? "About: " + appt + "\n" : "") + (phone ? "Phone: " + phone + "\n" : "") + (email ? "Email: " + email + "\n" : "") +
+          (emailOk ? "\nHit reply to answer her directly." : "\nShe left a phone number only — text her back.")
+  });
+  return { ok: true };
+}
+function handleInquiryDone(body){
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inquiries");
+  if(!sh) return { ok: false };
+  const q = readInquiries_().find(x => x.id === body.id);
+  if(!q) return { ok: false };
+  sh.getRange(q.row, INQUIRY_HEADERS.indexOf("status") + 1).setValue("done");
+  return { ok: true };
 }
 
 function handleCustomEmail(body){
@@ -1498,6 +1613,37 @@ function dailyPrepReminder(){
   notifyMe("💗 Ehiffect prep: " + (prep.length ? prep.length + " to prep" : "") + (prep.length && wrap.length ? " · " : "") + (wrap.length ? wrap.length + " to wrap up" : ""), lines.join("\n"));
 }
 
+// Copies the whole spreadsheet (every tab + the script) into a Drive folder, keeping the newest 8 copies.
+const BACKUP_FOLDER = "Ehiffect Backups";
+const BACKUP_KEEP = 8;
+function backupNow(silent){
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const folders = DriveApp.getFoldersByName(BACKUP_FOLDER);
+  const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(BACKUP_FOLDER);
+  const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH.mm");
+  DriveApp.getFileById(ss.getId()).makeCopy("Ehiffect backup " + stamp, folder);
+  // keep only the newest BACKUP_KEEP copies (older ones go to your Drive trash, not deleted forever)
+  const files = [];
+  const it = folder.getFiles();
+  while(it.hasNext()){ const f = it.next(); files.push({ f: f, t: f.getDateCreated().getTime() }); }
+  files.sort((a, b) => b.t - a.t).slice(BACKUP_KEEP).forEach(x => { try{ x.f.setTrashed(true); }catch(e){} });
+  try{ PropertiesService.getScriptProperties().setProperty("lastBackup", Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MMM d, h:mm a")); }catch(e){}
+  if(!silent) ss.toast("Backup saved to the \"" + BACKUP_FOLDER + "\" folder in your Google Drive.", "Ehiffect", 8);
+}
+
+function weeklyBackup(){ try{ backupNow(true); }catch(err){ console.error("weekly backup failed: " + err); } }
+
+// Makes sure a backup runs every Sunday around 3 AM (never makes a duplicate).
+function ensureBackupTrigger(){
+  const exists = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "weeklyBackup");
+  if(!exists) ScriptApp.newTrigger("weeklyBackup").timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  return !exists;
+}
+function turnOnWeeklyBackup(){
+  const created = ensureBackupTrigger();
+  SpreadsheetApp.getActiveSpreadsheet().toast(created ? "Done — your sheet is copied to Drive every Sunday night (newest 8 kept)." : "Already on.", "Ehiffect", 8);
+}
+
 // Makes sure the morning reminder runs every day around 9 AM (never makes a duplicate).
 function ensurePrepTrigger(){
   const exists = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "dailyPrepReminder");
@@ -1512,6 +1658,8 @@ function turnOnPrepReminders(){
 function adminApi(action, body){
   if(action === "adminData"){ try{ ensurePrepTrigger(); }catch(e){} return adminData(); }
   if(action === "adminCreate") return handleAdminCreate(body);
+  if(action === "adminDelete") return handleAdminDelete(body);
+  if(action === "inquiryDone") return handleInquiryDone(body);
   if(action === "emailDraft") return emailDraft(body);
   if(action === "adminAct") return handleAdminAct(body);
   if(action === "customEmail") return handleCustomEmail(body);
@@ -1539,6 +1687,9 @@ function onOpen(){
     .addItem("Peek at hidden denied / rescheduled rows in Bookings", "peekHiddenRows")
     .addItem("Sync approved bookings to Google Calendar", "syncCalendarNow")
     .addItem("Turn on approval emails", "setupApprovalEmails")
+    .addItem("Which email am I sending from?", "checkEmailSender")
+    .addItem("Back up the sheet now", "backupNow")
+    .addItem("Turn on weekly backup", "turnOnWeeklyBackup")
     .addToUi();
 }
 
@@ -1843,7 +1994,7 @@ function sendCardEmail(dash, row){
   if(!to){ note.setValue("⚠ No email address on file for " + b.name + " — text them instead."); return; }
   if(!subject || !body.trim()){ note.setValue("⚠ Subject or message is empty."); return; }
   try{
-    MailApp.sendEmail({ to: to, subject: subject, body: body });
+    sendMail_({ to: to, subject: subject, body: body });
     const type = String(dash.getRange(DASH.MAIL_TYPE).getValue());
     const bookings = getSheet(), colMap = getColumns(bookings).map;
     if(type === EMAIL_TYPES[0]) setCell(bookings, colMap, "approvalEmailed", row, true);
@@ -2572,6 +2723,14 @@ function writeDashboardSheet(all, clients){
     }catch(e){}
   }
 
+  try{
+    const from = senderAddress_();
+    if(from) autoNote += from.toLowerCase() === BUSINESS_EMAIL.toLowerCase() ? "   ·   ✉ emails send from " + from + " ✓"
+                                                                           : "   ·   ⚠ emails send from " + from + " (not " + BUSINESS_EMAIL + ")";
+    const lb = PropertiesService.getScriptProperties().getProperty("lastBackup");
+    autoNote += lb ? "   ·   💾 last backup " + lb : "   ·   ⚠ no backup yet — menu Ehiffect → Back up the sheet now";
+  }catch(e){}
+
   // ---------- header ----------
   sheet.getRange("A1:" + LAST + "1").merge().setValue("EHIFFECT").setBackground(COLORS.cream).setFontColor(COLORS.ink)
        .setFontFamily("Cormorant Garamond").setFontSize(30).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("center");
@@ -3095,6 +3254,7 @@ function formatSheet(){
   refreshViews();                             // 6. Dashboard + Clients
   let emailNote = "";
   try{ ensureEditTrigger(); }catch(err){ emailNote = " (Approval emails from the Status dropdown could NOT be turned on: " + err.message + ")"; }   // 7. lets the dropdown send email
+  try{ ensureBackupTrigger(); }catch(err){}                    // 8. weekly Drive backup
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ["Dashboard", "Client Updates", "Hair Orders", "Clients", "Kits", "Denied & Rescheduled", "Bookings"].forEach((name, i) => {
     const s = ss.getSheetByName(name);
@@ -3301,5 +3461,5 @@ function cleanLegacyValues(){
 }
 
 function testEmail(){
-  MailApp.sendEmail({ to: NOTIFY_EMAIL, subject: "Test email from Ehiffect script", body: "If you're reading this, email sending works!" });
+  sendMail_({ to: NOTIFY_EMAIL, subject: "Test email from Ehiffect script", body: "If you're reading this, email sending works!" });
 }

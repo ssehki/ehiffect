@@ -389,6 +389,15 @@
   .quiz-bubble-x{ top:50%; transform:translateY(-50%); right:4px; width:20px; height:20px; font-size:14px; }
   @media (max-width:480px){ .quiz-bubble{ font-size:11.5px; padding:5px 26px 5px 10px; } }
   @media (prefers-reduced-motion: reduce){ #fab-root .quiz-fab-wrap{ transition:none; } }
+  /* Narrow desktop windows (about 560–860px): the page column is 480px wide and centered, so the full-size button
+     would sit on top of it. Shrink it to just the heart and drop the tag so it fits in the empty side margin. */
+  @media (min-width:561px) and (max-width:860px){
+    .quiz-fab{ width:50px; height:50px; padding:0; gap:0; justify-content:center; }
+    .quiz-fab .fab-label{ display:none; }
+    .quiz-fab .fab-heart{ font-size:20px; }
+    .quiz-bubble{ display:none; }
+    .quiz-fab-wrap{ right:8px; }
+  }
 
   /* Style Finder modal */
   .qm-overlay{ position:fixed; inset:0; z-index:70; background:rgba(12,8,10,0.62); display:flex; align-items:center; justify-content:center; padding:24px; }
@@ -658,6 +667,23 @@ const TAKEDOWNS = [
 const QUIZ_SPEED = { qw:'shorter', cornrows:'shorter', twostrand:'shorter', crochet:'moderate', si:'longer', braids:'longer', marley:'longer' };
 
 const QUIZ = [
+  // Takedowns come first, because plenty of people don't know they're something you offer.
+  { key:"goal", q:"Are you trying to take your hair down?", hint:"I do takedowns (removal only) as well as new styles.", options:[
+    { key:"new", label:"No — I want a new style", sub:"Help me find the right style" },
+    { key:"down", label:"Yes — I just need it taken down", sub:"Removal only, no new style" },
+    { key:"both", label:"Both — take it down and do something new", sub:"I'll see takedown options and style matches" },
+  ]},
+  { key:"tdtype", q:"What are you taking down?", options:[
+    { key:"sew", label:"A sew-in or quick weave", sub:"Tracks, thread, and a braid-down" },
+    { key:"crochet", label:"Crochet", sub:"Crochet hair over a braid-down" },
+    { key:"other", label:"Something else / I'm not sure", sub:"Braids, twists, or I'm not certain what I have", open:true },
+  ]},
+  { key:"tdscope", q:"How much do you want taken out?", options:[
+    { key:"thread", label:"Just the hair — my braid-down stays in", sub:"Thread & Track Removal" },
+    { key:"full", label:"The hair and the braid-down", sub:"Full Sew-In Takedown" },
+    { key:"complete", label:"Everything out, plus careful detangling", sub:"Complete Takedown + Detangling" },
+    { key:"unsure", label:"I'm not sure", sub:"Show me the options" },
+  ]},
   { key:"who", q:"Who are we styling?", options:[
     { key:"w", label:"Women's styles", sub:"Sew-ins, quick weaves, braids & twists, crochet, and cornrows" },
     { key:"m", label:"Men's styles", sub:"Two-strand twists, Marley twists, and cornrows" },
@@ -755,10 +781,35 @@ const QUIZ_SEEN_KEY = "ehiffectQuizSeen";
 function quizAlreadySeen(){ try{ return sessionStorage.getItem(QUIZ_SEEN_KEY)==='1'; }catch(e){ return false; } }
 function markQuizSeen(){ state.showQuizPrompt = false; try{ sessionStorage.setItem(QUIZ_SEEN_KEY,'1'); }catch(e){} }
 function escapeHTML(str){ return String(str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Which questions apply depends on the first answer: "just a takedown" skips the style questions,
+// "a new style" skips the takedown ones, and "both" asks everything.
+const QUIZ_TAKEDOWN_QS = ['tdtype','tdscope'];
+const QUIZ_STYLE_QS = ['who','vision','chair','matters','last','budget','hair'];
 function quizQuestions(){
   const who = state.quizAnswers.who;
+  const goal = state.quizAnswers.goal;
+  const wantsTakedown = goal === 'down' || goal === 'both';
   const fits = x => !x.for || !who || x.for===who;
-  return QUIZ.filter(fits).map(q=>({ ...q, q:(q.qFor && q.qFor[who]) || q.q, hint:(q.hintFor && q.hintFor[who]) || q.hint, options:q.options.filter(fits) }));
+  const applies = q => {
+    if(QUIZ_TAKEDOWN_QS.includes(q.key)){
+      if(!wantsTakedown) return false;
+      return q.key !== 'tdscope' || state.quizAnswers.tdtype === 'sew';
+    }
+    if(QUIZ_STYLE_QS.includes(q.key)) return goal !== 'down';
+    return true;
+  };
+  return QUIZ.filter(q => fits(q) && applies(q)).map(q=>({ ...q, q:(q.qFor && q.qFor[who]) || q.q, hint:(q.hintFor && q.hintFor[who]) || q.hint, options:q.options.filter(fits) }));
+}
+// Which takedowns match their answers (keys into TAKEDOWNS). Empty = they weren't sure → suggest a consultation.
+function quizTakedowns(){
+  const a = state.quizAnswers;
+  if(a.goal !== 'down' && a.goal !== 'both') return [];
+  if(a.tdtype === 'crochet') return ['crochet'];
+  if(a.tdtype === 'sew'){
+    if(['thread','full','complete'].includes(a.tdscope)) return [a.tdscope];
+    return ['thread','full','complete'];            // "not sure": show all three sew-in options
+  }
+  return [];
 }
 function quizPicked(){
   const picked = [];
@@ -1235,6 +1286,7 @@ let state = {
   bundleQty: 1, bundleDetails: "", bundleTexture: "", bundleHairSource: "", bundleKitUpgrade: false,
   customDetails: "",
   takedownKey: null, takedownWashConfirmed: false,
+  inqName: "", inqEmail: "", inqPhone: "", inqAbout: "", inqMsg: "", inqBusy: false, inqDone: false, inqErr: "",
   showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
   manageToken: "", manage: null, mLoading: false, mErr: "", mTab: "", mForm: {}, mPhotos: [], mNotice: "", mErrText: "", mBusy: false,
   installTexture: "",
@@ -1607,9 +1659,23 @@ function renderQuiz(){
       <button class="cta-btn" data-action="quiz-name-submit">See my match</button>
       <button class="cta-btn secondary" data-action="quiz-name-skip" style="margin-bottom:0;">Skip</button>`;
   } else {
-    const matches = quizMatches();
-    const consult = quizNeedsConsult(matches);
+    const goal = state.quizAnswers.goal;
+    const tdKeys = quizTakedowns();
+    const downOnly = goal === 'down';
+    const matches = downOnly ? [] : quizMatches();
+    const consult = downOnly ? tdKeys.length === 0 : quizNeedsConsult(matches);
     const shown = matches.slice(0, Math.max(1, state.quizShowCount||1));
+    const tdCard = (k, i) => {
+      const t = TAKEDOWNS.find(x => x.key === k); if(!t) return '';
+      return `
+      <div class="card quiz-result">
+        <div class="quiz-rank">${tdKeys.length > 1 ? 'Takedown option ' + (i+1) : 'Your takedown'}</div>
+        <div class="quiz-match">${t.name}</div>
+        <p class="quiz-desc">${t.desc}</p>
+        <div class="quiz-price"><b>${money(t.price)}</b> removal only — no new style. Your hair needs to be washed and fully dry when you arrive.</div>
+        <button class="cta-btn" data-action="quiz-book" data-key="takedown:${t.key}" style="margin:16px 0 0;">Book this takedown</button>
+      </div>`;
+    };
     const card = (r, i) => {
       const svc = QUIZ_SERVICES[r.key];
       const why = quizReasonSentence(r.reasons);
@@ -1625,8 +1691,13 @@ function renderQuiz(){
       </div>`;
     };
     body = `
-      <h2 class="quiz-q" id="qm-q" style="font-size:28px;">Your Style Match</h2>
-      <p class="quiz-hint">${state.quizName ? `${escapeHTML(state.quizName)}, based` : 'Based'} on your preferences, here ${matches.length===1?'is the style':'are the styles'} we think you'll love.</p>
+      <h2 class="quiz-q" id="qm-q" style="font-size:28px;">${downOnly ? 'Your Takedown' : 'Your Style Match'}</h2>
+      <p class="quiz-hint">${downOnly
+        ? (tdKeys.length ? (state.quizName ? escapeHTML(state.quizName) + ', here' : 'Here') + (tdKeys.length===1 ? ' is the takedown' : ' are the takedowns') + ' that fit what you described.'
+                         : "I'm not sure which takedown fits yet — let's figure it out together.")
+        : (state.quizName ? `${escapeHTML(state.quizName)}, based` : 'Based') + ` on your preferences, here ${matches.length===1?'is the style':'are the styles'} we think you'll love.`}</p>
+      ${tdKeys.map(tdCard).join('')}
+      ${goal === 'both' && matches.length ? '<p class="quiz-hint" style="margin-top:18px;">And for your new style:</p>' : ''}
       ${shown.map(card).join('')}
       ${matches.length > shown.length ? `<button class="cta-btn secondary" data-action="quiz-more" style="margin-top:16px;">See another recommendation</button>` : ''}
       ${consult ? `
@@ -2478,6 +2549,21 @@ function renderQuestions(){
       <p class="opt-sub">I confirm every request by email within 24 hours (check spam too). If it's been longer than that, DM me on Instagram and I'll take a look.</p>
     </div>
     <div class="card">
+      <div class="step-label"><span class="step-title">Ask me a question</span></div>
+      ${state.inqDone ? `
+        <div class="takedown-note"><b>Got it — thank you!</b> I'll reply as soon as I can, usually within 24 hours. For anything urgent, DM @ehiffect on Instagram.</div>
+        <button class="cta-btn secondary" data-action="inq-another" style="margin:12px 0 0;">Ask another question</button>` : `
+        <p class="opt-sub">Questions about an appointment, a price, or something you couldn't find? Send it here and I'll get back to you.</p>
+        <div class="field"><label>Your name</label><input type="text" id="inq-name" value="${escapeHTML(state.inqName)}" placeholder="your name" autocomplete="name"/></div>
+        <div class="field"><label>Email</label><input type="email" id="inq-email" value="${escapeHTML(state.inqEmail)}" placeholder="where I should reply" autocomplete="email"/></div>
+        <div class="field"><label>Phone <span class="opt-sub">(if you'd rather get a text)</span></label><input type="tel" id="inq-phone" value="${escapeHTML(state.inqPhone)}" placeholder="optional if you gave an email" autocomplete="tel"/></div>
+        <div class="field"><label>Which appointment is this about? <span class="opt-sub">(optional)</span></label><input type="text" id="inq-about" value="${escapeHTML(state.inqAbout)}" placeholder="e.g. my sew-in on Oct 22"/></div>
+        <div class="field"><label>Your question</label><textarea id="inq-msg" maxlength="800" placeholder="what would you like to know?">${escapeHTML(state.inqMsg)}</textarea></div>
+        <input type="text" id="inq-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;"/>
+        ${state.inqErr ? `<div class="opt-sub" style="color:var(--pink); margin:0 0 10px;">${escapeHTML(state.inqErr)}</div>` : ''}
+        <button class="cta-btn" data-action="inq-send" ${state.inqBusy ? 'disabled' : ''} style="margin:0;">${state.inqBusy ? 'Sending…' : 'Send my question'}</button>`}
+    </div>
+    <div class="card">
       <div class="step-label"><span class="step-title">Need to change, cancel, or running late?</span></div>
       <p class="opt-sub">Open the "Manage my appointment" button in your confirmation email. From there you can reschedule, cancel, fill out your hair check-in, message me, or let me know you're running late.</p>
     </div>
@@ -2660,7 +2746,11 @@ function attachHandlers(){
       else if(action==='quiz-forward'){ state.quizStep++; state.qmReset = true; }
       else if(action==='quiz-answer'){
         const q = quizQuestions()[state.quizStep];
-        if(q.key==='who' && state.quizAnswers.who !== key) state.quizAnswers = {};   // switching paths clears old answers
+        if(q.key==='who' && state.quizAnswers.who !== key){                          // switching paths clears old style answers
+          const keep = {};
+          ['goal','tdtype','tdscope'].forEach(k => { if(state.quizAnswers[k] !== undefined) keep[k] = state.quizAnswers[k]; });
+          state.quizAnswers = keep;
+        }
         state.quizAnswers[q.key] = key;
         state.quizStep++; state.qmReset = true;
       }
@@ -2683,6 +2773,25 @@ function attachHandlers(){
       }
       else if(action==='quiz-back'){
         if(state.quizStep > 0){ state.quizStep--; state.qmReset = true; }
+      }
+      else if(action==='inq-another'){ state.inqDone = false; state.inqErr = ""; }
+      else if(action==='inq-send'){
+        if(state.inqBusy) return;
+        const name = state.inqName.trim(), email = state.inqEmail.trim(), phone = state.inqPhone.trim(), msg = state.inqMsg.trim();
+        const hp = (document.getElementById('inq-website') || {}).value || '';
+        if(!name || msg.length < 3){ state.inqErr = "Please add your name and your question."; }
+        else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && phone.replace(/\D/g,'').length < 10){ state.inqErr = "Add an email or phone number so I can reply."; }
+        else{
+          state.inqErr = ""; state.inqBusy = true; render();
+          try{
+            const payload = encodeURIComponent(JSON.stringify({ name, email, phone, appointment: state.inqAbout.trim(), message: msg, website: hp }));
+            const res = await fetch(CONFIG.apiUrl + "?action=inquiry&payload=" + payload);
+            const j = await res.json();
+            if(j && j.ok){ state.inqDone = true; state.inqMsg = ""; state.inqAbout = ""; }
+            else state.inqErr = (j && j.error) || "Couldn't send — please DM @ehiffect on Instagram.";
+          }catch(err){ state.inqErr = "Couldn't send right now — please DM @ehiffect on Instagram."; }
+          state.inqBusy = false;
+        }
       }
       else if(action==='quiz-book'){
         state.quizOpen = false;
@@ -3001,7 +3110,8 @@ function attachHandlers(){
     'f-bundle-details':'bundleDetails', 'f-crochet-details':'crochetDetails',
     'f-group-names':'treatmentGroupNames',
     'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',
-    'f-custom-details':'customDetails'
+    'f-custom-details':'customDetails',
+    'inq-name':'inqName', 'inq-email':'inqEmail', 'inq-phone':'inqPhone', 'inq-about':'inqAbout', 'inq-msg':'inqMsg'
   };
   Object.entries(liveFieldMap).forEach(([id, key])=>{
     const el2 = document.getElementById(id);

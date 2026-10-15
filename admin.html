@@ -301,7 +301,7 @@ function lists(){
     wrap: all.filter(b => b.status === "approved" && !b.serviced && b.dateIso && (b.dateIso < t || (b.dateIso === t && b.timeMin !== null && b.timeMin + 240 < new Date().getHours()*60 + new Date().getMinutes()))).sort(byWhen),
   };
 }
-function needsCount(){ if(!S.data) return 0; const L = lists(); return L.requests.length + L.pending.length + L.messages.length + L.prep.length + L.wrap.length; }
+function needsCount(){ if(!S.data) return 0; const L = lists(); return L.requests.length + L.pending.length + L.messages.length + L.prep.length + L.wrap.length + (S.data.inquiries || []).length; }
 
 /* ============== screens ============== */
 function render(){
@@ -354,7 +354,8 @@ function inbox(){
   const hour = new Date().getHours();
   const hi = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const sec = (title, items, body, quiet) => items.length ? `<h2 class="sec">${title}<span class="n ${quiet?'quiet':''}">${items.length}</span></h2><div class="list">${body}</div>` : '';
-  const all = L.requests.length + L.pending.length + L.messages.length + L.deposits.length + L.refunds.length + L.prep.length + L.week.length + L.wrap.length;
+  const INQ = S.data.inquiries || [];
+  const all = L.requests.length + L.pending.length + L.messages.length + L.deposits.length + L.refunds.length + L.prep.length + L.week.length + L.wrap.length + INQ.length;
   const dayTag = b => { const d = daysAway(b.dateIso); return d === 0 ? 'today' : d === 1 ? 'tomorrow' : new Date(b.dateIso + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" }); };
   const prepRow = b => `<div class="row" style="align-items:flex-start; cursor:default;">
       <div class="row-main" data-a="open" data-k="${esc(b.key)}" style="cursor:pointer;">
@@ -399,6 +400,17 @@ function inbox(){
         sub: when(b) + " · " + svc(b) + " · " + money(b.total) + (b.waiting ? " · waiting " + b.waiting : ""),
         note: [/LESS THAN 24 HRS/.test(b.serviceLabel) ? "⏰ Last-minute squeeze-in (less than 24 hrs away)" : "", clashes(b).length ? "⚠ Overlaps with " + clashes(b).map(x => first(x.name) + " at " + (x.time || "?")).join(", ") : "", b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
         actions: `<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
+    ${sec("Questions from the website", INQ, INQ.map(q => `<div class="row" style="cursor:default; align-items:flex-start;">
+        <div class="row-main">
+          <div class="row-title">${esc(q.name)}${q.appointment ? ` <span class="tag">${esc(q.appointment)}</span>` : ''}</div>
+          <div class="row-note" style="white-space:pre-line;">${esc(q.message)}</div>
+          <div class="row-sub">${esc(q.at)}${q.phone ? " · " + esc(q.phone) : ""}${q.email ? " · " + esc(q.email) : ""}</div>
+          <div class="btn-row" style="margin-top:8px;">
+            ${q.email ? `<a class="btn" href="mailto:${esc(q.email)}?subject=${encodeURIComponent("Re: your question")}">Reply by email</a>` : ''}
+            ${q.phone ? `<a class="btn" href="sms:${esc(String(q.phone).replace(/[^\d+]/g, ""))}">Text</a>` : ''}
+            <button class="btn ok" data-a="inq-done" data-k="${esc(q.id)}">Done</button>
+          </div>
+        </div></div>`).join(""))}
     ${sec("Messages", L.messages, L.messages.map(b => { const m = b.thread[b.thread.length-1] || {}; return bookingRow(b, { noPill:true, sub: when(b), note: "💬 " + esc(m.text || "") }); }).join(""))}
     ${sec("Waiting on deposit", L.deposits, L.deposits.map(b => bookingRow(b, { noPill:true, sub: when(b) + " · " + svc(b),
         actions: `<button class="btn" data-a="deposit" data-k="${esc(b.key)}">Received</button>` })).join(""), true)}
@@ -567,6 +579,7 @@ function detailSheet(b){
   }
   if(["denied","cancelled","no-show","rescheduled"].includes(st)) quick.push(`<button class="btn" data-a="status" data-s="pending" data-k="${esc(b.key)}">Move back to pending</button>`);
   if((st === "cancelled" || st === "denied") && b.depositPaid) quick.push(b.depositRefunded ? `<span class="tag good" style="padding:8px 10px;">Refunded ✓</span>` : `<button class="btn" data-a="refunded" data-k="${esc(b.key)}">Mark refunded</button>`);
+  if(st !== "approved") quick.push(`<button class="btn no" data-a="delete" data-k="${esc(b.key)}">Delete</button>`);
   const ci = b.checkIn || {};
   return `<div class="veil" data-a="close" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(b.name)}">
     <div class="sheet-head"><div><h3>${esc(b.name || "No name")}</h3><p>${pill(st)} ${esc(when(b))}</p></div>
@@ -644,6 +657,10 @@ function detailSheet(b){
         ${b.needsHair ? `<label class="check"><input type="checkbox" id="e-hairOrdered" ${b.hairOrdered?'checked':''}/> Hair ordered</label>` : ''}
         <button class="btn primary block" data-a="save" data-k="${esc(b.key)}" style="margin-top:8px;">Save changes</button>
         <p class="hint">If you change an approved appointment's date or time, you'll see the email to her before it sends.</p>
+        <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line-2);">
+          <button class="btn no block" data-a="delete" data-k="${esc(b.key)}">Delete this booking</button>
+          <p class="hint">Removes it from your Bookings sheet for good. A copy is kept in the "Deleted bookings" tab, just in case.</p>
+        </div>
       </div></details>
     </div></div></div>`;
 }
@@ -881,6 +898,27 @@ document.addEventListener("click", async e => {
   if(a === "deposit"){ const b = get(k); compose({ key:k, kind:"deposit", changes:{ depositPaid:true }, title:"Deposit from " + first(b.name), okLabel:"Mark received", doneText:"Deposit marked" }); return; }
   if(a === "refunded"){ act({ key:k, changes:{ depositRefunded:true } }, "Saving…", "Marked refunded"); return; }
   if(a === "serviced"){ act({ key:k, changes:{ serviced:true } }, "Saving…", "Marked serviced"); return; }
+  if(a === "delete"){
+    const b = get(k); if(!b) return;
+    if(!confirm("Delete " + (b.name || "this booking") + "'s booking for good?\n\n" + svcName(b) + " · " + when(b) +
+                "\n\nA copy is kept in the 'Deleted bookings' tab of your sheet.")) return;
+    S.busy = "Deleting…"; renderLayer();
+    try{
+      const r = await api("adminDelete", { key:k });
+      S.busy = "";
+      if(r && r.ok){ S.data.bookings = S.data.bookings.filter(x => x.key !== k); S.open = null; S.client = null; render(); toast("Deleted " + first(b.name)); load(true); }
+      else { renderLayer(); toast((r && r.error) || "Couldn't delete — try again."); }
+    }catch(err){ S.busy = ""; renderLayer(); if(S.key) toast("Couldn't reach your Sheet — try again."); }
+    return;
+  }
+  if(a === "inq-done"){
+    try{
+      const r = await api("inquiryDone", { id:k });
+      if(r && r.ok){ S.data.inquiries = (S.data.inquiries || []).filter(q => q.id !== k); render(); toast("Marked done"); }
+      else toast("Didn't save — try again.");
+    }catch(err){ if(S.key) toast("Couldn't reach your Sheet — try again."); }
+    return;
+  }
   if(a === "tick"){ act({ key:k, changes:{ [el.dataset.f]: el.checked } }, "Saving…", el.checked ? "Checked off" : "Unchecked"); return; }
   if(a === "custom"){ const b = get(k); compose({ key:k, kind:"custom", title:"Email " + first(b.name), okLabel:"Send email", doneText:"Email sent" }); return; }
   if(a === "c-toggle"){ S.compose.send = el.checked; const sub = document.getElementById("c-subject"), bod = document.getElementById("c-body"), btn = document.getElementById("c-button");
