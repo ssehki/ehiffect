@@ -874,7 +874,7 @@ function approvalEmailBody(b, depositAmount){
   const lines = [
     "Hi " + firstName(b) + ",",
     "",
-    isBundle(b) ? "Good news — I'm confirming your bundle order!" : "Good news — your appointment is approved!",
+    isBundle(b) ? "Good news, I'm confirming your bundle order!" : "Good news, your appointment is approved!",
     "",
     "Service: " + b.serviceLabel,
     "When: " + whenText(b),
@@ -1111,18 +1111,21 @@ function sendClientEmail(b, subject, paras, opts){
   paras = paras.filter(Boolean);
   const link = opts.link === false ? "" : (opts.url || manageUrl(b, opts.tab));
   const label = opts.linkLabel || "Manage my appointment";
+  const buttons = Array.isArray(opts.buttons) && opts.buttons.length ? opts.buttons.filter(x => x && x.url && x.label) : (link ? [{ label: label, url: link }] : []);
   const plain = ["Hi " + firstName(b) + ",", ""];
   paras.forEach(p => plain.push(p, ""));
-  if(link) plain.push(label + ": " + link, "");
-  plain.push("Questions? Reply to this email or DM @ehiffect on Instagram.", "", "— Ehi");
+  buttons.forEach(x => plain.push(x.label + ": " + x.url, ""));
+  plain.push("Questions? Reply to this email or DM @ehiffect on Instagram.", "", "Ehi");
   const html =
     '<div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px;color:#211A1B;font-size:15px;line-height:1.6">' +
     '<p style="font-family:Georgia,serif;font-size:24px;margin:0">The Ehiffect</p>' +
     '<p style="color:#B85C82;font-size:11px;letter-spacing:.18em;margin:2px 0 22px">UNCOMPLICATED &amp; AT YOUR SERVICE</p>' +
     '<p>Hi ' + esc(firstName(b)) + ',</p>' +
     paras.map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('') +
-    (link ? '<p style="margin:26px 0"><a href="' + link + '" style="background:#E38AAE;color:#241318;text-decoration:none;padding:13px 22px;border-radius:2px;font-weight:bold;letter-spacing:.05em;display:inline-block">' + esc(label) + '</a></p>' : '') +
-    '<p style="margin:22px 0 0">— Ehi</p><p style="color:#8C7B7E;font-size:13px;margin-top:14px">Questions? Reply to this email or DM @ehiffect on Instagram.</p></div>';
+    buttons.map((x, i) => '<p style="margin:' + (i ? '0 0 26px' : '26px 0 14px') + '"><a href="' + x.url + '" style="' +
+      (i ? 'background:#FFFFFF;border:1px solid #E38AAE;color:#B85C82;' : 'background:#E38AAE;color:#241318;') +
+      'text-decoration:none;padding:13px 22px;border-radius:2px;font-weight:bold;letter-spacing:.05em;display:inline-block">' + esc(x.label) + '</a></p>').join('') +
+    '<p style="margin:22px 0 0">Ehi</p><p style="color:#8C7B7E;font-size:13px;margin-top:14px">Questions? Reply to this email or DM @ehiffect on Instagram.</p></div>';
   try{
     sendMail_({ to: String(b.email).trim(), subject: subject, body: plain.join("\n"), htmlBody: html, name: "The Ehiffect", replyTo: NOTIFY_EMAIL });
     logEmail_(b, subject);
@@ -1134,66 +1137,19 @@ function sendClientEmail(b, subject, paras, opts){
 }
 
 // Remembers every email sent to a client (newest last, last 25 kept) so the admin page can show the history.
-/* ---------- AFTERCARE GUIDES (go out with the rebooking email, matched to the service they booked) ----------
-   Sew-In and Quick Weave are condensed from the aftercare guides on your website. The others are short general
-   guides — edit the wording here any time.                                                                  */
+/* ---------- AFTERCARE GUIDES ----------
+   The full guides live on your website (the "Aftercare guide" page, one tab per service). The rebooking email links
+   to the right one with a button. Only the title and the "when to come back" line are kept here.            */
 const AFTERCARE_GUIDES = {
-  si: { title: "Sew-In", link: "#aftercare",
-    timing: "Sew-ins are best taken down by about 6–8 weeks, so that's a great time to book your takedown and your next install.",
-    lines: [
-      "First 48 hours: hands off — no scratching, picking, or pulling while your scalp settles. Some tenderness is normal; sharp pain or bumps are not, so reach out to me.",
-      "Every night: wrap your hair or wear a silk/satin bonnet, and never go to bed with damp hair.",
-      "Wash day: cleanse your scalp every 1–2 weeks with diluted shampoo in an applicator bottle, rinse well, and dry completely with a hooded dryer or blow dryer.",
-      "Working out: a loose, low ponytail or a sweatband is fine — nothing tight at the edges — and blow-dry your roots on cool after a sweaty session.",
-      "Be gentle: detangle from ends to roots, use low to medium heat with a heat protectant, and avoid tight styles.",
-      "Leave-out: keep it moisturized, limit flat ironing, and tuck it under your bonnet at night.",
-      "At 6–8 weeks it's time for a takedown — please don't cut or pull your install out yourself. Book your takedown with me."] },
-  qw: { title: "Quick Weave", link: "#aftercare-quickweave",
-    timing: "Quick weaves should come out within about 2–4 weeks, so start thinking about your removal and your next style.",
-    lines: [
-      "First 24 hours: give the bond a day to set — keep your hair dry and skip heavy sweating.",
-      "Every night: wrap your hair or wear a silk/satin bonnet, and never sleep with damp hair.",
-      "Keep the roots dry: water and oils weaken the bond, so don't soak or wash at the roots, and keep oils and heavy products off your scalp and edges.",
-      "Working out: use a sweatband and a loose, low ponytail; wipe sweat from your hairline afterward and dry your roots on cool.",
-      "Be gentle: detangle from ends to roots, use low to medium heat with a heat protectant, and don't pull or pick at your tracks. If a track lifts, reach out to me instead of re-gluing it.",
-      "Leave-out: moisturize it (products on the leave-out only, away from the tracks) and limit flat ironing.",
-      "At 2–4 weeks it's time for removal — never pull or peel it out, it has to come out with glue remover. Book your removal with me."] },
-  braids: { title: "Braids & Twists", link: "", timing: "",
-    lines: [
-      "Every night: wrap your hair or wear a silk/satin bonnet.",
-      "Keep your scalp clean and lightly moisturized, and don't let product build up.",
-      "After washing, dry your braids completely — damp braids can smell and mildew.",
-      "Avoid pulling, tight ponytails, or tension on your edges.",
-      "Calm frizz with a light mist or oil instead of re-doing the style yourself.",
-      "When it's time for them to come out, book a takedown with me rather than cutting or pulling them out."] },
-  cornrows: { title: "Cornrows", link: "", timing: "",
-    lines: [
-      "Every night: wrap your hair or wear a silk/satin bonnet.",
-      "Moisturize your scalp lightly and keep product from building up between the rows.",
-      "Keep them dry after washing so they don't mildew or loosen.",
-      "Avoid pulling or tight styling around your edges.",
-      "If they start to loosen or itch a lot, reach out to me before taking them out yourself."] },
-  crochet: { title: "Crochet", link: "", timing: "",
-    lines: [
-      "Every night: wrap your hair or wear a silk/satin bonnet.",
-      "Keep your scalp clean and lightly moisturized without soaking the braid-down.",
-      "Dry completely after washing — damp braids underneath can smell and mildew.",
-      "Detangle gently from the ends up and avoid pulling on the crochet hair.",
-      "When it's time for removal, book a takedown with me rather than cutting it out."] },
-  takedown: { title: "After a Takedown", link: "", timing: "",
-    lines: [
-      "Give your natural hair a gentle wash and a deep condition soon after your takedown.",
-      "Detangle slowly from the ends to the roots with a wide-tooth comb.",
-      "Moisturize your hair and scalp, and give your edges a break from tight styles for a few days.",
-      "Some shedding is normal after a takedown — that's the hair that was already released from your scalp.",
-      "If your scalp feels sore or irritated, keep it gentle and reach out to me."] },
-  general: { title: "Your Style", link: "", timing: "",
-    lines: [
-      "Every night: wrap your hair or wear a silk/satin bonnet.",
-      "Keep your scalp clean and lightly moisturized, and avoid heavy product buildup.",
-      "Dry your hair completely after washing.",
-      "Avoid pulling, tension, or tight styling around your edges.",
-      "When it's time for your style to come out, book a takedown with me rather than removing it yourself."] }
+  si: { title: "Sew-In", page: "#aftercare",
+    timing: "Sew-ins are best taken down by about 6–8 weeks, so that's a great time to book your takedown and your next install." },
+  qw: { title: "Quick Weave", page: "#aftercare-quickweave",
+    timing: "Quick weaves should come out within about 2–4 weeks, so start thinking about your removal and your next style." },
+  braids: { title: "Braids & Twists", page: "#aftercare-braids", timing: "" },
+  cornrows: { title: "Cornrows", page: "#aftercare-cornrows", timing: "" },
+  crochet: { title: "Crochet", page: "#aftercare-crochet", timing: "" },
+  takedown: { title: "Takedown", page: "#aftercare-takedown", timing: "" },
+  general: { title: "Hair", page: "#aftercare-general", timing: "" }
 };
 function guideKey_(b){
   const t = String(b.serviceLabel || "");
@@ -1205,18 +1161,14 @@ function guideKey_(b){
   if(/braid|twist|marley|micro|mini/i.test(t)) return "braids";
   return "general";
 }
-function aftercareText_(b){
-  const g = AFTERCARE_GUIDES[guideKey_(b)];
-  return "Your aftercare guide — " + g.title + ":\n" + g.lines.map(l => "• " + l).join("\n") +
-         (g.link ? "\n\nThe full guide is here: " + SITE_URL + g.link : "");
-}
+function guideUrl_(b){ return SITE_URL + AFTERCARE_GUIDES[guideKey_(b)].page; }
 function rebookTiming_(b){ return AFTERCARE_GUIDES[guideKey_(b)].timing || ""; }
 
 // "Thank you + aftercare + rebook" — sent once, after an appointment is wrapped up (or by the morning job if it was missed).
 function maybeSendRebook_(b){
   try{
     if(getSiteConfig_().rebookEmails === false) return false;
-    if(!b || !String(b.email || "").trim() || isTrue(b.rebookEmailed) || isBundle(b) || isConsult(b)) return false;
+    if(!b || !String(b.email || "").trim() || String(b.rebookEmailed || "").trim() !== "" || isBundle(b) || isConsult(b)) return false;   // "skipped" counts too
     if(b.status !== "approved" || !isServiced(b)) return false;
     const ok = sendTemplate(b, "rebook");
     if(ok){ const sh = getSheet(), cm = getColumns(sh).map; setCell(sh, cm, "rebookEmailed", b.row, true); }
@@ -1247,43 +1199,46 @@ function logEmail_(b, subject){
 /* ---------- EMAIL TEMPLATES (editable from the admin site → More → Emails) ----------
    Words in {curly braces} are filled in for each client:
    {first} {name} {service} {when} {oldWhen} {newWhen} {total} {deposit} {cashtag} {site}
-   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine} {aftercare} {rebookTiming}
+   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine} {guideTitle} {rebookTiming}
    A blank line starts a new paragraph. A paragraph that ends up empty is left out.
    "button" is the pink button's text (leave blank for no button).                              */
 const EMAIL_DEFAULTS = {
   received: { label: "Request received", when: "Sent right after someone books",
-    subject: "We got your request — please fill out your hair check-in", button: "Fill out my hair check-in",
+    subject: "We got your request, please fill out your hair check-in", button: "Fill out my hair check-in",
     body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\n{squeezeLine}\n\nTo help me approve it, please fill out your hair check-in now: a few photos of your natural hair and some quick questions. It takes a couple of minutes, and I look it over before I confirm your appointment. Use the button below.\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Open the same link and use the buttons on that page." },
   approved: { label: "Approved", when: "When you approve a booking",
     subject: "Your Ehiffect appointment is approved! 💗", button: "Hair check-in & manage appointment",
-    body: "Good news — your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
+    body: "Good news, your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
   deposit: { label: "Deposit received", when: "When you mark a deposit as received",
-    subject: "Deposit received — you're all set! 💗", button: "Manage my appointment",
-    body: "I received your {deposit} deposit — your spot on {when} is locked in!\n\nIt comes off your total at your appointment.\n\n{checkinLine}" },
+    subject: "Deposit received, you're all set! 💗", button: "Manage my appointment",
+    body: "I received your {deposit} deposit. Your spot on {when} is locked in!\n\nIt comes off your total at your appointment.\n\n{checkinLine}" },
   timeChanged: { label: "Time updated", when: "When you change an approved appointment's date or time",
     subject: "Your Ehiffect appointment time was updated", button: "Manage my appointment",
-    body: "Heads up — your appointment has been updated.\n\nService: {service}\nNew time: {when}\n\nIf this time doesn't work for you, use the button below to request a different one or send me a message." },
+    body: "Heads up: your appointment has been updated.\n\nService: {service}\nNew time: {when}\n\nIf this time doesn't work for you, use the button below to request a different one or send me a message." },
   denied: { label: "Not approved", when: "When you deny a booking",
-    subject: "About your Ehiffect booking request", button: "Book a new time",
-    body: "Thank you so much for requesting {service} on {when}. Unfortunately I'm not able to take that booking.\n\n{depositNote}\n\nI'd love to find another time that works — you're welcome to book again anytime with the button below." },
+    subject: "About your Ehiffect booking request", button: "",
+    body: "Thank you so much for requesting {service} on {when}. Unfortunately I'm not able to take that booking.\n\n{depositNote}" },
   cancelled: { label: "Cancelled by you", when: "When you cancel someone's appointment",
-    subject: "Your Ehiffect appointment was cancelled", button: "Book a new time",
-    body: "Your {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime with the button below." },
+    subject: "Your Ehiffect appointment was cancelled", button: "",
+    body: "Your {service} on {when} has been cancelled.\n\n{depositNote}" },
   reschedReceived: { label: "Reschedule request received", when: "When a client asks to reschedule",
-    subject: "We got your reschedule request — The Ehiffect", button: "Manage my appointment",
+    subject: "We got your reschedule request", button: "Manage my appointment",
     body: "I got your request to move your appointment.\n\nCurrent: {oldWhen}\nRequested: {newWhen}\n\n{within24Line}\n\nYour current appointment stays on the books until I approve the change." },
   reschedApproved: { label: "Reschedule approved", when: "When you approve a reschedule",
-    subject: "Your appointment has been moved — The Ehiffect", button: "Manage my appointment",
+    subject: "Your appointment has been moved", button: "Manage my appointment",
     body: "Your reschedule is approved!\n\nNew time: {newWhen}\n(was {oldWhen})\n\n{depositNote}" },
   reschedDenied: { label: "Reschedule denied", when: "When you deny a reschedule",
-    subject: "About your reschedule request — The Ehiffect", button: "Manage my appointment",
+    subject: "About your reschedule request", button: "Manage my appointment",
     body: "I wasn't able to move your appointment to {newWhen}, so it's staying on {oldWhen}.\n\nIf you need to talk it through, reply to this email or send me a message from your appointment page." },
-  rebook: { label: "Rebook + aftercare", when: "After an appointment is wrapped up (or a day or two later if you forgot)",
-    subject: "Thank you, {first}! Your aftercare guide + rebooking 💗", button: "Book my next appointment",
-    body: "Thank you so much for coming in, {first} — I loved doing your {service}! 💗\n\n{aftercare}\n\n{rebookTiming}\n\nWhen you're ready, you can book your next appointment any time with the button below. If you post your hair, tag @ehiffect — I'd love to see it!" },
+  rebook: { label: "Thank you + aftercare + rebook", when: "After an appointment is wrapped up (you can switch it off for any one client in Wrap up)",
+    subject: "Thank you, {first}! Your aftercare guide and next steps 💗", button: "See my aftercare guide", button2: "Book my next appointment",
+    body: "Thank you so much for coming in, {first}! I loved doing your {service}. 💗\n\nYour {guideTitle} aftercare guide is ready. Tap the first button below to read it any time.\n\n{rebookTiming}\n\nWhen you're ready for your next appointment, tap the second button to book. If you post your hair, tag @ehiffect. I'd love to see it!" },
+  rebookInvite: { label: "Invite to rebook", when: "Only when you choose to send it, for someone who cancelled or didn't come",
+    subject: "Book a new time with The Ehiffect", button: "Book a new time",
+    body: "I'd love to see you again, {first}. Whenever you're ready, you can pick a new time with the button below." },
   clientCancelled: { label: "Client cancelled", when: "When a client cancels from their link",
-    subject: "Your Ehiffect appointment is cancelled", button: "Book a new time",
-    body: "Your appointment for {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime with the button below." },
+    subject: "Your Ehiffect appointment is cancelled", button: "",
+    body: "Your appointment for {service} on {when} has been cancelled.\n\n{depositNote}" },
   custom: { label: "Custom email", when: "A blank email you write yourself",
     subject: "A note from The Ehiffect", button: "Manage my appointment", body: "" }
 };
@@ -1295,7 +1250,8 @@ function getTemplates(){
   Object.keys(EMAIL_DEFAULTS).forEach(k => {
     const d = EMAIL_DEFAULTS[k], s = saved[k] || {};
     out[k] = { label: d.label, when: d.when, subject: s.subject !== undefined ? s.subject : d.subject,
-               body: s.body !== undefined ? s.body : d.body, button: s.button !== undefined ? s.button : d.button, edited: !!saved[k] };
+               body: s.body !== undefined ? s.body : d.body, button: s.button !== undefined ? s.button : d.button,
+               button2: s.button2 !== undefined ? s.button2 : d.button2, edited: !!saved[k] };
   });
   return out;
 }
@@ -1314,16 +1270,16 @@ function saveTemplate(kind, t){
 function templateVars(b, extra){
   const dep = getSettings().depositAmount, owed = isPaid(b) && !isRefunded(b);
   return Object.assign({
-    first: firstName(b), name: b.name || "", service: cleanService(b), when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
+    first: firstName(b), name: b.name || "", service: plainService_(b), when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
     squeezeLine: isSqueeze(b) ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
     total: (b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed",
     deposit: "$" + dep, cashtag: CASHTAG, site: SITE_URL,
-    depositLine: isPaid(b) ? "Your deposit is already in — your spot is locked in." : depositLine(dep),
+    depositLine: isPaid(b) ? "Your deposit is already in. Your spot is locked in." : depositLine(dep),
     depositNote: owed ? "Your $" + dep + " deposit will be sent back to you." : "",
     checkinLine: readCheckIn(b) ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
     within24Line: "I'll confirm within 24 hours.",
     nextSteps: isConsult(b) ? "your consultation details" : "your $" + dep + " deposit details",
-    aftercare: aftercareText_(b), rebookTiming: rebookTiming_(b)
+    guideTitle: AFTERCARE_GUIDES[guideKey_(b)].title, rebookTiming: rebookTiming_(b)
   }, extra || {});
 }
 function fillTemplate(text, vars){ return String(text || "").replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m); }
@@ -1343,7 +1299,13 @@ function sendTemplate(b, kind, extra, override){
   const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
   if(!paras.length || !String(subject).trim()) return false;
   const tab = (kind === "received" || kind === "approved") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
-  const toSite = ["cancelled", "denied", "clientCancelled", "rebook"].indexOf(kind) !== -1;    // these buttons go to the booking site, not the manage page
+  if(kind === "rebook"){                                                                       // aftercare guide button + rebooking button
+    const t = getTemplates().rebook || {};
+    return sendClientEmail(b, subject, paras, { buttons: [
+      { label: button || "See my aftercare guide", url: guideUrl_(b) },
+      { label: t.button2 || "Book my next appointment", url: SITE_URL } ] });
+  }
+  const toSite = ["cancelled", "denied", "clientCancelled", "rebookInvite"].indexOf(kind) !== -1;    // these buttons go to the booking site, not the manage page
   return sendClientEmail(b, subject, paras, button ? { linkLabel: button, tab: tab, url: toSite ? SITE_URL : "" } : { link: false });
 }
 
@@ -1352,7 +1314,7 @@ function sendTemplate(b, kind, extra, override){
 function depositLine(dep){ return "To lock in your spot, send your $" + dep + " deposit to " + CASHTAG + " on Cash App. It comes off your total at your appointment, and you'll get an email as soon as I receive it."; }
 
 function emailRequestReceived(b){
-  if(isBundle(b)) return sendClientEmail(b, "We got your bundle request — The Ehiffect", [
+  if(isBundle(b)) return sendClientEmail(b, "We got your bundle request", [
     "Thanks for your bundle request! I'm confirming pricing and shipping timing, and I'll email you your final price and pickup date shortly.",
     "Your order: " + b.serviceLabel], { link: false });
   return sendTemplate(b, "received");
@@ -1361,10 +1323,10 @@ function emailRequestReceived(b){
 function emailApproved(b, override){
   const dep = getSettings().depositAmount;
   if(!override && isBundle(b)) return sendClientEmail(b, "Your Ehiffect bundle order is confirmed!", [
-    "Good news — I'm confirming your bundle order!", "Order: " + b.serviceLabel,
+    "Good news, I'm confirming your bundle order!", "Order: " + b.serviceLabel,
     "I'll email you shortly to confirm your final price and pickup date."], { link: false });
   if(!override && isConsult(b)) return sendClientEmail(b, "Your Ehiffect consultation is confirmed!", [
-    "Good news — your consultation is confirmed for " + whenText(b) + ". I'll call you then.",
+    "Good news, your consultation is confirmed for " + whenText(b) + ". I'll call you then.",
     "Your $" + dep + " consultation fee goes to " + CASHTAG + " on Cash App, and it counts toward your deposit if you book a service after."]);
   return sendTemplate(b, "approved", null, override);
 }
@@ -1424,7 +1386,7 @@ function handleManage(body){
         set("date", date); set("time", time);
         if(reason) set("notes", (b.notes ? b.notes + " | " : "") + "Changed date: " + reason);
         notifyMe("📅 " + b.name + " changed her requested date", b.name + " changed her pending request from " + from + " to " + to + "." + (reason ? "\n\nNote: " + reason : ""));
-        sendClientEmail(b, "Your request was updated — The Ehiffect", ["Your requested date is now " + to + ".", "I'll get back to you within 24 hours to confirm."]);
+        sendClientEmail(b, "Your request was updated", ["Your requested date is now " + to + ".", "I'll get back to you within 24 hours to confirm."]);
         refreshSoon();
         return manageShape(b, { done: "updated" });
       }
@@ -1674,7 +1636,7 @@ function adminBooking(b, settings){
   return Object.assign(toWebsiteShape(b, settings), {
     row: b.row, kitPacked: isPacked(b), shipped: isShipped(b), serviced: isServiced(b), servicedOn: asDate(b.servicedOn) || String(b.servicedOn || ""),
     amountPaid: String(b.amountPaid) === "" ? "" : Number(b.amountPaid), grandTotal: String(b.grandTotal) === "" ? "" : Number(b.grandTotal),
-    lastEmail: String(b.lastEmail || ""), emailLog: String(b.emailLog || "").split("\n").filter(Boolean), checkInAt: asText(b.checkInAt), hairOrdered: isHairOrdered(b), hairOrderedOn: String(b.hairOrderedOn || ""),
+    rebookEmailed: isTrue(b.rebookEmailed) ? "sent" : String(b.rebookEmailed || ""), lastEmail: String(b.lastEmail || ""), emailLog: String(b.emailLog || "").split("\n").filter(Boolean), checkInAt: asText(b.checkInAt), hairOrdered: isHairOrdered(b), hairOrderedOn: String(b.hairOrderedOn || ""),
     needsHair: needsHairFromMe(b), hairDetails: hairDetails(b), isConsult: isConsult(b), dateIso: isoOf(b), timeMin: parseMinutes(b),
     approvalEmailed: isTrue(b.approvalEmailed), depositEmailed: isTrue(b.depositEmailed),
     tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || ""),
@@ -1767,13 +1729,13 @@ function handleAdminAct(body){
       if(em.kind === "approved"){ emailed = emailApproved(b, ov); if(emailed) set("approvalEmailed", true); }
       else if(em.kind === "denied" || em.kind === "cancelled") emailed = emailStatusChange(b, em.kind, ov);
       else if(em.kind === "deposit"){ emailed = emailDepositReceived(b, ov); if(emailed) set("depositEmailed", true); }
-      else emailed = sendTemplate(b, em.kind, null, ov);
+      else{ emailed = sendTemplate(b, em.kind, null, ov); if(emailed && em.kind === "rebook") set("rebookEmailed", true); }
     }
     if(ch.depositPaid === true && em && em.kind === "deposit" && !em.send) set("depositEmailed", true);   // you chose not to email
 
-    if(ch.serviced === true && !isTrue(b.rebookEmailed)){                     // wrapped up → thank-you + aftercare + rebook
-      const fresh = readBookings().find(x => x.id === b.id);
-      if(fresh && maybeSendRebook_(fresh)) emailed = true;
+    if(ch.serviced === true && String(b.rebookEmailed || "").trim() === ""){  // wrapped up → thank-you + aftercare + rebook, unless you unticked it
+      if(body.rebook === false) set("rebookEmailed", "skipped");
+      else{ const fresh = readBookings().find(x => x.id === b.id); if(fresh && maybeSendRebook_(fresh)) emailed = true; }
     }
     refreshSoon();                                   // tabs + calendar catch up in a few seconds; don't make the phone wait for it
     return { ok: true, emailed: emailed, booking: adminBooking(readBookings().find(x => x.id === body.key), getSettings()) };
@@ -2127,7 +2089,7 @@ function defaultEmailType(b){
 function emailTemplate(type, b, dep){
   if(!b) return { subject: "", body: "" };
   const hi = "Hi " + firstName(b) + ",\n\n";
-  const footer = "\n\nQuestions? Just reply to this email or DM @ehiffect on Instagram.\n\n— Ehi";
+  const footer = "\n\nQuestions? Just reply to this email or DM @ehiffect on Instagram.\n\nEhi";
   const owed = isPaid(b) && !isRefunded(b);
   switch(EMAIL_TYPES.indexOf(type)){
     case 1:
@@ -2136,24 +2098,23 @@ function emailTemplate(type, b, dep){
               ". It comes off your total at your appointment." + footer };
     case 2:
       return { subject: "Reminder: your Ehiffect appointment",
-        body: hi + "A reminder that your " + b.serviceLabel + " is " + whenText(b) + ". Please come with your hair already washed and dried " +
+        body: hi + "A reminder that your " + plainService_(b) + " is " + whenText(b) + ". Please come with your hair already washed and dried " +
               "(I don't currently offer washing/drying services), and let me know ASAP if anything changes. See you soon!" + footer };
     case 3:
       return { subject: "About your Ehiffect booking",
-        body: hi + "Thank you so much for requesting " + b.serviceLabel + " on " + whenText(b) + ". Unfortunately I'm not able to take that booking." +
-              (owed ? " Your $" + dep + " deposit will be sent back to you." : "") +
-              " I'd love to find another time that works — you're welcome to book again on the site anytime." + footer };
+        body: hi + "Thank you so much for requesting " + plainService_(b) + " on " + whenText(b) + ". Unfortunately I'm not able to take that booking." +
+              (owed ? " Your $" + dep + " deposit will be sent back to you." : "") + footer };
     case 4:
       return { subject: "Let's find a new date for your Ehiffect appointment",
-        body: hi + "I need to move your " + b.serviceLabel + " that was set for " + whenText(b) + ". Could you reply with a couple of dates and times " +
+        body: hi + "I need to move your " + plainService_(b) + " that was set for " + whenText(b) + ". Could you reply with a couple of dates and times " +
               "that work for you, or pick a new day on the booking site?" +
               (owed ? " Your $" + dep + " deposit carries over to the new date, so you won't pay it twice." : "") + footer };
     case 5:
       return { subject: "Your Ehiffect order has shipped",
-        body: hi + "Good news — your order has shipped! Thank you so much for supporting Ehiffect. Let me know when it arrives, and reach out if you have any questions." + footer };
+        body: hi + "Good news, your order has shipped! Thank you so much for supporting Ehiffect. Let me know when it arrives, and reach out if you have any questions." + footer };
     case 6:
       return { subject: "Thank you from Ehiffect",
-        body: hi + "Thank you so much for coming in — I hope you love your " + b.serviceLabel + "! If you post it, tag @ehiffect so I can see it." + footer };
+        body: hi + "Thank you so much for coming in. I hope you love your " + plainService_(b) + "! If you post it, tag @ehiffect so I can see it." + footer };
     default:
       return { subject: "Your Ehiffect appointment is approved!", body: approvalEmailBody(b, dep) };
   }
@@ -2800,6 +2761,8 @@ function isHairOrdered(b){ return isTrue(b.hairOrdered); }
 // Squeeze-ins: booked on a day that already had someone. The site adds this tag to the service.
 function isSqueeze(b){ return /SQUEEZE-IN REQUEST/i.test(String(b.serviceLabel || "")); }
 // The service name a client should see (without your squeeze-in tag).
+// The same name but easier to read in an email: "Sew-In, Human hair package, 2 bundles".
+function plainService_(b){ return cleanService(b).replace(/\s+[—–]\s+/g, ", "); }
 function cleanService(b){ return String(b.serviceLabel || "").replace(/\s*—\s*⚡ SQUEEZE-IN REQUEST.*$/, "").trim(); }
 
 function hairDetails(b){

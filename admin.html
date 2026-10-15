@@ -639,6 +639,9 @@ function detailSheet(b){
     else quick.push(`<button class="btn no" data-a="status" data-s="no-show" data-k="${esc(b.key)}">No-show</button>`);
   }
   if(["denied","cancelled","no-show","rescheduled"].includes(st)) quick.push(`<button class="btn" data-a="status" data-s="pending" data-k="${esc(b.key)}">Move back to pending</button>`);
+  if(["denied","cancelled","no-show","rescheduled"].includes(st) && b.email) quick.push(`<button class="btn" data-a="invite-rebook" data-k="${esc(b.key)}">Invite to rebook</button>`);
+  if(st === "approved" && b.serviced && b.email && !b.isBundle && !b.isConsult)
+    quick.push(b.rebookEmailed === "sent" ? `<span class="tag good" style="padding:8px 10px;">Thank-you sent ✓</span>` : `<button class="btn" data-a="send-rebook" data-k="${esc(b.key)}">Send thank-you + aftercare</button>`);
   if((st === "cancelled" || st === "denied") && b.depositPaid) quick.push(b.depositRefunded ? `<span class="tag good" style="padding:8px 10px;">Refunded ✓</span>` : `<button class="btn" data-a="refunded" data-k="${esc(b.key)}">Mark refunded</button>`);
   if(st !== "approved") quick.push(`<button class="btn no" data-a="delete" data-k="${esc(b.key)}">Delete</button>`);
   const ci = b.checkIn || {};
@@ -752,6 +755,7 @@ function wrapSheet(b){
       <div class="field"><label>Tip ($)</label><input type="number" inputmode="decimal" id="w-tip" value="${esc(b.tip)}" placeholder="0"/></div>
       <div class="field"><label>What you spent on hair ($)</label><input type="number" inputmode="decimal" id="w-hair" value="${esc(b.hairCost)}" placeholder="${b.needsHair ? 'bundles, packs, etc.' : '0'}"/></div>
       <div class="box" style="margin-top:4px;"><dl class="kv" style="margin:0;"><dt>Profit</dt><dd id="w-profit" class="serif" style="font-size:22px; font-weight:600;">${money((num(paid) || 0) + (num(b.tip) || 0) - (num(b.hairCost) || 0))}</dd></dl></div>
+      ${!b.serviced && b.email && !b.isBundle && !b.isConsult && cfgOf().rebookEmails !== false ? `<label class="check" style="margin-top:6px;"><input type="checkbox" id="w-rebook" checked/> Email ${esc(first(b.name))} a thank-you with her aftercare guide and a button to book again</label>` : ''}
       ${!b.serviced ? `<p class="hint" style="margin-top:14px;">She didn't show up? <button class="link-btn" data-a="status" data-s="no-show" data-k="${esc(b.key)}">Mark as no-show</button></p>` : ''}
     </div>
     <div class="sheet-foot"><button class="btn" data-a="close-wrap">Cancel</button><button class="btn primary" data-a="wrap-save" data-k="${esc(b.key)}">${b.serviced ? 'Save' : 'Mark done'}</button></div>
@@ -799,6 +803,7 @@ function composeSheet(){
       <button class="icon-btn" data-a="close-compose" aria-label="Close">×</button></div>
     <div class="sheet-body">${!d ? `<div class="empty">Loading…</div>` : `
       ${c.kind !== 'custom' && d.to ? `<label class="check"><input type="checkbox" id="c-send" ${c.send !== false ? 'checked' : ''} data-a="c-toggle"/> Email ${esc(first(get(c.key) && get(c.key).name))} about this</label>` : ''}
+      ${(c.kind === 'cancelled' || c.kind === 'denied') && d.to ? `<label class="check"><input type="checkbox" id="c-rebook" ${c.rebook ? 'checked' : ''}/> Include a button so they can book a new time <span class="hint" style="display:inline;">(left off, they get no invitation)</span></label>` : ''}
       <div id="c-fields" style="${(c.send === false || !d.to) && c.kind !== 'custom' ? 'opacity:.4; pointer-events:none;' : ''}">
         <div class="field"><label>Subject</label><input type="text" id="c-subject" value="${esc(d.subject)}"/></div>
         <div class="field"><label>Message</label><textarea id="c-body" style="min-height:260px;">${esc(d.body)}</textarea></div>
@@ -838,12 +843,7 @@ function tplSample(){
     squeezeLine: b && b.isSqueeze ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
     within24Line: "I'll confirm within 24 hours.",
     nextSteps: "your $" + dep + " deposit details",
-    aftercare: (() => {
-      const g = ((S.data && S.data.guides) || {})[guideKeyFor(b || { serviceLabel:"Sew-In" })];
-      if(!g) return "";
-      return "Your aftercare guide — " + g.title + ":\n" + g.lines.map(l => "• " + l).join("\n") +
-             (g.link ? "\n\nThe full guide is here: " + ((S.data && S.data.siteUrl) || "") + g.link : "");
-    })(),
+    guideTitle: (() => { const g = ((S.data && S.data.guides) || {})[guideKeyFor(b || { serviceLabel:"Sew-In" })]; return g ? g.title : "Sew-In"; })(),
     rebookTiming: (() => { const g = ((S.data && S.data.guides) || {})[guideKeyFor(b || { serviceLabel:"Sew-In" })]; return g ? g.timing : ""; })() };
 }
 function tplPreviewHtml(subject, body, button){
@@ -958,7 +958,7 @@ document.addEventListener("click", async e => {
   if(a === "wrap-save"){
     const v = id => (document.getElementById(id) || {}).value;
     S.wrap = null;
-    act({ key:k, changes:{ serviced:true, amountPaid:v("w-paid"), tip:v("w-tip"), hairCost:v("w-hair") } }, "Saving…", "Wrapped up " + first(get(k).name) + " 💗");
+    act({ key:k, changes:{ serviced:true, amountPaid:v("w-paid"), tip:v("w-tip"), hairCost:v("w-hair") }, rebook:(document.getElementById("w-rebook") || { checked:true }).checked }, "Saving…", "Wrapped up " + first(get(k).name) + " 💗");
     return;
   }
   if(a === "month"){
@@ -1392,6 +1392,8 @@ document.addEventListener("click", async e => {
   const el = e.target.closest("[data-a]"); if(!el) return;
   const a = el.dataset.a, k = el.dataset.k;
   if(a === "retry-save"){ const r = S.retry; S.retry = null; if(r) act(r.body, r.busyText, r.doneText); else render(); return; }
+  if(a === "invite-rebook"){ const b = get(k); if(!b) return; compose({ key:k, kind:"rebookInvite", title:"Invite " + first(b.name) + " to rebook", okLabel:"Send invite", doneText:"Invite sent to " + first(b.name) }); return; }
+  if(a === "send-rebook"){ const b = get(k); if(!b) return; compose({ key:k, kind:"rebook", title:"Thank " + first(b.name) + " + aftercare", okLabel:"Send", doneText:"Sent to " + first(b.name) }); return; }
   if(a === "rp-set"){ S[el.dataset.f] = Number(el.dataset.v); redrawReport(); return; }
   if(a === "go-daysoff"){ e.preventDefault(); S.tab = "schedule"; S.openDaysOff = true; window.scrollTo(0, 0); render(); return; }
 
@@ -1514,6 +1516,15 @@ document.addEventListener("change", e => {
     if(t.dataset.f === "mode"){ H[d].mode = t.value; render(); }
     else{ H[d].w[Number(t.dataset.i)][t.dataset.f] = t.value; }
     return;
+  }
+  if(t.id === "c-rebook" && S.compose && S.compose.draft){
+    const dr = S.compose.draft, sub = document.getElementById("c-subject"), bod = document.getElementById("c-body"), btn = document.getElementById("c-button");
+    if(sub && bod && btn){ dr.subject = sub.value; dr.body = bod.value; dr.button = btn.value; }
+    const line = "If you'd like to book a new time, you're welcome to use the button below.";
+    S.compose.rebook = t.checked;
+    if(t.checked){ if(dr.body.indexOf(line) === -1) dr.body = dr.body.replace(/\s+$/, "") + "\n\n" + line; dr.button = "Book a new time"; }
+    else{ dr.body = dr.body.replace("\n\n" + line, "").replace(line, ""); dr.button = ""; }
+    renderLayer(); return;
   }
   if(t.id === "rb-toggle"){ saveConfig({ rebookEmails: t.checked }, t.checked ? "Rebooking emails are on" : "Rebooking emails are off"); return; }
   if(S.dealEdit){

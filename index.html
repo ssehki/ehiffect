@@ -338,7 +338,7 @@
   /* aftercare guide */
   .ac-wrap .back-link{ margin-bottom:6px; }
   .ac-lead{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:26px; line-height:1.25; color:var(--cream); margin:0 0 8px; text-align:center; }
-  .ac-tabs{ display:flex; gap:8px; margin:0 0 14px; }
+  .ac-tabs{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
   .ac-tab{ flex:1; padding:12px 8px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; border-radius:2px; }
   .ac-tab.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
   .ac-card{ background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:4px 22px 24px; }
@@ -1963,6 +1963,34 @@ const AFTERCARE = {
     { h:"Sensitive scalp", items:["Some people are sensitive to bonding glue. If you’ve reacted to glue before, tell me before your appointment.","Burning, nonstop itching, bumps, or redness after your install can mean a glue reaction. Reach out to me right away.","Choose fragrance-free, alcohol-free products for your leave-out.","Patch test anything new behind your ear first."] },
     { h:"2–4 weeks", takedown:true, items:["It’s time for removal. Wearing a quick weave longer can lead to breakage and buildup.","Never pull or peel your quick weave out. It has to come out with glue remover, or it can rip your hair.","Book your removal with me, and plan a wash and deep condition for your natural hair right after."] },
   ]},
+  braids: { name:"Braids & Twists", intro:"How to keep your braids or twists neat, your scalp comfortable, and your natural hair healthy underneath.", sections:[
+    { h:"Every night", items:["Wrap your hair or wear a silk or satin bonnet.","A satin pillowcase is a bonus for less frizz."] },
+    { h:"Wash day", items:["Cleanse your scalp every 1 to 2 weeks with diluted shampoo in an applicator bottle.","Rinse well so product doesn’t build up.","Dry completely. Damp braids can mildew and smell."] },
+    { h:"Be gentle", items:["Avoid pulling, tight ponytails, or tension on your edges.","Calm frizz with a light mist or oil instead of redoing the style yourself."] },
+    { h:"Taking them out", takedown:true, items:["When it’s time, book a takedown with me rather than cutting or pulling them out yourself."] },
+  ]},
+  cornrows: { name:"Cornrows", intro:"How to keep your cornrows neat and your scalp comfortable.", sections:[
+    { h:"Every night", items:["Wrap your hair or wear a silk or satin bonnet."] },
+    { h:"Wash day", items:["Moisturize your scalp lightly and keep product from building up between the rows.","Dry completely after washing so they don’t mildew or loosen."] },
+    { h:"Be gentle", items:["Avoid pulling or tight styling around your edges.","If they start to loosen or itch a lot, reach out to me before taking them out yourself."] },
+  ]},
+  crochet: { name:"Crochet", intro:"How to keep your crochet style fresh and the braids underneath healthy.", sections:[
+    { h:"Every night", items:["Wrap your hair or wear a silk or satin bonnet."] },
+    { h:"Wash day", items:["Keep your scalp clean and lightly moisturized without soaking the braid-down.","Dry completely after washing. Damp braids underneath can smell and mildew."] },
+    { h:"Be gentle", items:["Detangle slowly from the ends up and avoid pulling on the crochet hair."] },
+    { h:"Taking it out", takedown:true, items:["When it’s time, book a takedown with me rather than cutting it out."] },
+  ]},
+  takedown: { name:"After a Takedown", intro:"How to take care of your natural hair right after your install comes out.", sections:[
+    { h:"Right away", items:["Give your natural hair a gentle wash and a deep condition soon after your takedown.","Detangle slowly from the ends to the roots with a wide-tooth comb."] },
+    { h:"The next few days", items:["Moisturize your hair and scalp, and give your edges a break from tight styles.","Some shedding is normal. That’s hair that was already released from your scalp."] },
+    { h:"Scalp feeling off?", items:["If your scalp feels sore or irritated, keep things gentle and reach out to me."] },
+  ]},
+  general: { name:"General", intro:"The basics for keeping any style looking good and your natural hair healthy.", sections:[
+    { h:"Every night", items:["Wrap your hair or wear a silk or satin bonnet."] },
+    { h:"Wash day", items:["Keep your scalp clean and lightly moisturized, and avoid heavy product buildup.","Dry your hair completely after washing."] },
+    { h:"Be gentle", items:["Avoid pulling, tension, or tight styling around your edges."] },
+    { h:"Taking it out", takedown:true, items:["When it’s time for your style to come out, book a takedown with me rather than removing it yourself."] },
+  ]},
 };
 const AFTERCARE_POROSITY = {
   si: {
@@ -3334,8 +3362,9 @@ function checkRoute(){
   }
   if(window.location.hash === '#admin'){ window.location.replace('admin.html'); return; }   // the full admin site lives at admin.html
   else if(window.location.hash === '#work'){ state.view = 'gallery'; }
-  else if(window.location.hash === '#aftercare' || window.location.hash === '#aftercare-quickweave'){
-    state.view = 'aftercare'; state.aftercareTab = window.location.hash === '#aftercare-quickweave' ? 'qw' : 'si';
+  else if(/^#aftercare(-[a-z]+)?$/.test(window.location.hash)){
+    const k = window.location.hash.replace('#aftercare', '').replace(/^-/, '');
+    state.view = 'aftercare'; state.aftercareTab = k === 'quickweave' ? 'qw' : (AFTERCARE[k] ? k : 'si');
   }
 }
 window.addEventListener('hashchange', ()=>{ checkRoute(); render(); });
