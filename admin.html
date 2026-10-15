@@ -694,6 +694,8 @@ function detailSheet(b){
       </div></details>
       ${b.photos && b.photos.length ? `<div class="photos">${b.photos.map(p => `<img src="${esc(photoThumb(p))}" alt="Reference photo" data-a="photo" data-src="${esc(p)}"/>`).join("")}</div>` : ''}
       <div class="btn-row" style="margin-top:14px;">
+        ${b.email && !b.checkIn && !b.isBundle && !b.isConsult ? `<button class="btn" data-a="send-checkin" data-k="${esc(b.key)}">Ask for hair check-in</button>` : ''}
+        ${b.email && !b.isBundle ? `<button class="btn" data-a="send-estimate" data-k="${esc(b.key)}">Send cost estimate</button>` : ''}
         ${b.email ? `<button class="btn" data-a="custom" data-k="${esc(b.key)}">Write an email</button>` : ''}
         ${b.manageUrl ? `<button class="btn" data-a="copy-link" data-k="${esc(b.key)}">Copy their manage link</button>` : ''}
         ${b.text ? `<button class="btn" data-a="copy-text" data-k="${esc(b.key)}">Copy ${esc(String(b.textLabel || 'text').toLowerCase())}</button>` : ''}
@@ -1403,6 +1405,8 @@ document.addEventListener("click", async e => {
   const el = e.target.closest("[data-a]"); if(!el) return;
   const a = el.dataset.a, k = el.dataset.k;
   if(a === "retry-save"){ const r = S.retry; S.retry = null; if(r) act(r.body, r.busyText, r.doneText); else render(); return; }
+  if(a === "send-checkin"){ const b = get(k); if(!b) return; compose({ key:k, kind:"checkin", title:"Ask " + first(b.name) + " for her hair check-in", okLabel:"Send", doneText:"Check-in request sent to " + first(b.name) }); return; }
+  if(a === "send-estimate"){ const b = get(k); if(!b) return; compose({ key:k, kind:"estimate", title:"Send " + first(b.name) + " a cost estimate", okLabel:"Send estimate", doneText:"Estimate sent to " + first(b.name) }); return; }
   if(a === "invite-rebook"){ const b = get(k); if(!b) return; compose({ key:k, kind:"rebookInvite", title:"Invite " + first(b.name) + " to rebook", okLabel:"Send invite", doneText:"Invite sent to " + first(b.name) }); return; }
   if(a === "send-rebook"){ const b = get(k); if(!b) return; compose({ key:k, kind:"rebook", title:"Thank " + first(b.name) + " + aftercare", okLabel:"Send", doneText:"Sent to " + first(b.name) }); return; }
   if(a === "rp-set"){ S[el.dataset.f] = Number(el.dataset.v); redrawReport(); return; }

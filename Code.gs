@@ -1199,7 +1199,7 @@ function logEmail_(b, subject){
 /* ---------- EMAIL TEMPLATES (editable from the admin site → More → Emails) ----------
    Words in {curly braces} are filled in for each client:
    {first} {name} {service} {when} {oldWhen} {newWhen} {total} {deposit} {cashtag} {site}
-   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine} {guideTitle} {rebookTiming}
+   {estimate} {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine} {guideTitle} {rebookTiming}
    A blank line starts a new paragraph. A paragraph that ends up empty is left out.
    "button" is the pink button's text (leave blank for no button).                              */
 const EMAIL_DEFAULTS = {
@@ -1239,6 +1239,12 @@ const EMAIL_DEFAULTS = {
   clientCancelled: { label: "Client cancelled", when: "When a client cancels from their link",
     subject: "Your Ehiffect appointment is cancelled", button: "",
     body: "Your appointment for {service} on {when} has been cancelled.\n\n{depositNote}" },
+  checkin: { label: "Hair check-in request", when: "Only when you choose to send it, to ask for the hair check-in form",
+    subject: "Your hair check-in for The Ehiffect 💗", button: "Fill out my hair check-in",
+    body: "Before I approve your {service} on {when}, please fill out a quick hair check-in: a few photos of your natural hair and some questions. It helps me prep and give you an accurate price.\n\nTap the button below to open the form. It only takes a couple of minutes. Thank you! 💗" },
+  estimate: { label: "Cost estimate", when: "Only when you choose to send it, to give a client a price estimate",
+    subject: "Your cost estimate from The Ehiffect", button: "Manage my appointment",
+    body: "Here's your estimate for {service}:\n\nEstimated total: {estimate}\n\nThis is an estimate. Your final price depends on your hair and what you end up getting done, and I'll confirm it with you before your appointment." },
   custom: { label: "Custom email", when: "A blank email you write yourself",
     subject: "A note from The Ehiffect", button: "Manage my appointment", body: "" }
 };
@@ -1273,6 +1279,7 @@ function templateVars(b, extra){
     first: firstName(b), name: b.name || "", service: plainService_(b), when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
     squeezeLine: isSqueeze(b) ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
     total: (b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed",
+    estimate: hasGrandOverride(b) ? "$" + Number(b.grandTotal) : ((b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed"),
     deposit: "$" + dep, cashtag: CASHTAG, site: SITE_URL,
     depositLine: isPaid(b) ? "Your deposit is already in. Your spot is locked in." : depositLine(dep),
     depositNote: owed ? "Your $" + dep + " deposit will be sent back to you." : "",
@@ -1298,7 +1305,7 @@ function sendTemplate(b, kind, extra, override){
   const button = override && override.button !== undefined ? override.button : r.button;
   const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
   if(!paras.length || !String(subject).trim()) return false;
-  const tab = (kind === "received" || kind === "approved") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
+  const tab = (kind === "received" || kind === "approved" || kind === "checkin") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
   if(kind === "rebook"){                                                                       // aftercare guide button + rebooking button
     const t = getTemplates().rebook || {};
     return sendClientEmail(b, subject, paras, { buttons: [
