@@ -128,6 +128,18 @@
   .bub span{ display:block; font-size:10.5px; opacity:.7; margin-top:3px; }
   .bub.me{ align-self:flex-end; background:var(--pink); color:#241318; border-bottom-right-radius:3px; }
   .bub.them{ align-self:flex-start; background:var(--panel-2); border:1px solid var(--line); border-bottom-left-radius:3px; }
+  h3.grp{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:19px; margin:20px 0 4px; }
+  .prow{ display:flex; gap:10px; align-items:center; padding:9px 0; border-top:1px solid var(--line-2); }
+  .prow .pl{ flex:1; min-width:0; font-size:13.5px; }
+  .pin{ display:flex; align-items:center; gap:4px; color:var(--muted); font-size:12px; }
+  .pin input{ width:74px; padding:8px 8px; background:var(--panel-2); border:1px solid var(--line); border-radius:3px; color:var(--cream); text-align:right; }
+  .pin.was input{ width:60px; opacity:.85; }
+  .hrow{ padding:11px 0; border-top:1px solid var(--line-2); }
+  .hday{ font-weight:600; font-size:14px; margin-bottom:6px; }
+  .hrow select{ width:100%; padding:9px; background:var(--panel-2); border:1px solid var(--line); border-radius:3px; color:var(--cream); }
+  .hwin{ margin-top:8px; display:flex; flex-direction:column; gap:6px; font-size:13px; }
+  .hwin input{ padding:7px; background:var(--panel-2); border:1px solid var(--line); border-radius:3px; color:var(--cream); }
+  .syncbar{ position:fixed; left:12px; right:12px; bottom:calc(var(--tab-h) + 10px); z-index:60; background:#3a1f22; border:1px solid #8a4f4d; color:#f0c4c2; border-radius:6px; padding:10px 12px; display:flex; gap:10px; align-items:center; justify-content:space-between; font-size:13.5px; }
   details.fold{ border:1px solid var(--line); border-radius:4px; margin-top:14px; background:var(--panel); }
   details.fold > summary{ list-style:none; padding:13px 14px; font-weight:600; font-size:14px; cursor:pointer; display:flex; justify-content:space-between; }
   details.fold > summary::-webkit-details-marker{ display:none; }
@@ -213,13 +225,50 @@ const store = { get(){ try{ return localStorage.getItem(KEY_STORE) || sessionSto
                 set(v, remember){ try{ (remember ? localStorage : sessionStorage).setItem(KEY_STORE, v); }catch(e){} },
                 clear(){ try{ localStorage.removeItem(KEY_STORE); sessionStorage.removeItem(KEY_STORE); }catch(e){} } };
 
-async function api(action, body){
-  const payload = Object.assign({ adminKey: S.key }, body || {});
-  const res = await fetch(API_URL + "?action=" + action + "&payload=" + encodeURIComponent(JSON.stringify(payload)));
-  const json = await res.json();
-  if(json && (json.error === "unauthorized" || json.error === "locked")){ store.clear(); S.key = ""; S.data = null;
-    S.loginErr = json.error === "locked" ? "Too many wrong tries — wait 15 minutes." : (S.loading ? "Wrong passcode." : "Please log in again."); render(); throw new Error(json.error); }
-  return json;
+const ADMIN_NEEDS_VERSION = 4;       // the newest script version this page expects (Code.gs API_VERSION)
+let reqCounter = 0;
+// Talks to your Sheet. Phones drop connections, and Google's script can be slow to wake up, so a failed request is
+// retried (up to 3 times). Every request carries an id, so if the first attempt actually went through (and only the
+// reply got lost) the retry just returns the first answer instead of saving or emailing twice.
+async function api(action, body, opts){
+  opts = opts || {};
+  const reqId = Date.now().toString(36) + "-" + (++reqCounter) + "-" + Math.random().toString(36).slice(2, 6);
+  const payload = Object.assign({ adminKey: S.key, reqId: reqId }, body || {});
+  const url = API_URL + "?action=" + action + "&payload=" + encodeURIComponent(JSON.stringify(payload));
+  const tries = opts.tries || 3;
+  let lastErr;
+  for(let i = 0; i < tries; i++){
+    let timer;
+    try{
+      const ctl = new AbortController(); timer = setTimeout(() => ctl.abort(), opts.timeout || 30000);
+      const res = await fetch(url, { signal: ctl.signal });
+      clearTimeout(timer);
+      const json = await res.json();
+      if(json && json.error === "unknown action"){ S.outdated = true; const e = new Error("outdated"); e.outdated = true; throw e; }
+      if(json && (json.error === "unauthorized" || json.error === "locked")){
+        store.clear(); cacheClear(); S.key = ""; S.data = null;
+        S.loginErr = json.error === "locked" ? "Too many wrong tries — wait 15 minutes." : (S.loading ? "Wrong passcode." : "Please log in again."); render();
+        const e = new Error(json.error); e.auth = true; throw e;
+      }
+      return json;
+    }catch(err){
+      clearTimeout(timer);
+      if(err && (err.outdated || err.auth)) throw err;
+      lastErr = err;
+      if(i < tries - 1) await new Promise(r => setTimeout(r, [1200, 3200][i] || 4500));
+    }
+  }
+  throw lastErr;
+}
+// Last good copy of your data, so the page opens instantly instead of waiting on the Sheet.
+const CACHE_KEY = "ehiffectAdminCache";
+function cacheSave(){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(S.data)); }catch(e){} }
+function cacheLoad(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); }catch(e){ return null; } }
+function cacheClear(){ try{ localStorage.removeItem(CACHE_KEY); }catch(e){} }
+function failToast(err){
+  if(err && err.outdated) toast("Your Sheet's script is out of date — paste the newest Code.gs and redeploy (see the red box at the top).");
+  else if(err && err.auth) return;
+  else if(S.key) toast("Couldn't reach your Sheet — check your signal and try again.");
 }
 function toast(t){ S.toast = t; renderLayer(); clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = ""; renderLayer(); }, 3200); }
 
@@ -229,7 +278,7 @@ async function load(silent){
     const d = await api("adminData");
     if(d && d.ok){
       const before = S.data ? new Set(S.data.bookings.filter(x => x.status === "pending").map(x => x.key)) : null;
-      S.data = d;
+      S.data = d; S.stale = false; cacheSave();
       const fresh = before ? d.bookings.filter(x => x.status === "pending" && !before.has(x.key)) : [];
       if(fresh.length) setTimeout(() => toast("🔔 New request from " + fresh.map(x => first(x.name) + (x.isSqueeze ? " (⚡ squeeze-in)" : "")).join(", ")), 50);
     }
@@ -266,9 +315,9 @@ function nudges(b){
   if(b.status !== "approved" && b.status !== "pending") return [];
   const day = when(b), out = [], dep = (S.data.settings && S.data.settings.depositAmount) || 20, cash = S.data.cashtag || "";
   if(b.status === "approved" && !b.depositPaid && !b.isConsult) out.push({ label: "deposit", subject: "Your Ehiffect deposit 💗",
-    text: `Hey ${first(b.name)}! Just a reminder to send your $${dep} deposit to ${cash} on Cash App to lock in your appointment on ${day}. It comes off your total. Thank you! 💗 — Indie` });
+    text: `Hey ${first(b.name)}! Just a reminder to send your $${dep} deposit to ${cash} on Cash App to lock in your appointment on ${day}. It comes off your total. Thank you! 💗 — Ehi` });
   if(!b.checkIn && b.manageUrl && !b.isBundle && !b.isConsult) out.push({ label: "check-in", subject: "Your hair check-in for The Ehiffect 💗",
-    text: `Hey ${first(b.name)}! Before I confirm your appointment on ${day}, please fill out your quick hair check-in (a few photos + questions) here: ${b.manageUrl}&tab=checkin — it helps me prep for you. Thank you! 💗 — Indie` });
+    text: `Hey ${first(b.name)}! Before I confirm your appointment on ${day}, please fill out your quick hair check-in (a few photos + questions) here: ${b.manageUrl}&tab=checkin — it helps me prep for you. Thank you! 💗 — Ehi` });
   return out;
 }
 function nudgeButtons(b){
@@ -310,7 +359,11 @@ function render(){
   if(S.loading && !S.data){ app.innerHTML = `<div class="login"><h1>The Ehiffect</h1><p>Loading your bookings…</p></div>`; renderLayer(); return; }
   const screen = { inbox, schedule, clients, hair, more }[S.tab] || inbox;
   const n = needsCount();
-  app.innerHTML = `<div class="page">${screen()}</div>
+  const outdated = needsNewScript() ? `<div class="box alert" style="margin:0 0 14px;"><h4>Your Sheet's script needs updating</h4>
+      <div style="font-size:13.5px; line-height:1.55;">New features (deleting bookings, editing prices &amp; deals, weekly hours) need the newest <b>Code.gs</b>. In your Google Sheet:
+      <b>Extensions → Apps Script</b> → paste the new Code.gs over everything → <b>Save</b> → <b>Deploy → Manage deployments → ✏️ → New version → Deploy</b>.</div></div>` : '';
+  app.innerHTML = `<div class="page">${outdated}${screen()}</div>
+  ${S.retry ? `<div class="syncbar"><span>Not saved — your signal dropped.</span><button class="btn primary" data-a="retry-save">Try again</button></div>` : ''}
   <nav class="tabs" aria-label="Sections"><div class="tabs-in">
     ${[["inbox","✉︎","Inbox"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"]].map(([k,ic,l]) =>
       `<button class="tab ${S.tab===k?'on':''}" data-a="tab" data-k="${k}" aria-current="${S.tab===k?'page':'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k==='inbox' && n ? `<span class="badge">${n}</span>` : ''}</button>`).join("")}
@@ -380,7 +433,7 @@ function inbox(){
     });
     return out;
   };
-  return header(hi + ", Indie", dayLabel(t)) + `
+  return header(hi + ", Ehi", dayLabel(t)) + `
     <div class="today">
       <div class="today-date">Today</div>
       ${L.today.length ? L.today.map(b => `<div class="slot" data-a="open" data-k="${esc(b.key)}">
@@ -529,11 +582,18 @@ function more(){
     ${done.length ? `<h2 class="sec">Done this month</h2><div class="list">${done.map(b => bookingRow(b, { noPill:true,
         sub: when(b) + " · paid " + money(paidOf(b)) + (num(b.tip) ? " + " + money(b.tip) + " tip" : "") + (num(b.hairCost) ? " · hair " + money(b.hairCost) : ""),
         actions: `<span class="serif" style="font-size:19px; font-weight:600; color:${profitOf(b) >= 0 ? 'var(--good)' : 'var(--bad)'};">${money(profitOf(b))}</span>` })).join("")}</div>` : `<p class="empty">Nothing marked done in ${esc(label.split(" ")[0])} yet. Use "Wrap up" in your Inbox after each appointment.</p>`}
+    ${reportSection()}
+    ${pricesSection()}
     <h2 class="sec">Emails</h2>
     <p class="hint" style="margin-top:-4px;">The wording clients get. Change it here and every future email uses it. You can still tweak any single email before it sends.</p>
     <div class="list">${Object.keys(T).filter(k => k !== "custom").map(k => `<div class="row" data-a="tpl" data-k="${k}">
       <div class="row-main"><div class="row-title">${esc(T[k].label)} ${T[k].edited ? '<span class="tag good">edited</span>' : ''}</div><div class="row-sub">${esc(T[k].when)}</div></div>
       <span class="chev" aria-hidden="true">›</span></div>`).join("")}</div>
+    <h2 class="sec">Deals &amp; hours</h2>
+    ${dealsSection()}
+    ${hoursSection()}
+    <div class="box"><label class="check" style="padding:0;"><input type="checkbox" id="rb-toggle" ${cfgOf().rebookEmails !== false ? "checked" : ""}/> Email clients after their appointment (and when they cancel) so they can rebook — with the aftercare guide for their service</label>
+      <p class="hint" style="margin:6px 0 0;">The wording is under Emails → "Rebook".</p></div>
     <h2 class="sec">Links</h2>
     <div class="list">
       <a class="row" href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;"><div class="row-main"><div class="row-title">Open booking site</div></div><span class="chev">↗</span></a>
@@ -551,13 +611,14 @@ function renderLayer(){
   if(S.adding) h += addSheet();
   if(S.compose) h += composeSheet();
   if(S.tpl) h += tplSheet();
+  if(S.dealEdit) h += dealSheet();
   if(S.busy) h += `<div class="busy" role="status"><div>${esc(S.busy)}<small>Updating your Sheet and calendar — a few seconds.</small></div></div>`;
   if(S.toast) h += `<div class="toast" role="status">${esc(S.toast)}</div>`;
   const keepScroll = (L.querySelector(".sheet-body") || {}).scrollTop || 0;
   L.innerHTML = h;
   const body = L.querySelector(".sheet-body"); if(body && S.keepScroll) body.scrollTop = keepScroll;
   S.keepScroll = false;
-  document.body.style.overflow = (S.open || S.client || S.compose || S.tpl || S.wrap || S.adding) ? "hidden" : "";
+  document.body.style.overflow = (S.open || S.client || S.compose || S.tpl || S.wrap || S.adding || S.dealEdit) ? "hidden" : "";
 }
 
 function svcName(b){ return b.service || String(b.serviceLabel || "").replace(/\s*—\s*⚡ SQUEEZE-IN REQUEST.*$/, "").trim(); }
@@ -752,6 +813,16 @@ function composeSheet(){
 }
 
 // A real upcoming client (or a made-up one) to show what an email will look like.
+function guideKeyFor(b){
+  const t = String((b && (b.serviceLabel || b.service)) || "");
+  if(/takedown|removal/i.test(t)) return "takedown";
+  if(/^sew-?in/i.test(t)) return "si";
+  if(/^quick weave/i.test(t)) return "qw";
+  if(/cornrow/i.test(t)) return "cornrows";
+  if(/crochet/i.test(t)) return "crochet";
+  if(/braid|twist|marley|micro|mini/i.test(t)) return "braids";
+  return "general";
+}
 function tplSample(){
   const t = todayIso(), bs = (S.data && S.data.bookings) || [];
   const b = bs.filter(x => x.status === "approved" && x.dateIso >= t && !x.isBundle).sort(byWhen)[0] || bs.filter(x => !x.isBundle).sort(byWhen).reverse()[0];
@@ -765,7 +836,15 @@ function tplSample(){
     depositNote: "Your $" + dep + " deposit will be sent back to you.",
     checkinLine: b && b.checkIn ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
     squeezeLine: b && b.isSqueeze ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
-    within24Line: "I'll confirm within 24 hours." };
+    within24Line: "I'll confirm within 24 hours.",
+    nextSteps: "your $" + dep + " deposit details",
+    aftercare: (() => {
+      const g = ((S.data && S.data.guides) || {})[guideKeyFor(b || { serviceLabel:"Sew-In" })];
+      if(!g) return "";
+      return "Your aftercare guide — " + g.title + ":\n" + g.lines.map(l => "• " + l).join("\n") +
+             (g.link ? "\n\nThe full guide is here: " + ((S.data && S.data.siteUrl) || "") + g.link : "");
+    })(),
+    rebookTiming: (() => { const g = ((S.data && S.data.guides) || {})[guideKeyFor(b || { serviceLabel:"Sew-In" })]; return g ? g.timing : ""; })() };
 }
 function tplPreviewHtml(subject, body, button){
   const v = tplSample(), fill = x => String(x || "").replace(/\{(\w+)\}/g, (m, k) => v[k] !== undefined ? v[k] : m);
@@ -822,7 +901,8 @@ async function act(body, busyText, doneText){
       S.busy = ""; S.compose = null; render(); toast(doneText + (r.emailed ? " — email sent" : ""));
       load(true);
     }else{ S.busy = ""; renderLayer(); toast((r && r.error) || "That didn't save — try again."); }
-  }catch(err){ S.busy = ""; renderLayer(); if(S.key) toast("Couldn't reach your Sheet — try again."); }
+    S.retry = null;
+  }catch(err){ S.busy = ""; if(!(err && (err.outdated || err.auth))) S.retry = { body, busyText, doneText }; render(); failToast(err); }
 }
 
 const STATUS_FLOW = {
@@ -912,7 +992,7 @@ document.addEventListener("click", async e => {
       S.busy = "";
       if(r && r.ok){ S.data.bookings = S.data.bookings.filter(x => x.key !== k); S.open = null; S.client = null; render(); toast("Deleted " + first(b.name)); load(true); }
       else { renderLayer(); toast((r && r.error) || "Couldn't delete — try again."); }
-    }catch(err){ S.busy = ""; renderLayer(); if(S.key) toast("Couldn't reach your Sheet — try again."); }
+    }catch(err){ S.busy = ""; renderLayer(); failToast(err); }
     return;
   }
   if(a === "inq-done"){
@@ -920,7 +1000,7 @@ document.addEventListener("click", async e => {
       const r = await api("inquiryDone", { id:k });
       if(r && r.ok){ S.data.inquiries = (S.data.inquiries || []).filter(q => q.id !== k); render(); toast("Marked done"); }
       else toast("Didn't save — try again.");
-    }catch(err){ if(S.key) toast("Couldn't reach your Sheet — try again."); }
+    }catch(err){ failToast(err); }
     return;
   }
   if(a === "tick"){ act({ key:k, changes:{ [el.dataset.f]: el.checked } }, "Saving…", el.checked ? "Checked off" : "Unchecked"); return; }
@@ -935,7 +1015,7 @@ document.addEventListener("click", async e => {
       if(!String(email.subject).trim() || !String(email.body).trim()){ toast("Add a subject and a message first."); return; }
       S.busy = "Sending…"; renderLayer();
       try{ const r = await api("customEmail", { key:c.key, subject:email.subject, body:email.body, button:email.button }); S.busy = ""; if(r.ok){ S.compose = null; toast("Email sent to " + first(get(c.key).name)); load(true); } else toast(r.error || "Email didn't send."); }
-      catch(err){ S.busy = ""; toast("Couldn't reach your Sheet — try again."); }
+      catch(err){ S.busy = ""; failToast(err); }
       renderLayer(); return;
     }
     act({ key:c.key, changes:c.changes || {}, request:c.request, email }, "Saving…", c.doneText);
@@ -1011,9 +1091,450 @@ document.addEventListener("keydown", e => {
 setInterval(() => { const f = document.activeElement; if(f && /INPUT|TEXTAREA|SELECT/.test(f.tagName)) return; if(!document.hidden && S.key && S.data && !S.busy && !S.compose && !S.open && !S.wrap && !S.adding && !S.tpl) load(true); }, 60000);
 document.addEventListener("visibilitychange", () => { if(!document.hidden && S.key && S.data && !S.busy && !S.compose) load(true); });
 
+/* ============== MONEY REPORT · PRICES · DEALS · HOURS ============== */
+const pct = x => (isFinite(x) ? Math.round(x * 100) : 0) + "%";
+const ceil5 = n => Math.ceil(n / 5) * 5;
+const parseMoney = v => { const t = String(v === undefined || v === null ? "" : v).replace(/[$,\s]/g, ""); if(t === "") return null; const n = Number(t); return isNaN(n) || n < 0 ? NaN : n; };
+const cfgOf = () => (S.data && S.data.config) || { prices:{}, deals:[], hours:{}, saleEnds:"", latest:"", rebookEmails:true };
+const needsNewScript = () => !!(S.outdated || (S.data && (S.data.version || 0) < ADMIN_NEEDS_VERSION));
+
+/* ---------- profit report + price predictor ---------- */
+function serviceGroup(b){ return (svcName(b).split(" — ")[0] || "Other").replace(/\s+/g, " ").trim() || "Other"; }
+
+function reportRange(){
+  const now = new Date(), ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const p = S.rpPeriod || "month";
+  if(p === "month"){
+    const ym = S.month || (now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0"));
+    const [y, m] = ym.split("-").map(Number);
+    return { from: ym + "-01", to: ymd(new Date(y, m, 0)), months: 1, label: new Date(y, m - 1, 1).toLocaleDateString(undefined, { month:"long", year:"numeric" }) };
+  }
+  if(p === "3" || p === "12"){
+    const k = Number(p), start = new Date(now.getFullYear(), now.getMonth() - (k - 1), 1);
+    return { from: ymd(start), to: ymd(now), months: k, label: "the last " + k + " months" };
+  }
+  const dates = S.data.bookings.filter(b => b.serviced && b.dateIso).map(b => b.dateIso).sort();
+  if(!dates.length) return { from: "9999", to: "0000", months: 1, label: "all time" };
+  const a = isoToDate(dates[0]), z = isoToDate(dates[dates.length - 1]);
+  return { from: dates[0], to: dates[dates.length - 1], months: Math.max(1, (z.getFullYear() - a.getFullYear()) * 12 + z.getMonth() - a.getMonth() + 1), label: "all time" };
+}
+
+function reportBody(){
+  const R = reportRange();
+  const rows = S.data.bookings.filter(b => b.serviced && b.dateIso && b.dateIso >= R.from && b.dateIso <= R.to);
+  if(!rows.length) return `<p class="hint" style="margin:12px 0 0;">No finished appointments in ${esc(R.label)} yet. Tap <b>Wrap up</b> on an appointment and enter what was paid, the tip, and what you spent on hair — then this fills in.</p>`;
+  const G = {};
+  rows.forEach(b => {
+    const g = serviceGroup(b), o = G[g] || (G[g] = { g, n:0, rev:0, tip:0, cost:0, costN:0 });
+    o.n++; o.rev += paidOf(b); o.tip += num(b.tip) || 0;
+    const c = num(b.hairCost); if(c !== null){ o.cost += c; o.costN++; }
+  });
+  const list = Object.values(G).sort((a, b) => (b.rev + b.tip - b.cost) - (a.rev + a.tip - a.cost));
+  const T = list.reduce((t, o) => ({ n:t.n + o.n, rev:t.rev + o.rev, tip:t.tip + o.tip, cost:t.cost + o.cost, costN:t.costN + o.costN }), { n:0, rev:0, tip:0, cost:0, costN:0 });
+  const take = T.rev + T.tip, profit = take - T.cost;
+  const target = Math.min(90, Math.max(10, Number(S.rpTarget) || 60)) / 100;
+  const up = (Number(S.rpUp) || 0) / 100, vol = (Number(S.rpVol) || 0) / 100;
+  const projected = (T.rev * (1 + up) + T.tip - T.cost) * (1 + vol);
+  const months = R.months, per = x => money(x / months);
+  const breakEven = (T.rev * (1 + up) + T.tip - T.cost) > 0 && profit > 0 ? Math.max(0, 1 - profit / (T.rev * (1 + up) + T.tip - T.cost)) : 0;
+  const costCoverage = T.n ? T.costN / T.n : 1;
+
+  const svcRows = list.map(o => {
+    const avgRev = o.rev / o.n, avgTip = o.tip / o.n, avgCost = o.costN ? o.cost / o.costN : null;
+    const prof = avgRev + avgTip - (avgCost || 0), margin = (avgRev + avgTip) > 0 ? prof / (avgRev + avgTip) : 0;
+    let advice = "";
+    if(o.n >= 2 && avgCost !== null){
+      const need = avgCost / (1 - target) - avgTip;                // average price that would hit the target margin
+      const gap = need - avgRev;
+      advice = gap > 1 ? `To reach ${Math.round(target * 100)}% margin, charge about <b>${money(ceil5(need))}</b> on average (+${money(ceil5(gap))}, +${pct(gap / avgRev)}).` : `✓ Already at or above your ${Math.round(target * 100)}% margin goal.`;
+    }else if(avgCost === null){ advice = "Enter your hair cost on these appointments to see the margin."; }
+    else advice = "Need 2+ finished appointments for a suggestion.";
+    const tag = avgCost === null ? '<span class="tag">no hair cost yet</span>' : (margin < target - 0.05 ? '<span class="tag bad">low margin</span>' : (margin >= target ? '<span class="tag good">healthy</span>' : '<span class="tag warn">close</span>'));
+    return `<div class="row" style="cursor:default; align-items:flex-start;">
+      <div class="row-main">
+        <div class="row-title">${esc(o.g)} ${tag}</div>
+        <div class="row-sub">${o.n} appt${o.n === 1 ? "" : "s"} · avg price ${money(avgRev)} · hair ${avgCost === null ? "—" : money(avgCost)} · profit per appt <b>${money(prof)}</b> · margin <b>${avgCost === null ? "—" : pct(margin)}</b></div>
+        <div class="row-note">${advice}</div>
+      </div></div>`;
+  }).join("");
+
+  const chip = (field, v, label) => `<button class="btn ${Number(S[field] || 0) === v ? 'primary' : ''}" data-a="rp-set" data-f="${field}" data-v="${v}" style="padding:7px 11px;">${label}</button>`;
+  return `
+    <div class="stat-grid" style="margin-top:12px;">
+      <div class="stat"><b>${money(profit)}</b><span>profit · ${esc(R.label)}</span></div>
+      <div class="stat"><b>${take > 0 ? pct(profit / take) : "—"}</b><span>profit margin</span></div>
+      <div class="stat"><b>${money(T.rev / T.n)}</b><span>average ticket (${T.n} appts)</span></div>
+      <div class="stat"><b>${T.rev > 0 ? pct(T.cost / T.rev) : "—"}</b><span>of what you charge goes to hair</span></div>
+    </div>
+    ${costCoverage < 0.7 ? `<div class="box warn" style="margin-top:12px;"><div style="font-size:13.5px;">You've entered hair costs on ${T.costN} of ${T.n} appointments, so profit and margin look better than they really are. Add the missing ones in Wrap up for a true picture.</div></div>` : ''}
+    <h2 class="sec" style="margin-top:20px;">By service</h2>
+    <div class="list">${svcRows}</div>
+    <h2 class="sec" style="margin-top:22px;">If you raise prices…</h2>
+    <div class="box" style="margin-top:0;">
+      <div class="field" style="margin-bottom:8px;"><label>Raise every price by</label>
+        <div class="btn-row">${chip("rpUp", 0, "0%")}${chip("rpUp", 5, "+5%")}${chip("rpUp", 10, "+10%")}${chip("rpUp", 15, "+15%")}${chip("rpUp", 20, "+20%")}${chip("rpUp", 25, "+25%")}</div></div>
+      <div class="field" style="margin-bottom:8px;"><label>…and you lose this share of bookings</label>
+        <div class="btn-row">${chip("rpVol", 0, "none")}${chip("rpVol", -5, "5%")}${chip("rpVol", -10, "10%")}${chip("rpVol", -20, "20%")}${chip("rpVol", -30, "30%")}</div></div>
+      <div class="grid2">
+        <div class="field" style="margin-bottom:0;"><label>Custom raise (%)</label><input type="number" inputmode="decimal" data-rp="rpUp" value="${esc(S.rpUp || 0)}"/></div>
+        <div class="field" style="margin-bottom:0;"><label>Margin you want (%)</label><input type="number" inputmode="decimal" data-rp="rpTarget" value="${esc(S.rpTarget || 60)}"/></div>
+      </div>
+    </div>
+    <div class="box" style="margin-top:12px;">
+      <div class="hint" style="margin:0 0 6px;">Same hair spend and tips, ${esc(R.label)}:</div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
+        <div><div class="hint" style="margin:0;">Now</div><div class="serif" style="font-size:26px; font-weight:600;">${money(profit)}</div><div class="hint" style="margin:0;">${per(profit)} / month</div></div>
+        <div style="font-size:22px; color:var(--muted);">→</div>
+        <div style="text-align:right;"><div class="hint" style="margin:0;">With the change</div><div class="serif" style="font-size:26px; font-weight:600; color:${projected >= profit ? 'var(--good)' : 'var(--bad)'};">${money(projected)}</div><div class="hint" style="margin:0;">${per(projected)} / month</div></div>
+      </div>
+      <div style="margin-top:10px; font-size:14px;">${projected >= profit ? "That's" : "That's"} <b style="color:${projected >= profit ? 'var(--good)' : 'var(--bad)'};">${projected >= profit ? "+" : "−"}${money(Math.abs(projected - profit))}</b> (${projected >= profit ? "+" : "−"}${money(Math.abs(projected - profit) / months)} a month).
+        ${up > 0 ? `At +${Math.round(up * 100)}% you could lose up to <b>${pct(breakEven)}</b> of your bookings and still make what you make now.` : 'Pick a raise above to see how many bookings you could lose and still come out ahead.'}</div>
+    </div>
+    <p class="hint">This is an estimate from your finished appointments. It assumes the same mix of services; real results depend on your clients.</p>`;
+}
+function reportSection(){
+  const per = (v, l) => `<option value="${v}" ${(S.rpPeriod || "month") === v ? "selected" : ""}>${l}</option>`;
+  return `<details class="fold" ${S.openReport ? "open" : ""} data-keep="openReport"><summary>📈 Profit report &amp; price predictor</summary><div>
+    <div class="field" style="margin-bottom:0;"><label>Look at</label>
+      <select data-rp="rpPeriod">${per("month", "The month above")}${per("3", "Last 3 months")}${per("12", "Last 12 months")}${per("all", "All time")}</select></div>
+    <div id="rp-body">${reportBody()}</div>
+  </div></details>`;
+}
+function redrawReport(){ const el = document.getElementById("rp-body"); if(el) el.innerHTML = reportBody(); }
+
+/* ---------- prices ---------- */
+function priceState(id, def){
+  const o = (cfgOf().prices || {})[id] || {};
+  return { p: o.p !== undefined ? o.p : def.price, w: ("w" in o) ? (o.w || 0) : (def.was || 0), edited: o.p !== undefined || ("w" in o) };
+}
+function pricesSection(){
+  const cat = (S.data && S.data.catalog) || [];
+  if(!cat.length) return `<details class="fold"><summary>💲 Edit prices</summary><div><p class="hint" style="margin:0;">Update your Sheet's script (see the banner at the top) to turn this on.</p></div></details>`;
+  const groups = [];
+  cat.forEach(c => { let g = groups.find(x => x.name === c.group); if(!g){ g = { name:c.group, items:[] }; groups.push(g); } g.items.push(c); });
+  const D = S.priceDraft || (S.priceDraft = {});
+  const body = groups.map(g => `<h3 class="grp">${esc(g.name)}</h3>` + g.items.map(c => {
+    const st = priceState(c.id, c), d = D[c.id] || {};
+    const pv = d.p !== undefined ? d.p : st.p, wv = d.w !== undefined ? d.w : (st.w || "");
+    const hasSale = c.was > 0 || (cfgOf().prices[c.id] && "w" in cfgOf().prices[c.id]);
+    return `<div class="prow">
+      <div class="pl">${esc(c.label)} ${st.edited ? '<span class="tag good">changed</span>' : ''}${c.was ? `<div class="hint" style="margin:2px 0 0;">built-in: ${money(c.price)}${c.was ? " (regular " + money(c.was) + ")" : ""}</div>` : `<div class="hint" style="margin:2px 0 0;">built-in: ${money(c.price)}</div>`}</div>
+      <div class="pin"><span>$</span><input inputmode="decimal" data-pr="${esc(c.id)}" data-f="p" value="${esc(pv)}" aria-label="${esc(c.label)} price"/></div>
+      ${c.was > 0 || hasSale ? `<div class="pin was"><span>reg.</span><input inputmode="decimal" data-pr="${esc(c.id)}" data-f="w" value="${esc(wv === 0 ? "" : wv)}" placeholder="0" aria-label="${esc(c.label)} regular price"/></div>` : ''}
+    </div>`;
+  }).join("")).join("");
+  const sale = S.saleDraft !== undefined ? S.saleDraft : (cfgOf().saleEnds || "");
+  return `<details class="fold" ${S.openPrices ? "open" : ""} data-keep="openPrices"><summary>💲 Edit prices</summary><div>
+    <p class="hint" style="margin-top:0;">Change a number and tap <b>Save prices</b>. Your booking website picks it up the next time someone opens it. The grey line under each name is the original built-in price.</p>
+    <p class="hint">A box marked <b>reg.</b> is the regular price shown slashed out next to a sale price. Put <b>0</b> to remove the slash.</p>
+    <div class="field"><label>Sale prices end on <span class="hint" style="display:inline;">(then the regular price takes over by itself)</span></label>
+      <input type="date" id="pr-sale" value="${esc(sale)}"/></div>
+    ${body}
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn primary" data-a="save-prices">Save prices</button>
+      <button class="btn" data-a="reset-prices">Back to built-in prices</button>
+    </div>
+  </div></details>`;
+}
+
+/* ---------- deals ---------- */
+function allDeals(){
+  const cfg = cfgOf().deals || [], out = [];
+  ((S.data && S.data.builtinDeals) || []).forEach(b => {
+    const o = cfg.find(x => x.key === b.key && !x.custom) || {};
+    if(o.deleted) return;
+    out.push(Object.assign({}, b, o, { builtin:true }));
+  });
+  cfg.filter(x => x.custom).forEach(x => out.push(Object.assign({}, x)));
+  return out;
+}
+function dealUse(key){
+  let n = 0, profit = 0;
+  S.data.bookings.forEach(b => { if(String(b.dealKeys || "").split(",").map(s => s.trim()).includes(key) && ["approved","pending"].includes(b.status)){ n++; } });
+  return n;
+}
+function dealState(d){
+  const t = todayIso();
+  if(d.paused) return { label:"Paused", cls:"" };
+  if(d.start && t < d.start) return { label:"Starts " + shortDay(d.start), cls:"warn" };
+  if(d.end && t > d.end) return { label:"Ended", cls:"" };
+  return { label:"Live", cls:"good" };
+}
+function dealSummary(d){
+  if(d.builtin) return d.desc || "";
+  const what = d.type === "percent" ? d.value + "% off" : d.type === "charge" ? "adds $" + d.value : "$" + d.value + " off";
+  const bits = [what];
+  if(d.includesKit) bits.push("free mini kit");
+  if(d.categories && d.categories.length) bits.push("only " + d.categories.map(c => CAT_LABEL[c] || c).join(", "));
+  if(d.start || d.end) bits.push((d.start ? shortDay(d.start) : "…") + " – " + (d.end ? shortDay(d.end) : "…"));
+  if(d.oneTime) bits.push("once per client");
+  return bits.join(" · ");
+}
+const CAT_LABEL = { qw:"Quick Weave", si:"Sew-In", braids:"Braids & Twists", cornrows:"Cornrows", crochet:"Crochet", treatments:"Treatments", takedown:"Takedowns" };
+function dealsSection(){
+  if(!(S.data && S.data.builtinDeals)) return `<details class="fold"><summary>🏷 Deals</summary><div><p class="hint" style="margin:0;">Update your Sheet's script (see the banner at the top) to turn this on.</p></div></details>`;
+  const list = allDeals();
+  const rows = list.map(d => {
+    const st = dealState(d), used = dealUse(d.key);
+    let money_ = "";
+    if(!d.builtin && d.type === "charge" && used){ const per = (Number(d.value) || 0) - (Number(d.cost) || 0); money_ = ` · you keep about ${money(per)} each = <b>${money(per * used)}</b>`; }
+    return `<div class="row" style="cursor:default; align-items:flex-start;">
+      <div class="row-main">
+        <div class="row-title">${esc(d.name)} <span class="tag ${st.cls}">${esc(st.label)}</span>${d.builtin ? ' <span class="tag">built-in</span>' : ''}</div>
+        <div class="row-sub">${esc(dealSummary(d))}</div>
+        <div class="row-note">Used on ${used} booking${used === 1 ? "" : "s"}${money_}</div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn" data-a="deal-edit" data-k="${esc(d.key)}">Edit</button>
+          <button class="btn" data-a="deal-pause" data-k="${esc(d.key)}">${d.paused ? "Turn on" : "Pause"}</button>
+          <button class="btn no" data-a="deal-delete" data-k="${esc(d.key)}">Delete</button>
+        </div>
+      </div></div>`;
+  }).join("");
+  const removed = ((cfgOf().deals) || []).filter(x => x.deleted && !x.custom).length;
+  return `<details class="fold" ${S.openDeals ? "open" : ""} data-keep="openDeals"><summary>🏷 Deals on your website (${list.filter(d => dealState(d).label === "Live").length} live)</summary><div>
+    <p class="hint" style="margin-top:0;">Anything here shows up on your booking page under "Using a deal?" within about a minute. Clients pick up to 2.</p>
+    ${list.length ? `<div class="list">${rows}</div>` : '<p class="empty">No deals yet.</p>'}
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn primary" data-a="deal-new">＋ Add a deal</button>
+      <button class="btn" data-a="deal-new-nov">✨ Start from my November idea</button>
+    </div>
+    ${removed ? `<p class="hint">${removed} built-in deal${removed === 1 ? " is" : "s are"} removed. <a href="#" data-a="deal-restore">Bring them back</a></p>` : ''}
+  </div></details>`;
+}
+function dealSheet(){
+  const d = S.dealEdit, b = !!d.builtin;
+  const cat = c => `<label class="check" style="padding:4px 0;"><input type="checkbox" data-de-cat="${c}" ${(d.categories || []).includes(c) ? "checked" : ""}/> ${esc(CAT_LABEL[c])}</label>`;
+  const profit = d.type === "charge" ? (Number(d.value) || 0) - (Number(d.cost) || 0) : null;
+  return `<div class="veil" data-a="close-deal" data-bg="1"><div class="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-head"><div><h3>${d.isNew ? "Add a deal" : "Edit deal"}</h3><p>${b ? "Built-in deal — you can rename it, change its words, or pause it." : "Shows on your booking page automatically."}</p></div>
+      <button class="icon-btn" data-a="close-deal" aria-label="Close">×</button></div>
+    <div class="sheet-body">
+      <div class="field"><label>Name clients see</label><input type="text" id="de-name" value="${esc(d.name || "")}" maxlength="60" placeholder="e.g. Treat Yourself"/></div>
+      <div class="field"><label>Short description</label><textarea id="de-desc" maxlength="200" placeholder="e.g. A meal of your choice + a mini care kit with your appointment">${esc(d.desc || "")}</textarea></div>
+      ${b ? (d.value !== undefined && d.type !== undefined ? `<div class="field"><label>Amount ($ or %, depending on the deal)</label><input type="number" inputmode="decimal" id="de-value" value="${esc(d.value)}"/></div>` : '') : `
+      <div class="field"><label>What does it do?</label>
+        <select id="de-type">
+          <option value="flat" ${d.type === "flat" ? "selected" : ""}>Takes $ off</option>
+          <option value="percent" ${d.type === "percent" ? "selected" : ""}>Takes % off</option>
+          <option value="charge" ${d.type === "charge" ? "selected" : ""}>Adds a package price (+$) — like food + a kit</option>
+        </select></div>
+      <div class="grid2">
+        <div class="field"><label id="de-value-label">${d.type === "percent" ? "Percent off" : d.type === "charge" ? "Extra they pay ($)" : "Dollars off"}</label><input type="number" inputmode="decimal" id="de-value" value="${esc(d.value === undefined ? "" : d.value)}"/></div>
+        <div class="field"><label>My cost per client ($)</label><input type="number" inputmode="decimal" id="de-cost" value="${esc(d.cost === undefined ? "" : d.cost)}" placeholder="food, kit…"/></div>
+      </div>
+      ${profit !== null ? `<div class="box" style="margin-top:0;"><div style="font-size:13.5px;">You'd keep about <b style="color:${profit >= 0 ? 'var(--good)' : 'var(--bad)'};">${money(profit)}</b> per client from this package after your cost.</div></div>` : ''}
+      <div class="field" style="margin-top:14px;"><label>Which services? <span class="hint" style="display:inline;">(none ticked = all of them)</span></label>${DEAL_CAT_ORDER.map(cat).join("")}</div>
+      <div class="grid2">
+        <div class="field"><label>Appointments from</label><input type="date" id="de-start" value="${esc(d.start || "")}"/></div>
+        <div class="field"><label>…through</label><input type="date" id="de-end" value="${esc(d.end || "")}"/></div>
+      </div>
+      <label class="check"><input type="checkbox" id="de-kit" ${d.includesKit ? "checked" : ""}/> Includes a free Mini Care Kit</label>
+      <label class="check"><input type="checkbox" id="de-once" ${d.oneTime ? "checked" : ""}/> Once per client (you'll get an alert if someone reuses it)</label>`}
+      <label class="check"><input type="checkbox" id="de-paused" ${d.paused ? "checked" : ""}/> Paused (hidden from the website)</label>
+      <button class="btn primary block" data-a="deal-save" style="margin-top:10px;">${d.isNew ? "Add deal" : "Save deal"}</button>
+      ${S.dealErr ? `<p class="hint" style="color:var(--bad);">${esc(S.dealErr)}</p>` : ''}
+    </div></div></div>`;
+}
+const DEAL_CAT_ORDER = ["si", "qw", "braids", "cornrows", "crochet", "treatments", "takedown"];
+
+/* ---------- weekly hours ---------- */
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function hoursState(){
+  if(S.hoursDraft) return S.hoursDraft;
+  const def = (S.data && S.data.defaultHours) || {}, cur = cfgOf().hours || {}, out = {};
+  for(let d = 0; d <= 6; d++){
+    const v = cur[d] !== undefined ? cur[d] : def[d];
+    if(v === "closed") out[d] = { mode:"closed", w:[{start:"09:00", end:"17:00"}] };
+    else if(Array.isArray(v) && v.length) out[d] = { mode:"set", w:v.map(x => ({ start:x.start, end:x.end })) };
+    else out[d] = { mode:"flex", w:[{start:"09:00", end:"17:00"}] };
+  }
+  S.hoursDraft = out; return out;
+}
+function hoursSection(){
+  if(!(S.data && S.data.defaultHours)) return `<details class="fold"><summary>🗓 Availability</summary><div><p class="hint" style="margin:0;">Update your Sheet's script (see the banner at the top) to turn this on.</p></div></details>`;
+  const H = hoursState();
+  const latest = S.latestDraft !== undefined ? S.latestDraft : (cfgOf().latest || (S.data.defaultLatest || "19:00"));
+  const row = d => {
+    const h = H[d], w = h.w;
+    return `<div class="hrow">
+      <div class="hday">${DAY_NAMES[d]}</div>
+      <select data-hr="${d}" data-f="mode"><option value="flex" ${h.mode === "flex" ? "selected" : ""}>Flexible all day</option><option value="set" ${h.mode === "set" ? "selected" : ""}>Set hours</option><option value="closed" ${h.mode === "closed" ? "selected" : ""}>Closed</option></select>
+      ${h.mode === "set" ? `<div class="hwin">${[0, 1].map(i => w[i] ? `<span><input type="time" data-hr="${d}" data-f="start" data-i="${i}" value="${esc(w[i].start)}"/> – <input type="time" data-hr="${d}" data-f="end" data-i="${i}" value="${esc(w[i].end)}"/>${i === 1 ? ` <a href="#" data-a="hr-drop" data-k="${d}">remove</a>` : ''}</span>` : '').join("")}
+        ${w.length < 2 ? `<a href="#" data-a="hr-add" data-k="${d}">+ add a second window</a>` : ''}</div>` : ''}
+    </div>`;
+  };
+  return `<details class="fold" ${S.openHours ? "open" : ""} data-keep="openHours"><summary>🗓 Availability — weekly hours</summary><div>
+    <p class="hint" style="margin-top:0;">These are the times people can pick on your booking page, each week. For one-off days (vacation, a day you're booked out) use <a href="#" data-a="go-daysoff">Days off on the Schedule tab</a>.</p>
+    ${[1, 2, 3, 4, 5, 6, 0].map(row).join("")}
+    <div class="field" style="margin-top:12px;"><label>Latest start time on any day</label><input type="time" id="hr-latest" value="${esc(latest)}"/></div>
+    <div class="btn-row"><button class="btn primary" data-a="save-hours">Save hours</button><button class="btn" data-a="reset-hours">Back to built-in hours</button></div>
+  </div></details>`;
+}
+
+async function saveConfig(partial, doneText){
+  S.busy = "Saving…"; renderLayer();
+  try{
+    const r = await api("saveConfig", { config: partial });
+    S.busy = "";
+    if(r && r.ok){ S.data.config = r.config; cacheSave(); S.dealEdit = null; render(); toast(doneText || "Saved — it's live on your website in about a minute"); return true; }
+    renderLayer(); toast((r && r.error) || "Didn't save — try again."); return false;
+  }catch(err){ S.busy = ""; renderLayer(); failToast(err); return false; }
+}
+const newDealKey = () => "c_" + Math.random().toString(36).slice(2, 8);
+function novemberDeal(){
+  const now = new Date(), y = (now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear());
+  return { isNew:true, key:newDealKey(), custom:true, name:"Treat Yourself", desc:"Add a meal of your choice + a mini care kit to your appointment.",
+    type:"charge", value:25, cost:20, categories:[], start:y + "-11-01", end:y + "-11-30", includesKit:true, oneTime:false, paused:false };
+}
+function dealsToSave(){ return (cfgOf().deals || []).map(x => Object.assign({}, x)); }
+
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-a]"); if(!el) return;
+  const a = el.dataset.a, k = el.dataset.k;
+  if(a === "retry-save"){ const r = S.retry; S.retry = null; if(r) act(r.body, r.busyText, r.doneText); else render(); return; }
+  if(a === "rp-set"){ S[el.dataset.f] = Number(el.dataset.v); redrawReport(); return; }
+  if(a === "go-daysoff"){ e.preventDefault(); S.tab = "schedule"; S.openDaysOff = true; window.scrollTo(0, 0); render(); return; }
+
+  /* prices */
+  if(a === "save-prices"){
+    const cat = S.data.catalog || [], D = S.priceDraft || {}, out = {}; let bad = null;
+    cat.forEach(c => {
+      const d = D[c.id] || {}, cur = (cfgOf().prices || {})[c.id] || {}, item = {};
+      if(d.p !== undefined){ const v = parseMoney(d.p); if(Number.isNaN(v)){ bad = c.label; return; } if(v !== null && v !== c.price) item.p = v; }
+      else if(cur.p !== undefined) item.p = cur.p;
+      if(d.w !== undefined){ const v = parseMoney(d.w); if(Number.isNaN(v)){ bad = c.label; return; }
+        if(v !== null){ if(v === 0){ if(c.was > 0) item.w = null; } else if(v !== c.was) item.w = v; } }
+      else if("w" in cur) item.w = cur.w;
+      if(Object.keys(item).length) out[c.id] = item;
+    });
+    if(bad){ toast("Check the number for: " + bad); return; }
+    const ok = await saveConfig({ prices: out, saleEnds: S.saleDraft !== undefined ? S.saleDraft : (cfgOf().saleEnds || "") }, "Prices saved — live on your website in about a minute");
+    if(ok){ S.priceDraft = null; S.saleDraft = undefined; render(); }
+    return;
+  }
+  if(a === "reset-prices"){
+    if(!confirm("Put every price back to the built-in numbers?")) return;
+    const ok = await saveConfig({ prices:{}, saleEnds:"" }, "Back to the built-in prices");
+    if(ok){ S.priceDraft = null; S.saleDraft = undefined; render(); }
+    return;
+  }
+
+  /* deals */
+  if(a === "deal-new"){ S.dealEdit = { isNew:true, key:newDealKey(), custom:true, name:"", desc:"", type:"flat", value:"", cost:"", categories:[], start:"", end:"", includesKit:false, oneTime:false, paused:false }; S.dealErr = ""; renderLayer(); return; }
+  if(a === "deal-new-nov"){ S.dealEdit = novemberDeal(); S.dealErr = ""; renderLayer(); toast("A starting point — change the numbers to match your plan, then tap Add deal."); return; }
+  if(a === "deal-edit"){ const d = allDeals().find(x => x.key === k); if(!d) return; S.dealEdit = Object.assign({}, d, { isNew:false }); S.dealErr = ""; renderLayer(); return; }
+  if(a === "close-deal"){ if(el.dataset.bg && e.target !== el) return; S.dealEdit = null; renderLayer(); return; }
+  if(a === "deal-pause"){
+    const d = allDeals().find(x => x.key === k); if(!d) return;
+    const list = dealsToSave(), i = list.findIndex(x => x.key === k);
+    if(d.custom){ if(i >= 0) list[i].paused = !d.paused; }
+    else{ if(i >= 0) list[i].paused = !d.paused; else list.push({ key:k, paused:!d.paused }); }
+    saveConfig({ deals: list }, d.paused ? "Deal is live again" : "Deal paused — hidden from your website");
+    return;
+  }
+  if(a === "deal-delete"){
+    const d = allDeals().find(x => x.key === k); if(!d) return;
+    if(!confirm("Delete \"" + d.name + "\"? It disappears from your website.")) return;
+    let list = dealsToSave().filter(x => x.key !== k);
+    if(d.builtin) list.push({ key:k, deleted:true });
+    saveConfig({ deals: list }, "Deal deleted");
+    return;
+  }
+  if(a === "deal-restore"){ e.preventDefault(); saveConfig({ deals: dealsToSave().filter(x => !(x.deleted && !x.custom)) }, "Built-in deals are back"); return; }
+  if(a === "deal-save"){
+    const d = S.dealEdit; if(!d) return;
+    if(!String(d.name || "").trim()){ S.dealErr = "Give the deal a name."; renderLayer(); return; }
+    const list = dealsToSave().filter(x => x.key !== d.key);
+    if(d.builtin){
+      const o = { key:d.key, name:String(d.name).trim(), desc:String(d.desc || "").trim(), paused:!!d.paused };
+      if(d.value !== undefined && String(d.value) !== ""){ const v = parseMoney(d.value); if(Number.isNaN(v)){ S.dealErr = "The amount needs to be a number."; renderLayer(); return; } o.value = v; }
+      list.push(o);
+    }else{
+      const v = parseMoney(d.value);
+      if(v === null || Number.isNaN(v)){ S.dealErr = "Add the amount (a number)."; renderLayer(); return; }
+      if(d.type === "percent" && v > 100){ S.dealErr = "A percent can't be over 100."; renderLayer(); return; }
+      const c = parseMoney(d.cost);
+      list.push({ key:d.key, custom:true, name:String(d.name).trim(), desc:String(d.desc || "").trim(), type:d.type || "flat", value:v, cost:Number.isNaN(c) || c === null ? 0 : c,
+        categories:d.categories || [], start:d.start || "", end:d.end || "", includesKit:!!d.includesKit, oneTime:!!d.oneTime, paused:!!d.paused });
+    }
+    saveConfig({ deals: list }, d.isNew ? "Deal added — it's on your website in about a minute" : "Deal saved");
+    return;
+  }
+
+  /* weekly hours */
+  if(a === "hr-add"){ e.preventDefault(); const H = hoursState(); H[k].w.push({ start:"18:00", end:"21:00" }); render(); return; }
+  if(a === "hr-drop"){ e.preventDefault(); const H = hoursState(); H[k].w.splice(1, 1); render(); return; }
+  if(a === "save-hours"){
+    const H = hoursState(), out = {}; let bad = null;
+    for(let d = 0; d <= 6; d++){
+      const h = H[d];
+      if(h.mode === "flex") out[d] = "flex";
+      else if(h.mode === "closed") out[d] = "closed";
+      else{
+        const w = h.w.filter(x => x.start && x.end);
+        if(!w.length || w.some(x => x.start >= x.end)){ bad = DAY_NAMES[d]; break; }
+        out[d] = w;
+      }
+    }
+    if(bad){ toast("Check the hours for " + bad + " — the end has to be after the start."); return; }
+    const latest = (document.getElementById("hr-latest") || {}).value || "";
+    const ok = await saveConfig({ hours: out, latest: latest }, "Hours saved — live on your website in about a minute");
+    if(ok){ S.hoursDraft = null; S.latestDraft = undefined; render(); }
+    return;
+  }
+  if(a === "reset-hours"){
+    if(!confirm("Put your weekly hours back to the built-in schedule?")) return;
+    const ok = await saveConfig({ hours:{}, latest:"" }, "Back to the built-in hours");
+    if(ok){ S.hoursDraft = null; S.latestDraft = undefined; render(); }
+    return;
+  }
+});
+
+// Typing in the new editors (no re-render per keystroke, so the keyboard doesn't close).
+document.addEventListener("input", e => {
+  const t = e.target;
+  if(t.dataset && t.dataset.pr){ const D = S.priceDraft || (S.priceDraft = {}); (D[t.dataset.pr] || (D[t.dataset.pr] = {}))[t.dataset.f] = t.value; return; }
+  if(t.id === "pr-sale"){ S.saleDraft = t.value; return; }
+  if(t.id === "hr-latest"){ S.latestDraft = t.value; return; }
+  if(S.dealEdit){
+    const d = S.dealEdit;
+    if(t.id === "de-name") d.name = t.value;
+    else if(t.id === "de-desc") d.desc = t.value;
+    else if(t.id === "de-value") d.value = t.value;
+    else if(t.id === "de-cost") d.cost = t.value;
+    else if(t.id === "de-start") d.start = t.value;
+    else if(t.id === "de-end") d.end = t.value;
+  }
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if(t.dataset && t.dataset.rp){ S[t.dataset.rp] = t.dataset.rp === "rpPeriod" ? t.value : (Number(t.value) || 0); redrawReport(); return; }
+  if(t.dataset && t.dataset.hr !== undefined && t.dataset.hr !== ""){
+    const H = hoursState(), d = t.dataset.hr;
+    if(t.dataset.f === "mode"){ H[d].mode = t.value; render(); }
+    else{ H[d].w[Number(t.dataset.i)][t.dataset.f] = t.value; }
+    return;
+  }
+  if(t.id === "rb-toggle"){ saveConfig({ rebookEmails: t.checked }, t.checked ? "Rebooking emails are on" : "Rebooking emails are off"); return; }
+  if(S.dealEdit){
+    const d = S.dealEdit;
+    if(t.id === "de-type"){ d.type = t.value; renderLayer(); }
+    else if(t.id === "de-kit") d.includesKit = t.checked;
+    else if(t.id === "de-once") d.oneTime = t.checked;
+    else if(t.id === "de-paused") d.paused = t.checked;
+    else if(t.dataset && t.dataset.deCat){ const c = t.dataset.deCat; d.categories = (d.categories || []).filter(x => x !== c); if(t.checked) d.categories.push(c); }
+    else if(t.id === "de-value" || t.id === "de-cost"){ if(t.id === "de-value") d.value = t.value; else d.cost = t.value; renderLayer(); }
+  }
+});
+document.addEventListener("keydown", e => { if(e.key === "Escape" && S.dealEdit){ S.dealEdit = null; renderLayer(); } });
+
 /* ============== start ============== */
 S.key = store.get();
-if(S.key) load(false); else render();
+if(S.key){
+  const cached = cacheLoad();
+  if(cached && cached.bookings){ S.data = cached; S.stale = true; render(); load(true); }   // instant, then refresh behind the scenes
+  else load(false);
+}else render();
 </script>
 </body>
 </html>

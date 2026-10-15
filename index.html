@@ -547,9 +547,6 @@ const INSTALLS = {
     { key:"raw", name:"Raw hair package", price:400, note:"Price varies by length and type. Final quote after your consultation." },
   ]}
 };
-if(new Date() > SALE_ENDS){
-  Object.values(INSTALLS).forEach(g => g.tiers.forEach(t => { if(t.was){ t.price = t.was; delete t.was; } }));
-}
 
 // Fulani styling is a technique upcharge on top of whichever tier is picked —
 // PLACEHOLDER surcharge derived from a "$140-160 total" range — confirm exact number.
@@ -604,7 +601,7 @@ function currentBraidSizes(){
     : state.braidStyle==='twist' ? TWIST_SIZES
     : BOX_BRAID_SIZES;
 }
-const BOHO_PRICE = 40;
+let BOHO_PRICE = 40;
 
 const CORNROW_OPTIONS = [
   { key:"6", name:"6 rows", price:40 },
@@ -901,11 +898,11 @@ const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
 
 const MINI_KIT_MIN_TOTAL = 200;
 const LUXURY_INCLUDED_MIN = 400;
-const LUXURY_KIT_PRICE = 50;
-const MINI_KIT_PURCHASE_PRICE = 35; // buying the Mini Care Kit on its own, for bookings under $200 that don't otherwise qualify free
-const BRAID_HAIR_PACK_PRICE = 20;
-const TWO_STRAND_HAIR_PACK_PRICE = 10;
-const MINI_TWIST_HAIR_PACK_PRICE = 15;
+let LUXURY_KIT_PRICE = 50;
+let MINI_KIT_PURCHASE_PRICE = 35; // buying the Mini Care Kit on its own, for bookings under $200 that don't otherwise qualify free
+let BRAID_HAIR_PACK_PRICE = 20;
+let TWO_STRAND_HAIR_PACK_PRICE = 10;
+let MINI_TWIST_HAIR_PACK_PRICE = 15;
 function braidPackPrice(){
   return state.braidStyle==='twostrand' ? TWO_STRAND_HAIR_PACK_PRICE
     : state.braidStyle==='mini' ? MINI_TWIST_HAIR_PACK_PRICE
@@ -965,7 +962,7 @@ function timeToMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m
 function minutesToTime(t){ return String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'); }
 
 // Hard cutoff — nothing is bookable at or after this time, no matter what a day's windows say below.
-const LATEST_BOOKABLE_TIME = "19:00";
+let LATEST_BOOKABLE_TIME = "19:00";
 
 // Days with no fixed windows above ("flexible all day") still need a bounded slot list —
 // this is the span used to generate slots for those days.
@@ -1015,7 +1012,7 @@ async function refreshTakenDates(){
   }catch(err){ /* live sync failed — manual BLOCKED_DATES still works, just no auto-block this load */ }
 }
 // Squeeze-ins: a request for a day that's already booked. Always needs your approval.
-const SQUEEZE_IN_FEE = 20;
+let SQUEEZE_IN_FEE = 20;
 function squeezeApplies(){ return !!state.squeezeIn && state.category && state.category!=='bundles' && state.category!=='consult'; }
 // It's only a squeeze-in (and only costs the fee) when the day they picked is actually already booked.
 // On the confirmation screen the answer is frozen, because their own new booking now marks that day as taken.
@@ -1385,6 +1382,7 @@ function serviceChosen(){
 }
 function computeBaseTotal(){
   let total = 0;
+  let dealCharges = 0;                       // "package" deals add money (e.g. a food + kit upgrade), after discounts
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier();
     if(tier){
@@ -1424,6 +1422,13 @@ function computeBaseTotal(){
       state.dealsSelected.forEach(dk=>{
         const deal = DEALS.find(d=>d.key===dk);
         if(!deal) return;
+        if(deal.custom){                       // a deal you made in the admin site
+          if(!dealApplies(deal)) return;
+          if(deal.type==='flat') total -= Number(deal.value) || 0;
+          else if(deal.type==='percent') total -= total * ((Number(deal.value) || 0) / 100);
+          else if(deal.type==='charge') dealCharges += Number(deal.value) || 0;
+          return;
+        }
         if(deal.key==='btc' && !state.btcFirstConfirmed) return; // not confirmed yet, no discount
         if(deal.key==='campuscutie' && !isCampusCutieDay(state.date)) return; // wrong day, no discount
         if(deal.key==='loyalty' && state.loyaltyVisit !== '5th+') return; // only the 5th install or later qualifies
@@ -1451,7 +1456,7 @@ function computeBaseTotal(){
       const pct = (state.category === 'si') ? BOOKING_TYPE_DISCOUNT.bestieSewIn : BOOKING_TYPE_DISCOUNT.bestie;
       total -= total * pct;
     }
-    total = Math.max(0, total);
+    total = Math.max(0, total + dealCharges);
   }
   return total;
 }
@@ -1475,6 +1480,7 @@ function miniKitReasons(){
   if(state.category==='si' && state.tierKey && state.tierKey!=='service' && state.isFirstTimeClient===true) reasons.push('first-time sew-in with hair purchase');
   if(state.bookingType==='couple') reasons.push("Couple Booking");
   if(state.bookingType==='bestie') reasons.push('Bestie Booking');
+  state.dealsSelected.forEach(dk => { const d = DEALS.find(x => x.key === dk); if(d && d.custom && d.includesKit && dealApplies(d)) reasons.push(d.name); });
   return reasons;
 }
 function miniKitEligible(){ return miniKitReasons().length > 0; }
@@ -2325,7 +2331,7 @@ function renderBook(){
       <div class="drop-body">
       <div class="opt-sub" style="margin-bottom:10px;">Select up to ${MAX_DEALS} — I'll confirm eligibility when I approve your request.</div>
       <div class="opt-group">
-        ${DEALS.filter(d=>!d.paused).map(d=>{
+        ${DEALS.filter(dealVisible).map(d=>{
           let extraNote = '';
           if(d.key==='campuscutie'){
             extraNote = state.date ? (isCampusCutieDay(state.date) ? `<div class="opt-sub" style="color:var(--pink);">✓ valid for your selected date</div>` : `<div class="opt-sub" style="color:var(--pink);">date must be a Wed or Sun — pick your date above first</div>`) : `<div class="opt-sub">pick your date above to check eligibility</div>`;
@@ -2333,6 +2339,7 @@ function renderBook(){
           return `
           <div class="opt ${state.dealsSelected.includes(d.key)?'selected':''}" data-action="toggle-deal" data-key="${d.key}">
             <div><div class="opt-name">${d.name}</div><div class="opt-sub">${d.desc}</div>${extraNote}</div>
+            ${d.custom && d.type==='charge' ? `<span class="opt-price">+${money(Number(d.value) || 0)}</span>` : (d.custom && d.type==='flat' ? `<span class="opt-price">−${money(Number(d.value) || 0)}</span>` : (d.custom && d.type==='percent' ? `<span class="opt-price">−${Number(d.value) || 0}%</span>` : ''))}
           </div>
           ${(d.key==='loyalty' && state.dealsSelected.includes('loyalty')) ? `
             <div class="field" style="margin-top:-2px;">
@@ -3184,6 +3191,121 @@ document.addEventListener('keydown', (e)=>{
   }
 });
 
+/* ============== live settings from your admin site ============== */
+// Prices, deals and weekly hours can be changed from the admin website and show up here automatically.
+// The numbers written in this file are the DEFAULTS — if the settings can't be loaded, booking still works with them.
+const PRICE_REGISTRY = (() => {
+  const list = [];
+  const add = (id, group, label, get, set, extra) => { const it = Object.assign({ id, group, label, get, set, price0: get() }, extra || {}); list.push(it); return it; };
+  const onObj = (id, group, label, obj, field, sale) => {
+    const it = add(id, group, label, () => obj[field], v => { obj[field] = v; });
+    if(sale){ it.sale = true; it.was0 = obj.was; it.getWas = () => obj.was; it.setWas = v => { if(v) obj.was = v; else delete obj.was; }; }
+    return it;
+  };
+  ['si','qw'].forEach(c => INSTALLS[c].tiers.forEach(t => {
+    const g = INSTALLS[c].label;
+    onObj(c + '.' + t.key, g, t.name, t, 'price', true);
+    if(t.addBundle){
+      onObj(c + '.' + t.key + '.add1620', g, t.name + ' — each extra bundle, 16–20"', t.addBundle, '16-20');
+      onObj(c + '.' + t.key + '.add22', g, t.name + ' — each extra bundle, 22"+', t.addBundle, '22+');
+    }
+  }));
+  onObj('fulani.si', 'Add-ons', 'Fulani styling upcharge — Sew-In', FULANI_SURCHARGE, 'si');
+  onObj('fulani.qw', 'Add-ons', 'Fulani styling upcharge — Quick Weave', FULANI_SURCHARGE, 'qw');
+  INSTALL_ADDONS.forEach(a => onObj('addon.' + a.key, 'Add-ons', a.name, a, 'price'));
+  [['box','Box Braids',BOX_BRAID_SIZES],['twist','Twists',TWIST_SIZES],['twostrand','Two-Strand Twists',TWO_STRAND_SIZES],
+   ['marley','Marley Twists',MARLEY_TWIST_SIZES],['mini','Mini Twists',MINI_TWIST_SIZES],['micro','Micro Twists',MICRO_TWIST_SIZES]]
+    .forEach(([k, name, arr]) => arr.forEach(s => onObj('braid.' + k + '.' + s.key, 'Braids & Twists', name + ' — ' + s.name, s, 'price')));
+  add('braid.boho', 'Braids & Twists', 'Boho add-on', () => BOHO_PRICE, v => { BOHO_PRICE = v; });
+  add('pack.braid', 'Braids & Twists', 'Hair pack (braids & twists)', () => BRAID_HAIR_PACK_PRICE, v => { BRAID_HAIR_PACK_PRICE = v; });
+  add('pack.twostrand', 'Braids & Twists', 'Hair pack (two-strand)', () => TWO_STRAND_HAIR_PACK_PRICE, v => { TWO_STRAND_HAIR_PACK_PRICE = v; });
+  add('pack.mini', 'Braids & Twists', 'Hair pack (mini twists)', () => MINI_TWIST_HAIR_PACK_PRICE, v => { MINI_TWIST_HAIR_PACK_PRICE = v; });
+  CORNROW_OPTIONS.forEach(c => onObj('cornrow.' + c.key, 'Cornrows & Crochet', 'Cornrows — ' + c.name, c, 'price'));
+  onObj('crochet.own', 'Cornrows & Crochet', 'Crochet — bringing own hair', CROCHET_PRICES, 'own');
+  onObj('crochet.stylist', 'Cornrows & Crochet', 'Crochet — hair provided', CROCHET_PRICES, 'stylist');
+  TREATMENTS.filter(t => !t.unavailable).forEach(t => onObj('treat.' + t.key, 'Treatments', t.name, t, 'price'));
+  onObj('treat.group2', 'Treatments', 'Group of 2 (total)', GROUP_TREATMENT_PRICES, '2');
+  onObj('treat.group3', 'Treatments', 'Group of 3 (total)', GROUP_TREATMENT_PRICES, '3');
+  TAKEDOWNS.forEach(t => onObj('td.' + t.key, 'Takedowns', t.name, t, 'price'));
+  add('kit.mini', 'Kits & fees', 'Mini Care Kit (add-on price)', () => MINI_KIT_PURCHASE_PRICE, v => { MINI_KIT_PURCHASE_PRICE = v; });
+  add('kit.luxury', 'Kits & fees', 'Luxury Care Kit (upgrade price)', () => LUXURY_KIT_PRICE, v => { LUXURY_KIT_PRICE = v; });
+  add('fee.squeeze', 'Kits & fees', 'Squeeze-in fee', () => SQUEEZE_IN_FEE, v => { SQUEEZE_IN_FEE = v; });
+  return list;
+})();
+const DEALS_DEFAULT = DEALS.map(d => Object.assign({}, d));
+const WEEKDAY_WINDOWS_DEFAULT = JSON.parse(JSON.stringify(WEEKDAY_WINDOWS));
+const LATEST_BOOKABLE_DEFAULT = LATEST_BOOKABLE_TIME;
+
+function liveToday(){ const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0'); }
+// Is this deal inside its start/end dates? Uses the appointment date once one is picked, otherwise today.
+function dealWindowOk(d){
+  const ref = state.date || liveToday();
+  if(d.start && ref < d.start) return false;
+  if(d.end && ref > d.end) return false;
+  return true;
+}
+function dealCategoryOk(d){
+  return !Array.isArray(d.categories) || !d.categories.length || !state.category || d.categories.includes(state.category);
+}
+function dealApplies(d){ return !d.paused && dealWindowOk(d) && dealCategoryOk(d); }
+function dealVisible(d){ return !d.paused && dealCategoryOk(d) && (state.date ? dealWindowOk(d) : (!d.end || liveToday() <= d.end)); }
+
+// Applies a settings object { prices, saleEnds, deals, hours, latest }. Safe to call again with a new one: it always
+// starts from the defaults written in this file.
+function applyLiveConfig(cfg){
+  cfg = cfg || {};
+  const P = cfg.prices || {};
+  const ends = cfg.saleEnds ? new Date(cfg.saleEnds + 'T23:59:59') : SALE_ENDS;
+  const saleOver = new Date() > ends;
+  PRICE_REGISTRY.forEach(it => {
+    const o = P[it.id] || {};
+    const price = (typeof o.p === 'number' && o.p >= 0) ? o.p : it.price0;
+    it.set(price);
+    if(it.sale){
+      const was = ('w' in o) ? (typeof o.w === 'number' && o.w > 0 ? o.w : undefined) : it.was0;
+      it.setWas(was);
+      if(saleOver && it.getWas()){ it.set(it.getWas()); it.setWas(undefined); }       // sale finished: back to the regular price
+    }
+  });
+  // deals: built-ins can be renamed / paused / removed; custom ones are added
+  DEALS.length = 0;
+  DEALS_DEFAULT.forEach(d => DEALS.push(Object.assign({}, d)));
+  (cfg.deals || []).forEach(o => {
+    const base = DEALS.find(d => d.key === o.key);
+    if(base && !o.custom){
+      if(o.deleted){ DEALS.splice(DEALS.indexOf(base), 1); return; }
+      ['name','desc','value','paused'].forEach(f => { if(o[f] !== undefined) base[f] = o[f]; });
+    }else if(o.custom && !o.deleted){
+      DEALS.push(Object.assign({ type:'flat', value:0 }, o, { custom:true }));
+    }
+  });
+  // weekly hours
+  Object.keys(WEEKDAY_WINDOWS_DEFAULT).forEach(k => { WEEKDAY_WINDOWS[k] = WEEKDAY_WINDOWS_DEFAULT[k] ? WEEKDAY_WINDOWS_DEFAULT[k].map(w => Object.assign({}, w)) : null; });
+  const hrs = cfg.hours || {};
+  Object.keys(hrs).forEach(k => {
+    const v = hrs[k];
+    if(v === 'flex') WEEKDAY_WINDOWS[k] = null;
+    else if(v === 'closed') WEEKDAY_WINDOWS[k] = [];
+    else if(Array.isArray(v) && v.length) WEEKDAY_WINDOWS[k] = v.filter(w => w && /^\d{2}:\d{2}$/.test(w.start) && /^\d{2}:\d{2}$/.test(w.end)).map(w => ({ start:w.start, end:w.end }));
+  });
+  LATEST_BOOKABLE_TIME = /^\d{2}:\d{2}$/.test(cfg.latest || '') ? cfg.latest : LATEST_BOOKABLE_DEFAULT;
+}
+
+const LIVE_CFG_KEY = "ehiffectLiveConfig";
+async function loadLiveConfig(){
+  try{
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 7000);
+    const res = await fetch(CONFIG.apiUrl + "?action=config", { signal: ctl.signal });
+    clearTimeout(timer);
+    const cfg = await res.json();
+    if(cfg && cfg.ok){
+      try{ localStorage.setItem(LIVE_CFG_KEY, JSON.stringify(cfg)); }catch(e){}
+      applyLiveConfig(cfg);
+      render();
+    }
+  }catch(err){ /* offline or slow: the defaults / last saved settings keep working */ }
+}
+
 /* ============== router ============== */
 // Keep the floating button out of the way: it slides away while someone scrolls down
 // through prices or is typing in a field, and comes back when they scroll up or reach the end.
@@ -3217,11 +3339,13 @@ function checkRoute(){
   }
 }
 window.addEventListener('hashchange', ()=>{ checkRoute(); render(); });
+try{ applyLiveConfig(JSON.parse(localStorage.getItem(LIVE_CFG_KEY) || 'null') || {}); }catch(e){ applyLiveConfig({}); }   // instant, from the last visit
 checkRoute();
 if(quizAlreadySeen()) state.showQuizPrompt = false;
 loadQuizProgress();
 render();
 refreshTakenDates();
+loadLiveConfig();
 </script>
 </body>
 </html>

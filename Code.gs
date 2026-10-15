@@ -120,6 +120,192 @@ const DEAL_NAMES = {
 // Add or remove keys from the list above to change which deals count.
 const ONE_TIME_DEALS = ["btc", "hallohair"];
 
+/* ================================================================
+   LIVE SITE SETTINGS — prices, deals and weekly hours that you edit in the admin site.
+   The website reads them from here (action=config) every visit; if they can't be reached it falls back to
+   the defaults written in index.html, so booking never breaks.
+   ================================================================ */
+// Bump this when the admin site needs a newer version of this script. The admin page compares it and tells you
+// plainly when your Sheet's script is out of date (instead of "unknown action").
+const API_VERSION = 4;
+
+// Every price you can edit: [id, group, label, price, regular ("was") price or 0]. These are the website's
+// built-in numbers — the admin site shows them as "default" and lets you override each one.
+const PRICE_CATALOG = [
+  ["si.service","Sew-In","Installation only",120,150],
+  ["si.synthetic","Sew-In","+ synthetic hair (3 bundles)",150,180],
+  ["si.human","Sew-In","Human hair package — 2 bundles",200,220],
+  ["si.human.add1620","Sew-In","Human hair package — 2 bundles — each extra bundle, 16–20\"",50],
+  ["si.human.add22","Sew-In","Human hair package — 2 bundles — each extra bundle, 22\"+",60],
+  ["si.human3","Sew-In","Human hair package — 3 bundles",275,0],
+  ["si.human3.add1620","Sew-In","Human hair package — 3 bundles — each extra bundle, 16–20\"",50],
+  ["si.human3.add22","Sew-In","Human hair package — 3 bundles — each extra bundle, 22\"+",60],
+  ["si.raw","Sew-In","Raw hair package",400,0],
+  ["qw.service","Quick Weave","Service only",90,0],
+  ["qw.synthetic","Quick Weave","+ synthetic hair (3 bundles)",130,0],
+  ["qw.human","Quick Weave","+ human hair (2 bundles)",200,220],
+  ["qw.human.add1620","Quick Weave","+ human hair (2 bundles) — each extra bundle, 16–20\"",50],
+  ["qw.human.add22","Quick Weave","+ human hair (2 bundles) — each extra bundle, 22\"+",60],
+  ["qw.human3","Quick Weave","+ human hair (3 bundles)",240,0],
+  ["qw.human3.add1620","Quick Weave","+ human hair (3 bundles) — each extra bundle, 16–20\"",50],
+  ["qw.human3.add22","Quick Weave","+ human hair (3 bundles) — each extra bundle, 22\"+",60],
+  ["qw.raw","Quick Weave","+ raw hair",400,0],
+  ["fulani.si","Add-ons","Fulani styling upcharge — Sew-In",70],
+  ["fulani.qw","Add-ons","Fulani styling upcharge — Quick Weave",70],
+  ["addon.curls","Add-ons","Curls / wand styling",7],
+  ["addon.closure","Add-ons","Closure install",15],
+  ["addon.extraBundleSynthetic","Add-ons","Extra bundle (synthetic)",25],
+  ["addon.extraBundleHuman","Add-ons","Extra bundle (human)",50],
+  ["braid.box.large","Braids & Twists","Box Braids — Large",180],
+  ["braid.box.medium","Braids & Twists","Box Braids — Medium",200],
+  ["braid.box.small","Braids & Twists","Box Braids — Small",220],
+  ["braid.twist.large","Braids & Twists","Twists — Large",150],
+  ["braid.twist.medium","Braids & Twists","Twists — Medium",180],
+  ["braid.twist.small","Braids & Twists","Twists — Small",200],
+  ["braid.twostrand.standard","Braids & Twists","Two-Strand Twists — Standard",50],
+  ["braid.marley.large","Braids & Twists","Marley Twists — Large",100],
+  ["braid.marley.medium","Braids & Twists","Marley Twists — Medium",140],
+  ["braid.marley.small","Braids & Twists","Marley Twists — Small",180],
+  ["braid.mini.shortmed","Braids & Twists","Mini Twists — Short/Medium Length",85],
+  ["braid.mini.long","Braids & Twists","Mini Twists — Long Length",125],
+  ["braid.mini.xlongthick","Braids & Twists","Mini Twists — Extra Long/Thick",150],
+  ["braid.micro.standard","Braids & Twists","Micro Twists",500],
+  ["braid.boho","Braids & Twists","Boho add-on",40],
+  ["pack.braid","Braids & Twists","Hair pack (braids & twists)",20],
+  ["pack.twostrand","Braids & Twists","Hair pack (two-strand)",10],
+  ["pack.mini","Braids & Twists","Hair pack (mini twists)",15],
+  ["cornrow.6","Cornrows & Crochet","Cornrows — 6 rows",40],
+  ["cornrow.8-10","Cornrows & Crochet","Cornrows — 8–10 rows",50],
+  ["crochet.own","Cornrows & Crochet","Crochet — bringing own hair",50],
+  ["crochet.stylist","Cornrows & Crochet","Crochet — hair provided",80],
+  ["treat.massage","Treatments","Hair massage",60],
+  ["treat.group2","Treatments","Group of 2 (total)",80],
+  ["treat.group3","Treatments","Group of 3 (total)",100],
+  ["td.thread","Takedowns","Thread & Track Removal",40],
+  ["td.full","Takedowns","Full Sew-In Takedown",55],
+  ["td.complete","Takedowns","Complete Takedown + Detangling",70],
+  ["td.crochet","Takedowns","Crochet Takedown",50],
+  ["kit.mini","Kits & fees","Mini Care Kit (add-on price)",35],
+  ["kit.luxury","Kits & fees","Luxury Care Kit (upgrade price)",50],
+  ["fee.squeeze","Kits & fees","Squeeze-in fee",20]
+];
+// The deals built into your website (the admin site can rename, re-word, pause or remove them).
+const BUILTIN_DEALS = [
+  { key: "btc", name: "Back to Campus", desc: "$20 off your first appointment of the semester", type: "flat", value: 20, paused: true },
+  { key: "hallohair", name: "Hallohair", desc: "Free curls/crimps with any Quick Weave or Sew-In — bring a costume hair inspo for 20% off your style too (Halloween week, Oct 25–31, only)", paused: false },
+  { key: "campuscutie", name: "Campus Cutie", desc: "$15 off — Wednesdays & Sundays only (ID required)", type: "flat", value: 15, paused: true },
+  { key: "loyalty", name: "Loyalty Love", desc: "Your 5th install or more is 50% off", type: "percent", value: 50, paused: true },
+  { key: "flash", name: "Flash Deal", desc: "A random discount announced on my IG stories — mention it and I'll confirm", paused: true }
+];
+const DEFAULT_HOURS = {
+  0: "flex", 1: [{ start: "07:00", end: "14:00" }, { start: "18:45", end: "21:00" }], 2: [{ start: "07:00", end: "10:00" }, { start: "18:10", end: "21:00" }],
+  3: [{ start: "07:00", end: "14:00" }, { start: "18:45", end: "21:00" }], 4: [{ start: "07:00", end: "10:00" }, { start: "18:10", end: "21:00" }],
+  5: [{ start: "07:00", end: "12:45" }, { start: "15:00", end: "21:00" }], 6: "flex"
+};
+const DEAL_CATEGORIES = ["qw", "si", "braids", "cornrows", "crochet", "treatments", "takedown"];
+
+function cfgGet_(key, fallback){
+  try{ const v = PropertiesService.getScriptProperties().getProperty(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; }
+}
+function cfgSet_(key, val){ PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(val)); }
+function cfgNum_(v, max){ const n = Number(v); return isNaN(n) ? 0 : Math.max(0, Math.min(max || 5000, Math.round(n * 100) / 100)); }
+// A usable money amount typed by a person: a real number from 0 to 5000, or null (so a typo can never save as $0).
+function cfgMoney_(v){
+  if(v === null || v === undefined || String(v).trim() === "") return null;
+  const n = Number(String(v).replace(/[$,s]/g, ""));
+  return (isNaN(n) || n < 0 || n > 5000) ? null : Math.round(n * 100) / 100;
+}
+function cfgDate_(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? String(v) : ""; }
+
+function getSiteConfig_(){
+  return {
+    prices: cfgGet_("cfg_prices", {}), saleEnds: cfgGet_("cfg_sale", ""), deals: cfgGet_("cfg_deals", []),
+    hours: cfgGet_("cfg_hours", {}), latest: cfgGet_("cfg_latest", ""), rebookEmails: cfgGet_("cfg_rebook", true)
+  };
+}
+
+// What the public website gets (no private numbers like what a deal costs you).
+function publicConfig_(){
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get("pubcfg");
+  if(hit){ try{ return JSON.parse(hit); }catch(e){} }
+  const c = getSiteConfig_();
+  const out = { ok: true, v: API_VERSION, prices: c.prices, saleEnds: c.saleEnds, hours: c.hours, latest: c.latest,
+    deals: c.deals.map(d => { const o = Object.assign({}, d); delete o.cost; delete o.oneTime; return o; }) };
+  try{ cache.put("pubcfg", JSON.stringify(out), 60); }catch(e){}
+  return out;
+}
+
+function normDeal_(d){
+  const key = String(d && d.key || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 40);
+  if(!key) return null;
+  const builtin = Object.keys(DEAL_NAMES).indexOf(key) !== -1;
+  if(builtin && !d.custom){
+    const o = { key: key };
+    if(d.deleted === true){ o.deleted = true; return o; }
+    if(d.name !== undefined) o.name = clip(d.name, 60);
+    if(d.desc !== undefined) o.desc = clip(d.desc, 200);
+    if(d.value !== undefined){ const v = cfgMoney_(d.value); if(v !== null) o.value = v; }
+    if(d.paused !== undefined) o.paused = !!d.paused;
+    return o;
+  }
+  if(d.deleted === true) return null;
+  const type = ["flat", "percent", "charge"].indexOf(d.type) !== -1 ? d.type : "flat";
+  return {
+    key: key, custom: true, name: clip(d.name, 60) || "New deal", desc: clip(d.desc, 200), type: type,
+    value: cfgNum_(d.value, type === "percent" ? 100 : 5000), paused: !!d.paused, oneTime: !!d.oneTime, includesKit: !!d.includesKit,
+    categories: (Array.isArray(d.categories) ? d.categories : []).filter(c => DEAL_CATEGORIES.indexOf(c) !== -1),
+    start: cfgDate_(d.start), end: cfgDate_(d.end), cost: cfgNum_(d.cost, 5000)
+  };
+}
+
+function normHours_(h){
+  const out = {};
+  for(let day = 0; day <= 6; day++){
+    const v = h && h[day];
+    if(v === "flex" || v === "closed"){ out[day] = v; continue; }
+    if(Array.isArray(v)){
+      const w = v.slice(0, 3).filter(x => x && /^\d{2}:\d{2}$/.test(x.start) && /^\d{2}:\d{2}$/.test(x.end) && x.start < x.end).map(x => ({ start: x.start, end: x.end }));
+      if(w.length) out[day] = w;
+    }
+  }
+  return out;
+}
+
+// Saves whichever sections are provided (prices / sale end / deals / hours / latest time / rebooking emails).
+function handleSaveConfig(body){
+  const c = body.config || {};
+  const known = {}; PRICE_CATALOG.forEach(r => { known[r[0]] = true; });
+  if(c.prices && typeof c.prices === "object"){
+    const out = {};
+    Object.keys(c.prices).forEach(id => {
+      if(!known[id]) return;
+      const o = c.prices[id] || {}, item = {};
+      const p = cfgMoney_(o.p); if(p !== null) item.p = p;
+      if("w" in o){ const w = cfgMoney_(o.w); item.w = (w === null || w <= 0) ? null : w; }
+      if(Object.keys(item).length) out[id] = item;
+    });
+    cfgSet_("cfg_prices", out);
+  }
+  if(c.saleEnds !== undefined) cfgSet_("cfg_sale", cfgDate_(c.saleEnds));
+  if(Array.isArray(c.deals)) cfgSet_("cfg_deals", c.deals.slice(0, 15).map(normDeal_).filter(Boolean));
+  if(c.hours && typeof c.hours === "object") cfgSet_("cfg_hours", normHours_(c.hours));
+  if(c.latest !== undefined) cfgSet_("cfg_latest", /^\d{2}:\d{2}$/.test(String(c.latest)) ? String(c.latest) : "");
+  if(c.rebookEmails !== undefined) cfgSet_("cfg_rebook", c.rebookEmails !== false);
+  try{ CacheService.getScriptCache().remove("pubcfg"); }catch(e){}
+  return { ok: true, config: getSiteConfig_() };
+}
+
+// Custom deals get a proper name in the sheet, and "one-time" ones are policed like Back to Campus.
+function dealName_(k){
+  if(DEAL_NAMES[k]) return DEAL_NAMES[k];
+  const d = cfgGet_("cfg_deals", []).filter(x => x.key === k)[0];
+  return d && d.name ? d.name : k;
+}
+function oneTimeDeals_(){
+  return ONE_TIME_DEALS.concat(cfgGet_("cfg_deals", []).filter(d => d.custom && d.oneTime).map(d => d.key));
+}
+
 const VALID_STATUSES = ["pending", "approved", "denied", "rescheduled", "no-show", "cancelled"];
 
 // Used in the ready-to-send text messages.
@@ -203,7 +389,7 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "calendarEvent", "hairOrdered", "hairOrderedOn",
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "rebookEmailed", "calendarEvent", "hairOrdered", "hairOrderedOn",
   "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
   "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source"
 ];
@@ -320,12 +506,12 @@ function dealAlertFor(all, phone, dealKeys, excludeRow){
   const key = phoneKey(phone);
   if(!key) return "";
   const alerts = [];
-  ONE_TIME_DEALS.forEach(deal => {
+  oneTimeDeals_().forEach(deal => {
     if(dealKeys.indexOf(deal) === -1) return;
     const earlier = all.filter(b => b.row !== excludeRow && phoneKey(b.phone) === key && isActive(b) && dealsOf(b).indexOf(deal) !== -1);
     if(earlier.length){
       const last = earlier[earlier.length - 1];
-      alerts.push(DEAL_NAMES[deal] + " already used (" + last.status + ", " + asText(last.submittedAt) + ")");
+      alerts.push(dealName_(deal) + " already used (" + last.status + ", " + asText(last.submittedAt) + ")");
     }
   });
   return alerts.join(" · ");
@@ -814,12 +1000,23 @@ function doGet(e){
   }
 
   // The admin site (admin.html). Same passcode as your dashboard.
-  if(["adminData", "emailDraft", "adminAct", "adminCreate", "customEmail", "saveTemplate", "setDaysOff", "adminDelete", "inquiryDone"].indexOf(action) !== -1){
+  if(["adminData", "emailDraft", "adminAct", "adminCreate", "customEmail", "saveTemplate", "setDaysOff", "adminDelete", "inquiryDone", "saveConfig"].indexOf(action) !== -1){
     let body;
     try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
     const auth = checkAdmin_(body.adminKey); if(auth !== "ok") return json({ ok: false, error: auth });
-    try{ return json(adminApi(action, body)); }catch(err){ return json({ ok: false, error: String(err && err.message || err) }); }
+    // The admin page retries when a phone connection drops. A retry carries the same reqId, so a save (or an
+    // email) that already went through is never done twice — the first answer is simply handed back.
+    const rid = body.reqId && action !== "adminData" ? "rq_" + String(body.reqId).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) : "";
+    if(rid){ try{ const hit = CacheService.getScriptCache().get(rid); if(hit) return json(JSON.parse(hit)); }catch(err){} }
+    try{
+      const result = adminApi(action, body);
+      if(rid){ try{ const t = JSON.stringify(result); if(t.length < 90000) CacheService.getScriptCache().put(rid, t, 600); }catch(err){} }
+      return json(result);
+    }catch(err){ return json({ ok: false, error: String(err && err.message || err) }); }
   }
+
+  // Live prices / deals / weekly hours for the website (public: nothing private in here).
+  if(action === "config"){ try{ return json(publicConfig_()); }catch(err){ return json({ ok: false }); } }
 
   // A question typed into the website's "Ask me a question" form.
   if(action === "inquiry"){
@@ -912,12 +1109,12 @@ function sendClientEmail(b, subject, paras, opts){
   opts = opts || {};
   if(!b || !String(b.email || "").trim()) return false;
   paras = paras.filter(Boolean);
-  const link = opts.link === false ? "" : manageUrl(b, opts.tab);
+  const link = opts.link === false ? "" : (opts.url || manageUrl(b, opts.tab));
   const label = opts.linkLabel || "Manage my appointment";
   const plain = ["Hi " + firstName(b) + ",", ""];
   paras.forEach(p => plain.push(p, ""));
   if(link) plain.push(label + ": " + link, "");
-  plain.push("Questions? Reply to this email or DM @ehiffect on Instagram.", "", "— The Ehiffect");
+  plain.push("Questions? Reply to this email or DM @ehiffect on Instagram.", "", "— Ehi");
   const html =
     '<div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px;color:#211A1B;font-size:15px;line-height:1.6">' +
     '<p style="font-family:Georgia,serif;font-size:24px;margin:0">The Ehiffect</p>' +
@@ -925,7 +1122,7 @@ function sendClientEmail(b, subject, paras, opts){
     '<p>Hi ' + esc(firstName(b)) + ',</p>' +
     paras.map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('') +
     (link ? '<p style="margin:26px 0"><a href="' + link + '" style="background:#E38AAE;color:#241318;text-decoration:none;padding:13px 22px;border-radius:2px;font-weight:bold;letter-spacing:.05em;display:inline-block">' + esc(label) + '</a></p>' : '') +
-    '<p style="color:#8C7B7E;font-size:13px;margin-top:26px">Questions? Reply to this email or DM @ehiffect on Instagram.</p></div>';
+    '<p style="margin:22px 0 0">— Ehi</p><p style="color:#8C7B7E;font-size:13px;margin-top:14px">Questions? Reply to this email or DM @ehiffect on Instagram.</p></div>';
   try{
     sendMail_({ to: String(b.email).trim(), subject: subject, body: plain.join("\n"), htmlBody: html, name: "The Ehiffect", replyTo: NOTIFY_EMAIL });
     logEmail_(b, subject);
@@ -937,6 +1134,105 @@ function sendClientEmail(b, subject, paras, opts){
 }
 
 // Remembers every email sent to a client (newest last, last 25 kept) so the admin page can show the history.
+/* ---------- AFTERCARE GUIDES (go out with the rebooking email, matched to the service they booked) ----------
+   Sew-In and Quick Weave are condensed from the aftercare guides on your website. The others are short general
+   guides — edit the wording here any time.                                                                  */
+const AFTERCARE_GUIDES = {
+  si: { title: "Sew-In", link: "#aftercare",
+    timing: "Sew-ins are best taken down by about 6–8 weeks, so that's a great time to book your takedown and your next install.",
+    lines: [
+      "First 48 hours: hands off — no scratching, picking, or pulling while your scalp settles. Some tenderness is normal; sharp pain or bumps are not, so reach out to me.",
+      "Every night: wrap your hair or wear a silk/satin bonnet, and never go to bed with damp hair.",
+      "Wash day: cleanse your scalp every 1–2 weeks with diluted shampoo in an applicator bottle, rinse well, and dry completely with a hooded dryer or blow dryer.",
+      "Working out: a loose, low ponytail or a sweatband is fine — nothing tight at the edges — and blow-dry your roots on cool after a sweaty session.",
+      "Be gentle: detangle from ends to roots, use low to medium heat with a heat protectant, and avoid tight styles.",
+      "Leave-out: keep it moisturized, limit flat ironing, and tuck it under your bonnet at night.",
+      "At 6–8 weeks it's time for a takedown — please don't cut or pull your install out yourself. Book your takedown with me."] },
+  qw: { title: "Quick Weave", link: "#aftercare-quickweave",
+    timing: "Quick weaves should come out within about 2–4 weeks, so start thinking about your removal and your next style.",
+    lines: [
+      "First 24 hours: give the bond a day to set — keep your hair dry and skip heavy sweating.",
+      "Every night: wrap your hair or wear a silk/satin bonnet, and never sleep with damp hair.",
+      "Keep the roots dry: water and oils weaken the bond, so don't soak or wash at the roots, and keep oils and heavy products off your scalp and edges.",
+      "Working out: use a sweatband and a loose, low ponytail; wipe sweat from your hairline afterward and dry your roots on cool.",
+      "Be gentle: detangle from ends to roots, use low to medium heat with a heat protectant, and don't pull or pick at your tracks. If a track lifts, reach out to me instead of re-gluing it.",
+      "Leave-out: moisturize it (products on the leave-out only, away from the tracks) and limit flat ironing.",
+      "At 2–4 weeks it's time for removal — never pull or peel it out, it has to come out with glue remover. Book your removal with me."] },
+  braids: { title: "Braids & Twists", link: "", timing: "",
+    lines: [
+      "Every night: wrap your hair or wear a silk/satin bonnet.",
+      "Keep your scalp clean and lightly moisturized, and don't let product build up.",
+      "After washing, dry your braids completely — damp braids can smell and mildew.",
+      "Avoid pulling, tight ponytails, or tension on your edges.",
+      "Calm frizz with a light mist or oil instead of re-doing the style yourself.",
+      "When it's time for them to come out, book a takedown with me rather than cutting or pulling them out."] },
+  cornrows: { title: "Cornrows", link: "", timing: "",
+    lines: [
+      "Every night: wrap your hair or wear a silk/satin bonnet.",
+      "Moisturize your scalp lightly and keep product from building up between the rows.",
+      "Keep them dry after washing so they don't mildew or loosen.",
+      "Avoid pulling or tight styling around your edges.",
+      "If they start to loosen or itch a lot, reach out to me before taking them out yourself."] },
+  crochet: { title: "Crochet", link: "", timing: "",
+    lines: [
+      "Every night: wrap your hair or wear a silk/satin bonnet.",
+      "Keep your scalp clean and lightly moisturized without soaking the braid-down.",
+      "Dry completely after washing — damp braids underneath can smell and mildew.",
+      "Detangle gently from the ends up and avoid pulling on the crochet hair.",
+      "When it's time for removal, book a takedown with me rather than cutting it out."] },
+  takedown: { title: "After a Takedown", link: "", timing: "",
+    lines: [
+      "Give your natural hair a gentle wash and a deep condition soon after your takedown.",
+      "Detangle slowly from the ends to the roots with a wide-tooth comb.",
+      "Moisturize your hair and scalp, and give your edges a break from tight styles for a few days.",
+      "Some shedding is normal after a takedown — that's the hair that was already released from your scalp.",
+      "If your scalp feels sore or irritated, keep it gentle and reach out to me."] },
+  general: { title: "Your Style", link: "", timing: "",
+    lines: [
+      "Every night: wrap your hair or wear a silk/satin bonnet.",
+      "Keep your scalp clean and lightly moisturized, and avoid heavy product buildup.",
+      "Dry your hair completely after washing.",
+      "Avoid pulling, tension, or tight styling around your edges.",
+      "When it's time for your style to come out, book a takedown with me rather than removing it yourself."] }
+};
+function guideKey_(b){
+  const t = String(b.serviceLabel || "");
+  if(/takedown|removal/i.test(t)) return "takedown";
+  if(/^sew-?in/i.test(t)) return "si";
+  if(/^quick weave/i.test(t)) return "qw";
+  if(/cornrow/i.test(t)) return "cornrows";
+  if(/crochet/i.test(t)) return "crochet";
+  if(/braid|twist|marley|micro|mini/i.test(t)) return "braids";
+  return "general";
+}
+function aftercareText_(b){
+  const g = AFTERCARE_GUIDES[guideKey_(b)];
+  return "Your aftercare guide — " + g.title + ":\n" + g.lines.map(l => "• " + l).join("\n") +
+         (g.link ? "\n\nThe full guide is here: " + SITE_URL + g.link : "");
+}
+function rebookTiming_(b){ return AFTERCARE_GUIDES[guideKey_(b)].timing || ""; }
+
+// "Thank you + aftercare + rebook" — sent once, after an appointment is wrapped up (or by the morning job if it was missed).
+function maybeSendRebook_(b){
+  try{
+    if(getSiteConfig_().rebookEmails === false) return false;
+    if(!b || !String(b.email || "").trim() || isTrue(b.rebookEmailed) || isBundle(b) || isConsult(b)) return false;
+    if(b.status !== "approved" || !isServiced(b)) return false;
+    const ok = sendTemplate(b, "rebook");
+    if(ok){ const sh = getSheet(), cm = getColumns(sh).map; setCell(sh, cm, "rebookEmailed", b.row, true); }
+    return ok;
+  }catch(err){ console.error("rebook email failed: " + err); return false; }
+}
+// Morning safety net: anyone marked done in the last few days who didn't get the email yet.
+function sendPendingRebooks_(){
+  const cutoff = Utilities.formatDate(new Date(Date.now() - 4 * 86400000), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  readBookings().forEach(b => {
+    const d = parseDay(b); if(!d) return;
+    const iso = Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    if(iso >= cutoff) maybeSendRebook_(b);
+  });
+}
+
 function logEmail_(b, subject){
   try{
     const sh = getSheet(), cm = getColumns(sh).map, stamp = nowStamp();
@@ -951,7 +1247,7 @@ function logEmail_(b, subject){
 /* ---------- EMAIL TEMPLATES (editable from the admin site → More → Emails) ----------
    Words in {curly braces} are filled in for each client:
    {first} {name} {service} {when} {oldWhen} {newWhen} {total} {deposit} {cashtag} {site}
-   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine}
+   {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine} {aftercare} {rebookTiming}
    A blank line starts a new paragraph. A paragraph that ends up empty is left out.
    "button" is the pink button's text (leave blank for no button).                              */
 const EMAIL_DEFAULTS = {
@@ -968,11 +1264,11 @@ const EMAIL_DEFAULTS = {
     subject: "Your Ehiffect appointment time was updated", button: "Manage my appointment",
     body: "Heads up — your appointment has been updated.\n\nService: {service}\nNew time: {when}\n\nIf this time doesn't work for you, use the button below to request a different one or send me a message." },
   denied: { label: "Not approved", when: "When you deny a booking",
-    subject: "About your Ehiffect booking request", button: "",
-    body: "Thank you so much for requesting {service} on {when}. Unfortunately I'm not able to take that booking.\n\n{depositNote}\n\nI'd love to find another time that works — you're welcome to book again anytime at {site}" },
+    subject: "About your Ehiffect booking request", button: "Book a new time",
+    body: "Thank you so much for requesting {service} on {when}. Unfortunately I'm not able to take that booking.\n\n{depositNote}\n\nI'd love to find another time that works — you're welcome to book again anytime with the button below." },
   cancelled: { label: "Cancelled by you", when: "When you cancel someone's appointment",
-    subject: "Your Ehiffect appointment was cancelled", button: "",
-    body: "Your {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime at {site}" },
+    subject: "Your Ehiffect appointment was cancelled", button: "Book a new time",
+    body: "Your {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime with the button below." },
   reschedReceived: { label: "Reschedule request received", when: "When a client asks to reschedule",
     subject: "We got your reschedule request — The Ehiffect", button: "Manage my appointment",
     body: "I got your request to move your appointment.\n\nCurrent: {oldWhen}\nRequested: {newWhen}\n\n{within24Line}\n\nYour current appointment stays on the books until I approve the change." },
@@ -982,9 +1278,12 @@ const EMAIL_DEFAULTS = {
   reschedDenied: { label: "Reschedule denied", when: "When you deny a reschedule",
     subject: "About your reschedule request — The Ehiffect", button: "Manage my appointment",
     body: "I wasn't able to move your appointment to {newWhen}, so it's staying on {oldWhen}.\n\nIf you need to talk it through, reply to this email or send me a message from your appointment page." },
+  rebook: { label: "Rebook + aftercare", when: "After an appointment is wrapped up (or a day or two later if you forgot)",
+    subject: "Thank you, {first}! Your aftercare guide + rebooking 💗", button: "Book my next appointment",
+    body: "Thank you so much for coming in, {first} — I loved doing your {service}! 💗\n\n{aftercare}\n\n{rebookTiming}\n\nWhen you're ready, you can book your next appointment any time with the button below. If you post your hair, tag @ehiffect — I'd love to see it!" },
   clientCancelled: { label: "Client cancelled", when: "When a client cancels from their link",
-    subject: "Your Ehiffect appointment is cancelled", button: "",
-    body: "Your appointment for {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime at {site}" },
+    subject: "Your Ehiffect appointment is cancelled", button: "Book a new time",
+    body: "Your appointment for {service} on {when} has been cancelled.\n\n{depositNote}\n\nYou're welcome to book again anytime with the button below." },
   custom: { label: "Custom email", when: "A blank email you write yourself",
     subject: "A note from The Ehiffect", button: "Manage my appointment", body: "" }
 };
@@ -1023,7 +1322,8 @@ function templateVars(b, extra){
     depositNote: owed ? "Your $" + dep + " deposit will be sent back to you." : "",
     checkinLine: readCheckIn(b) ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
     within24Line: "I'll confirm within 24 hours.",
-    nextSteps: isConsult(b) ? "your consultation details" : "your $" + dep + " deposit details and your hair check-in"
+    nextSteps: isConsult(b) ? "your consultation details" : "your $" + dep + " deposit details",
+    aftercare: aftercareText_(b), rebookTiming: rebookTiming_(b)
   }, extra || {});
 }
 function fillTemplate(text, vars){ return String(text || "").replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m); }
@@ -1043,7 +1343,8 @@ function sendTemplate(b, kind, extra, override){
   const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
   if(!paras.length || !String(subject).trim()) return false;
   const tab = (kind === "received" || kind === "approved") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
-  return sendClientEmail(b, subject, paras, button ? { linkLabel: button, tab: tab } : { link: false });
+  const toSite = ["cancelled", "denied", "clientCancelled", "rebook"].indexOf(kind) !== -1;    // these buttons go to the booking site, not the manage page
+  return sendClientEmail(b, subject, paras, button ? { linkLabel: button, tab: tab, url: toSite ? SITE_URL : "" } : { link: false });
 }
 
 /* ---------- the emails ---------- */
@@ -1421,7 +1722,8 @@ function adminData(){
   const all = readBookings();
   if(ensureTokens(all)) all.splice(0, all.length, ...readBookings());
   const settings = getSettings();
-  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(),
+  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
+           config: getSiteConfig_(), catalog: PRICE_CATALOG.map(r => ({ id: r[0], group: r[1], label: r[2], price: r[3], was: r[4] || 0 })),
            inquiries: readInquiries_().filter(q => q.status !== "done").reverse().slice(0, 40),
            settings: settings, cashtag: CASHTAG, siteUrl: SITE_URL };
 }
@@ -1449,7 +1751,7 @@ function handleAdminAct(body){
     Object.keys(ch).forEach(f => {
       const v = ch[f];
       if(f === "status" && v === "approved" && b.status !== "approved"){ set("status", v); applyApproval(sheet, cm, b.row); return; }
-      if(f === "serviced") stampServiced(sheet, cm, b.row, v);
+      if(f === "serviced") stampServiced(sheet, cm, b.row, v);                    // (the rebooking email is sent below, once everything is saved)
       if(f === "hairOrdered" && v !== isHairOrdered(b)) set("hairOrderedOn", v ? nowStamp() : "");
       set(f, v);
     });
@@ -1469,6 +1771,10 @@ function handleAdminAct(body){
     }
     if(ch.depositPaid === true && em && em.kind === "deposit" && !em.send) set("depositEmailed", true);   // you chose not to email
 
+    if(ch.serviced === true && !isTrue(b.rebookEmailed)){                     // wrapped up → thank-you + aftercare + rebook
+      const fresh = readBookings().find(x => x.id === b.id);
+      if(fresh && maybeSendRebook_(fresh)) emailed = true;
+    }
     refreshSoon();                                   // tabs + calendar catch up in a few seconds; don't make the phone wait for it
     return { ok: true, emailed: emailed, booking: adminBooking(readBookings().find(x => x.id === body.key), getSettings()) };
   });
@@ -1608,6 +1914,7 @@ function prepItems(all){
 }
 
 function dailyPrepReminder(){
+  try{ sendPendingRebooks_(); }catch(e){ console.error("rebook sweep failed: " + e); }
   const { prep, wrap } = prepItems(readBookings());
   if(!prep.length && !wrap.length) return;
   const lines = [];
@@ -1663,15 +1970,31 @@ function ensurePrepTrigger(){
   if(!exists) ScriptApp.newTrigger("dailyPrepReminder").timeBased().everyDays(1).atHour(9).create();
   return !exists;
 }
+// Checks (at most once every few hours) that the morning prep email and the keep-warm ping are scheduled.
+// Listing triggers is slow, so it must not happen on every admin page load.
+function ensureTriggersOnce_(){
+  const cache = CacheService.getScriptCache();
+  if(cache.get("triggersOk")) return;
+  try{ ensurePrepTrigger(); }catch(e){}
+  try{
+    if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "keepWarm"))
+      ScriptApp.newTrigger("keepWarm").timeBased().everyMinutes(5).create();
+  }catch(e){}
+  try{ cache.put("triggersOk", "1", 6 * 3600); }catch(e){}
+}
+// Does nothing — it just wakes the script up every few minutes so the admin page doesn't hit a slow "cold start".
+function keepWarm(){ return 1; }
+
 function turnOnPrepReminders(){
   const created = ensurePrepTrigger();
   SpreadsheetApp.getActiveSpreadsheet().toast(created ? "Done — you'll get a prep email every morning around 9 AM (only when there's something to do)." : "Already on.", "Ehiffect", 8);
 }
 
 function adminApi(action, body){
-  if(action === "adminData"){ try{ ensurePrepTrigger(); }catch(e){} return adminData(); }
+  if(action === "adminData"){ ensureTriggersOnce_(); return adminData(); }
   if(action === "adminCreate") return handleAdminCreate(body);
   if(action === "adminDelete") return handleAdminDelete(body);
+  if(action === "saveConfig") return handleSaveConfig(body);
   if(action === "inquiryDone") return handleInquiryDone(body);
   if(action === "emailDraft") return emailDraft(body);
   if(action === "adminAct") return handleAdminAct(body);
@@ -1804,7 +2127,7 @@ function defaultEmailType(b){
 function emailTemplate(type, b, dep){
   if(!b) return { subject: "", body: "" };
   const hi = "Hi " + firstName(b) + ",\n\n";
-  const footer = "\n\nQuestions? Just reply to this email or DM @ehiffect on Instagram.\n\n— Ehiffect";
+  const footer = "\n\nQuestions? Just reply to this email or DM @ehiffect on Instagram.\n\n— Ehi";
   const owed = isPaid(b) && !isRefunded(b);
   switch(EMAIL_TYPES.indexOf(type)){
     case 1:
@@ -1859,7 +2182,11 @@ function handleSheetEdit(e){
     const watched = [cols.status, cols.depositPaid, cols.depositRefunded, cols.kitComp, cols.kitPacked, cols.shipped, cols.serviced,
                      cols.amountPaid, cols.grandTotal, cols.date, cols.time].map(i => i + 1);
     if(watched.indexOf(col) === -1) return;
-    if(col === cols.serviced + 1) stampServiced(sheet, cols, e.range.getRow(), e.range.getValue() === true);
+    if(col === cols.serviced + 1){
+      const on = e.range.getValue() === true;
+      stampServiced(sheet, cols, e.range.getRow(), on);
+      if(on){ const me = readBookings().filter(x => x.row === e.range.getRow())[0]; if(me) maybeSendRebook_(me); }
+    }
     if(col === cols.status + 1 && String(e.value).trim() === "approved"){
       const approvedBooking = applyApproval(sheet, cols, e.range.getRow());
       if(approvedBooking) sendApprovalEmail(approvedBooking);
@@ -1964,6 +2291,7 @@ function handleDashboardEdit(dash, a1){
   else if(a1 === DASH.SERV){
     setCell(bookings, colMap, "serviced", row, val === true);
     stampServiced(bookings, colMap, row, val === true);
+    if(val === true){ const me = readBookings().filter(x => x.row === row)[0]; if(me) maybeSendRebook_(me); }
   }
   else if(a1 === DASH.RECV){
     if(val !== "" && isNaN(Number(val))) return;
@@ -2331,8 +2659,8 @@ function buildClients(all){
     const last = bs[bs.length - 1];
     const visits = bs.filter(b => b.status === "approved").length;
     const counts = dealSummary(bs);
-    const used = Object.keys(counts).map(d => (DEAL_NAMES[d] || d) + (counts[d] > 1 ? " ×" + counts[d] : ""));
-    const oneTime = ONE_TIME_DEALS.filter(d => counts[d]).map(d => DEAL_NAMES[d]);
+    const used = Object.keys(counts).map(d => dealName_(d) + (counts[d] > 1 ? " ×" + counts[d] : ""));
+    const oneTime = oneTimeDeals_().filter(d => counts[d]).map(d => dealName_(d));
     const ig = bs.map(b => b.ig).filter(Boolean).pop() || "";
     return {
       lastRow: bookedAt(last), name: last.name, phone: fmtPhone(last.phone), ig: ig,
@@ -3367,7 +3695,7 @@ function formatBookingsSheet(){
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
 
   // technical columns stay out of sight (their info lives on the Clients tab)
-  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed", "calendarEvent", "emailLog", "manageToken", "checkIn", "thread",
+  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed", "calendarEvent", "emailLog", "rebookEmailed", "manageToken", "checkIn", "thread",
    "reqWithin24", "threadNeedsReply", "depositEmailed", "statusEmailed"].forEach(f => sheet.hideColumns(c[f] + 1));
 
   // Partner details fold into a group you can open with the small [+] above the headers.
