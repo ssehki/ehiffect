@@ -203,7 +203,7 @@ const HEADERS = [
   "id", "name", "phone", "ig", "email", "date", "time", "notes", "serviceLabel", "total", "status",
   "submittedAt", "photoUrls", "dealsUsed", "bookingType", "partnerName", "partnerContact",
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
-  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "calendarEvent", "hairOrdered", "hairOrderedOn",
+  "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "calendarEvent", "hairOrdered", "hairOrderedOn",
   "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
   "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source"
 ];
@@ -874,7 +874,7 @@ function doPost(e){
 const SITE_URL = "https://ssehki.github.io/ehiffect/";
 
 function newToken_(){ return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").slice(0, 40); }
-function manageUrl(b){ return b && b.manageToken ? SITE_URL + "#manage=" + b.manageToken : ""; }
+function manageUrl(b, tab){ return b && b.manageToken ? SITE_URL + "#manage=" + b.manageToken + (tab ? "&tab=" + tab : "") : ""; }
 function nowStamp(){ return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy h:mm a"); }
 function clip(s, n){ return String(s === undefined || s === null ? "" : s).trim().slice(0, n); }
 function esc(s){ return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -912,7 +912,7 @@ function sendClientEmail(b, subject, paras, opts){
   opts = opts || {};
   if(!b || !String(b.email || "").trim()) return false;
   paras = paras.filter(Boolean);
-  const link = opts.link === false ? "" : manageUrl(b);
+  const link = opts.link === false ? "" : manageUrl(b, opts.tab);
   const label = opts.linkLabel || "Manage my appointment";
   const plain = ["Hi " + firstName(b) + ",", ""];
   paras.forEach(p => plain.push(p, ""));
@@ -928,12 +928,24 @@ function sendClientEmail(b, subject, paras, opts){
     '<p style="color:#8C7B7E;font-size:13px;margin-top:26px">Questions? Reply to this email or DM @ehiffect on Instagram.</p></div>';
   try{
     sendMail_({ to: String(b.email).trim(), subject: subject, body: plain.join("\n"), htmlBody: html, name: "The Ehiffect", replyTo: NOTIFY_EMAIL });
-    try{ const sh = getSheet(), cm = getColumns(sh).map; setCell(sh, cm, "lastEmail", b.row, subject + " → " + b.email + " · " + nowStamp()); }catch(e){}
+    logEmail_(b, subject);
     return true;
   }catch(err){
     notifyMe("⚠ Email to " + (b.name || "a client") + " failed to send", 'Tried to send "' + subject + '" to ' + b.email + ":\n\n" + err.message);
     return false;
   }
+}
+
+// Remembers every email sent to a client (newest last, last 25 kept) so the admin page can show the history.
+function logEmail_(b, subject){
+  try{
+    const sh = getSheet(), cm = getColumns(sh).map, stamp = nowStamp();
+    setCell(sh, cm, "lastEmail", b.row, subject + " → " + b.email + " · " + stamp);
+    const cell = sh.getRange(b.row, cm.emailLog + 1);
+    const lines = String(cell.getValue() || "").split("\n").filter(Boolean).slice(-24);
+    lines.push(stamp + " · " + subject);
+    cell.setValue(lines.join("\n"));
+  }catch(e){}
 }
 
 /* ---------- EMAIL TEMPLATES (editable from the admin site → More → Emails) ----------
@@ -944,8 +956,8 @@ function sendClientEmail(b, subject, paras, opts){
    "button" is the pink button's text (leave blank for no button).                              */
 const EMAIL_DEFAULTS = {
   received: { label: "Request received", when: "Sent right after someone books",
-    subject: "We got your request — The Ehiffect", button: "Manage my appointment",
-    body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\n{squeezeLine}\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Use the button below." },
+    subject: "We got your request — please fill out your hair check-in", button: "Fill out my hair check-in",
+    body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\n{squeezeLine}\n\nTo help me approve it, please fill out your hair check-in now: a few photos of your natural hair and some quick questions. It takes a couple of minutes, and I look it over before I confirm your appointment. Use the button below.\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Open the same link and use the buttons on that page." },
   approved: { label: "Approved", when: "When you approve a booking",
     subject: "Your Ehiffect appointment is approved! 💗", button: "Hair check-in & manage appointment",
     body: "Good news — your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
@@ -1030,7 +1042,8 @@ function sendTemplate(b, kind, extra, override){
   const button = override && override.button !== undefined ? override.button : r.button;
   const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
   if(!paras.length || !String(subject).trim()) return false;
-  return sendClientEmail(b, subject, paras, button ? { linkLabel: button } : { link: false });
+  const tab = (kind === "received" || kind === "approved") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
+  return sendClientEmail(b, subject, paras, button ? { linkLabel: button, tab: tab } : { link: false });
 }
 
 /* ---------- the emails ---------- */
@@ -1360,7 +1373,7 @@ function adminBooking(b, settings){
   return Object.assign(toWebsiteShape(b, settings), {
     row: b.row, kitPacked: isPacked(b), shipped: isShipped(b), serviced: isServiced(b), servicedOn: asDate(b.servicedOn) || String(b.servicedOn || ""),
     amountPaid: String(b.amountPaid) === "" ? "" : Number(b.amountPaid), grandTotal: String(b.grandTotal) === "" ? "" : Number(b.grandTotal),
-    lastEmail: String(b.lastEmail || ""), checkInAt: asText(b.checkInAt), hairOrdered: isHairOrdered(b), hairOrderedOn: String(b.hairOrderedOn || ""),
+    lastEmail: String(b.lastEmail || ""), emailLog: String(b.emailLog || "").split("\n").filter(Boolean), checkInAt: asText(b.checkInAt), hairOrdered: isHairOrdered(b), hairOrderedOn: String(b.hairOrderedOn || ""),
     needsHair: needsHairFromMe(b), hairDetails: hairDetails(b), isConsult: isConsult(b), dateIso: isoOf(b), timeMin: parseMinutes(b),
     approvalEmailed: isTrue(b.approvalEmailed), depositEmailed: isTrue(b.depositEmailed),
     tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || ""),
@@ -1998,7 +2011,7 @@ function sendCardEmail(dash, row){
     const type = String(dash.getRange(DASH.MAIL_TYPE).getValue());
     const bookings = getSheet(), colMap = getColumns(bookings).map;
     if(type === EMAIL_TYPES[0]) setCell(bookings, colMap, "approvalEmailed", row, true);
-    setCell(bookings, colMap, "lastEmail", row, type + " → " + to + " · " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy h:mm a"));
+    logEmail_({ row: row, email: to }, subject);
     refreshViews();                                              // the "Last email sent" line under the message now shows it
   }catch(err){
     note.setValue("⚠ Couldn't send: " + err.message);
@@ -3354,7 +3367,7 @@ function formatBookingsSheet(){
   Object.keys(widths).forEach(f => sheet.setColumnWidth(c[f] + 1, widths[f]));
 
   // technical columns stay out of sight (their info lives on the Clients tab)
-  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed", "calendarEvent", "manageToken", "checkIn", "thread",
+  ["id", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed", "calendarEvent", "emailLog", "manageToken", "checkIn", "thread",
    "reqWithin24", "threadNeedsReply", "depositEmailed", "statusEmailed"].forEach(f => sheet.hideColumns(c[f] + 1));
 
   // Partner details fold into a group you can open with the small [+] above the headers.

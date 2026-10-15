@@ -263,12 +263,12 @@ function clashes(b){
 function smsHref(b, text){ const ph = String(b.phone || "").replace(/[^\d+]/g, ""); if(!ph) return ""; return "sms:" + ph + (/iPhone|iPad|Mac/i.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(text); }
 function mailHref(b, subject, text){ return b.email ? "mailto:" + encodeURIComponent(b.email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(text) : ""; }
 function nudges(b){
-  if(b.status !== "approved") return [];
+  if(b.status !== "approved" && b.status !== "pending") return [];
   const day = when(b), out = [], dep = (S.data.settings && S.data.settings.depositAmount) || 20, cash = S.data.cashtag || "";
-  if(!b.depositPaid && !b.isConsult) out.push({ label: "deposit", subject: "Your Ehiffect deposit 💗",
+  if(b.status === "approved" && !b.depositPaid && !b.isConsult) out.push({ label: "deposit", subject: "Your Ehiffect deposit 💗",
     text: `Hey ${first(b.name)}! Just a reminder to send your $${dep} deposit to ${cash} on Cash App to lock in your appointment on ${day}. It comes off your total. Thank you! 💗 — Indie` });
-  if(!b.checkIn && b.manageUrl) out.push({ label: "check-in", subject: "Your hair check-in for The Ehiffect 💗",
-    text: `Hey ${first(b.name)}! Before your appointment on ${day}, please fill out your quick hair check-in (a few photos + questions) here: ${b.manageUrl} — it helps me prep for you. Thank you! 💗 — Indie` });
+  if(!b.checkIn && b.manageUrl && !b.isBundle && !b.isConsult) out.push({ label: "check-in", subject: "Your hair check-in for The Ehiffect 💗",
+    text: `Hey ${first(b.name)}! Before I confirm your appointment on ${day}, please fill out your quick hair check-in (a few photos + questions) here: ${b.manageUrl}&tab=checkin — it helps me prep for you. Thank you! 💗 — Indie` });
   return out;
 }
 function nudgeButtons(b){
@@ -293,7 +293,7 @@ function lists(){
     late: all.filter(b => b.lateNote && b.dateIso === t && b.status === "approved"),
     deposits: all.filter(b => b.status === "approved" && !b.isBundle && !b.depositPaid && upcoming(b)).sort(byWhen),
     refunds: all.filter(b => ["cancelled","denied"].includes(b.status) && b.depositPaid && !b.depositRefunded && !/WITHIN 24 HRS/.test(b.cancelInfo)),
-    checkins: all.filter(b => b.checkIn && b.status === "approved" && upcoming(b)).sort(byWhen),
+    checkins: all.filter(b => b.checkIn && (b.status === "approved" || b.status === "pending") && upcoming(b)).sort(byWhen),
     prep: all.filter(b => b.status === "approved" && b.dateIso && b.dateIso >= t && daysAway(b.dateIso) <= PREP_DAYS &&
                 ((b.needsHair && !b.hairOrdered) || (b.kit && b.kit !== "—" && !b.kitPacked))).sort(byWhen),
     week: all.filter(b => (b.status === "approved" || b.status === "pending") && !b.isBundle && b.dateIso && b.dateIso >= t && daysAway(b.dateIso) <= 6 &&
@@ -398,7 +398,7 @@ function inbox(){
         actions: `<button class="btn ok" data-a="req" data-d="approve" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="req" data-d="deny" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
     ${sec("New requests", L.pending, L.pending.map(b => bookingRow(b, { noPill:true,
         sub: when(b) + " · " + svc(b) + " · " + money(b.total) + (b.waiting ? " · waiting " + b.waiting : ""),
-        note: [/LESS THAN 24 HRS/.test(b.serviceLabel) ? "⏰ Last-minute squeeze-in (less than 24 hrs away)" : "", clashes(b).length ? "⚠ Overlaps with " + clashes(b).map(x => first(x.name) + " at " + (x.time || "?")).join(", ") : "", b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
+        note: [!b.isBundle && !b.isConsult ? (b.checkIn ? "📋 Hair check-in is in" + (b.checkInPhotos && b.checkInPhotos.length ? " (" + b.checkInPhotos.length + " photo" + (b.checkInPhotos.length === 1 ? "" : "s") + ")" : "") + " — tap to read it" : "⚠ No hair check-in yet — you may want it before approving") : "", /LESS THAN 24 HRS/.test(b.serviceLabel) ? "⏰ Last-minute squeeze-in (less than 24 hrs away)" : "", clashes(b).length ? "⚠ Overlaps with " + clashes(b).map(x => first(x.name) + " at " + (x.time || "?")).join(", ") : "", b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
         actions: `<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
     ${sec("Questions from the website", INQ, INQ.map(q => `<div class="row" style="cursor:default; align-items:flex-start;">
         <div class="row-main">
@@ -614,6 +614,10 @@ function detailSheet(b){
         <dt>Booked</dt><dd>${esc(b.submittedAt || '—')}</dd>
         ${b.lastEmail ? `<dt>Last email</dt><dd class="hint">${esc(b.lastEmail)}</dd>` : ''}
       </dl>
+      <details class="fold" ${(b.emailLog || []).length ? '' : ''}><summary>✉️ Emails sent${(b.emailLog || []).length ? ' (' + b.emailLog.length + ')' : ''}</summary><div>
+        ${(b.emailLog || []).length ? `<div style="font-size:13.5px; line-height:1.7;">${b.emailLog.slice().reverse().map(l => '<div>' + esc(l) + '</div>').join('')}</div>`
+          : `<p class="hint" style="margin:0;">Nothing sent to ${esc(first(b.name))} yet${b.lastEmail ? '. The last one is shown above (older emails weren\'t logged).' : '.'}</p>`}
+      </div></details>
       ${b.photos && b.photos.length ? `<div class="photos">${b.photos.map(p => `<img src="${esc(photoThumb(p))}" alt="Reference photo" data-a="photo" data-src="${esc(p)}"/>`).join("")}</div>` : ''}
       <div class="btn-row" style="margin-top:14px;">
         ${b.email ? `<button class="btn" data-a="custom" data-k="${esc(b.key)}">Write an email</button>` : ''}

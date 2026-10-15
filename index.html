@@ -1904,7 +1904,7 @@ function renderManage(){
       <div class="m-row"><span>When</span><b>${mWhen(m.date, m.time)}</b></div>
       ${m.total!=='' && !isNaN(Number(m.total)) ? `<div class="m-row"><span>Estimated total</span><b>$${Number(m.total).toFixed(0)}</b></div>` : ''}
       ${!m.isBundle && m.status==='approved' ? `<div class="m-row"><span>Deposit</span><b class="${m.depositPaid?'m-good':'m-bad'}">${m.depositPaid ? 'Received ✓' : `Send $${m.deposit} to ${escapeHTML(m.cashtag)} on Cash App`}</b></div>` : ''}
-      ${m.status==='pending' ? `<p class="opt-sub" style="margin:12px 0 0;">I'll get back to you within 24 hours. You'll get an email once it's approved.</p>` : ''}
+      ${m.status==='pending' ? `<p class="opt-sub" style="margin:12px 0 0;">I'll get back to you within 24 hours. You'll get an email once it's approved.${!m.isBundle && !m.isConsult && !m.checkIn ? ' Filling out your hair check-in below helps me approve it faster.' : ''}</p>` : ''}
       ${m.request ? `<div class="m-info" style="margin-top:14px;"><b>Reschedule requested:</b> ${mWhen(m.request.date, m.request.time)}. Waiting for approval — you'll get an email.
         <button class="m-link" data-action="m-withdraw">Never mind, keep my original time</button></div>` : ''}
       ${m.lateNote && !closed ? `<div class="m-info" style="margin-top:10px;"><b>Running late note sent:</b> ${escapeHTML(m.lateNote.split('\n')[0])}</div>` : ''}
@@ -3205,9 +3205,9 @@ document.addEventListener('keydown', (e)=>{
 })();
 
 function checkRoute(){
-  const mm = window.location.hash.match(/^#manage=([A-Za-z0-9]{1,64})/);
+  const mm = window.location.hash.match(/^#manage=([A-Za-z0-9]{1,64})(?:&tab=(checkin))?/);
   if(mm){
-    if(state.manageToken !== mm[1] || !state.manage){ state.view = 'manage'; state.manageToken = mm[1]; state.mTab = ''; state.mNotice = ''; loadManage(); }
+    if(state.manageToken !== mm[1] || !state.manage){ state.view = 'manage'; state.manageToken = mm[1]; state.mTab = mm[2] || ''; state.mNotice = ''; loadManage(); }
     return;
   }
   if(window.location.hash === '#admin'){ window.location.replace('admin.html'); return; }   // the full admin site lives at admin.html
