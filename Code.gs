@@ -55,7 +55,7 @@
 // which address emails are really coming from right now).
 const BUSINESS_EMAIL = "thehiffect@gmail.com";
 const NOTIFY_EMAIL = BUSINESS_EMAIL;                  // the address clients reply to
-const OWNER_EMAIL = "ehivoltk@gmail.com";              // YOUR inbox: where new-booking requests and other alerts for you are sent
+const OWNER_EMAIL = "ehivoltk@gmail.com,thehiffect@gmail.com";   // YOUR inboxes (both get every alert): new-booking requests and other alerts for you
 const SENDER_NAME = "The Ehiffect";                   // the name clients see on your emails
 
 // Every email goes through here. If sending fails, the reason is remembered (one note for emails to YOU, one for
