@@ -57,8 +57,25 @@ const BUSINESS_EMAIL = "thehiffect@gmail.com";
 const NOTIFY_EMAIL = BUSINESS_EMAIL;                  // where new-booking emails go
 const SENDER_NAME = "The Ehiffect";                   // the name clients see on your emails
 
+// Every email goes through here. If sending fails, the reason is remembered (one note for emails to YOU, one for
+// emails to clients) so the admin site can warn you instead of the failure going unnoticed. A later success clears it.
 function sendMail_(opts){
-  return MailApp.sendEmail(Object.assign({ name: SENDER_NAME, replyTo: BUSINESS_EMAIL }, opts));
+  const key = String(opts.to || "").toLowerCase() === NOTIFY_EMAIL.toLowerCase() ? "mailErr_owner" : "mailErr_client";
+  try{
+    const r = MailApp.sendEmail(Object.assign({ name: SENDER_NAME, replyTo: BUSINESS_EMAIL }, opts));
+    try{ const p = PropertiesService.getScriptProperties(); if(p.getProperty(key)) p.deleteProperty(key); }catch(x){}
+    return r;
+  }catch(e){
+    try{ PropertiesService.getScriptProperties().setProperty(key, JSON.stringify({
+      at: new Date().toISOString(), subject: String(opts.subject || "").slice(0, 80), msg: String((e && e.message) || e).slice(0, 240) })); }catch(x){}
+    throw e;
+  }
+}
+function mailErrors_(){
+  const out = {}, p = PropertiesService.getScriptProperties();
+  ["owner", "client"].forEach(k => { try{ const v = p.getProperty("mailErr_" + k); if(v) out[k] = JSON.parse(v); }catch(e){} });
+  try{ out.quota = MailApp.getRemainingDailyQuota(); }catch(e){}
+  return out;
 }
 
 // Which address emails are really sent from (the account that owns this script).
@@ -72,7 +89,7 @@ function checkEmailSender(){
   const from = senderAddress_();
   if(!from){ ui.alert("Couldn't read the sending address", "Run this again after re-authorizing the script (Apps Script editor → Run any function → Allow).", ui.ButtonSet.OK); return; }
   if(from.toLowerCase() === BUSINESS_EMAIL.toLowerCase()){
-    ui.alert("Emails send from " + from + " ✓", "Clients see " + SENDER_NAME + " <" + from + ">, and replies come back to " + BUSINESS_EMAIL + ".", ui.ButtonSet.OK);
+    ui.alert("Emails send from " + from + " ✓", "Emails left to send today: " + mailErrors_().quota + ".\n\nClients see " + SENDER_NAME + " <" + from + ">, and replies come back to " + BUSINESS_EMAIL + ".", ui.ButtonSet.OK);
   }else{
     ui.alert("Emails are NOT coming from " + BUSINESS_EMAIL,
       "Right now they're sent from " + from + " because that account owns this script.\n\n" +
@@ -1691,7 +1708,7 @@ function adminData(){
   const all = readBookings();
   if(ensureTokens(all)) all.splice(0, all.length, ...readBookings());
   const settings = getSettings();
-  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
+  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, mailErrors: mailErrors_(), builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
            config: getSiteConfig_(), catalog: PRICE_CATALOG.map(r => ({ id: r[0], group: r[1], label: r[2], price: r[3], was: r[4] || 0 })),
            inquiries: readInquiries_().filter(q => q.status !== "done").reverse().slice(0, 40),
            settings: settings, cashtag: CASHTAG, siteUrl: SITE_URL };

@@ -371,8 +371,12 @@ function render(){
   const outdated = needsNewScript() ? `<div class="box alert" style="margin:0 0 14px;"><h4>Your Sheet's script needs updating</h4>
       <div style="font-size:13.5px; line-height:1.55;">New features (deleting bookings, editing prices &amp; deals, weekly hours) need the newest <b>Code.gs</b>. In your Google Sheet:
       <b>Extensions → Apps Script</b> → paste the new Code.gs over everything → <b>Save</b> → <b>Deploy → Manage deployments → ✏️ → New version → Deploy</b>.</div></div>` : '';
+  const me = (S.data && !S.stale && S.data.mailErrors) || {};
+  const mailBox = (me.owner || me.client || (typeof me.quota === "number" && me.quota < 10)) ? `<div class="box alert" style="margin:0 0 14px;"><h4>Emails aren't going out properly</h4>
+      <div style="font-size:13.5px; line-height:1.55;">${me.owner ? `The "new booking request" email to <b>you</b> failed last time (${esc(me.owner.msg)}). New requests still arrive here in your Inbox, so keep an eye on the Inbox badge.<br>` : ''}${me.client ? `An email to a client failed last time (${esc(me.client.msg)}).<br>` : ''}${typeof me.quota === "number" && me.quota < 10 ? `Only ${me.quota} emails left to send today.<br>` : ''}
+      To fix it, open Apps Script in your Sheet, run <b>testEmail</b> and click <b>Allow</b> if it asks.</div></div>` : '';
   const staleNote = S.stale && !needsNewScript() ? `<div class="hint" style="margin:0 0 12px;">${S.refreshFailed ? "Showing your last saved copy. Couldn't reach your Sheet just now." : "Showing your last saved copy, updating…"} <button class="btn" data-a="refresh-now" style="margin-left:6px;">Refresh</button></div>` : '';
-  app.innerHTML = `<div class="page">${outdated}${staleNote}${screen()}</div>
+  app.innerHTML = `<div class="page">${outdated}${mailBox}${staleNote}${screen()}</div>
   ${S.retry ? `<div class="syncbar"><span>Not saved — your signal dropped.</span><button class="btn primary" data-a="retry-save">Try again</button></div>` : ''}
   <nav class="tabs" aria-label="Sections"><div class="tabs-in">
     ${[["inbox","✉︎","Inbox"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"]].map(([k,ic,l]) =>
