@@ -55,7 +55,8 @@
 // which address emails are really coming from right now).
 const BUSINESS_EMAIL = "thehiffect@gmail.com";
 const NOTIFY_EMAIL = BUSINESS_EMAIL;                  // the address clients reply to
-const OWNER_EMAIL = "ehivoltk@gmail.com,thehiffect@gmail.com";   // YOUR inboxes (both get every alert): new-booking requests and other alerts for you
+const OWNER_EMAIL = BUSINESS_EMAIL;                   // YOUR inbox: new-booking requests and other alerts for you
+const REPORT_EMAIL = "ehivoltk@gmail.com";            // the weekly report goes here
 const SENDER_NAME = "The Ehiffect";                   // the name clients see on your emails
 
 // Every email goes through here. If sending fails, the reason is remembered (one note for emails to YOU, one for
@@ -1963,6 +1964,7 @@ function ensureTriggersOnce_(){
   const cache = CacheService.getScriptCache();
   if(cache.get("triggersOk")) return;
   try{ ensurePrepTrigger(); }catch(e){}
+  try{ ensureReportTrigger(); }catch(e){}
   try{
     if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "keepWarm"))
       ScriptApp.newTrigger("keepWarm").timeBased().everyMinutes(5).create();
@@ -1997,6 +1999,73 @@ function adminApi(action, body){
    6. AUTOMATIC UPDATES & MENU
    ================================================================ */
 
+/* ---------- WEEKLY REPORT (Mondays ~8 AM, emailed to REPORT_EMAIL) ---------- */
+function servicedDate_(b){
+  const t = new Date(String(asDate(b.servicedOn) || b.servicedOn || ""));
+  if(!isNaN(t.getTime())) return t;
+  return parseDay(b);
+}
+function weeklyReportData_(all, now){
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const start = new Date(today.getTime() - 7 * 864e5), end = today;             // last 7 days: [start, today)
+  const next = new Date(today.getTime() + 7 * 864e5);
+  const num = v => (v === "" || v === undefined || isNaN(Number(v))) ? 0 : Number(v);
+  const done = all.filter(b => isServiced(b) && (d => d && d >= start && d < end)(servicedDate_(b)));
+  const made = all.filter(b => { const t = bookedAt(b); return t >= start.getTime() && t < end.getTime(); });
+  const upcoming = all.filter(b => b.status === "approved" && !isServiced(b) && (d => d && d >= today && d < next)(parseDay(b)))
+    .sort((a, c) => parseDay(a) - parseDay(c));
+  const pending = all.filter(b => b.status === "pending");
+  const wrap = all.filter(b => b.status === "approved" && !isServiced(b) && (d => d && d < today && (today - d) < 30 * 864e5)(parseDay(b)));
+  const refunds = all.filter(b => (b.status === "denied" || b.status === "cancelled") && isPaid(b) && !isRefunded(b));
+  let questions = 0; try{ questions = readInquiries_().filter(q => q.status === "new").length; }catch(e){}
+  const paid = done.reduce((t, b) => t + num(b.amountPaid), 0), tips = done.reduce((t, b) => t + num(b.tip), 0), hair = done.reduce((t, b) => t + num(b.hairCost), 0);
+  return { start: start, end: new Date(end.getTime() - 864e5), done: done, made: made, upcoming: upcoming, pending: pending, wrap: wrap, refunds: refunds,
+           questions: questions, paid: paid, tips: tips, hair: hair,
+           cancelled: made.filter(b => b.status === "cancelled" || b.status === "denied").length };
+}
+function weeklyReportText_(r){
+  const fmt = d => Utilities.formatDate(d, Session.getScriptTimeZone(), "MMM d");
+  const $ = n => "$" + (Math.round(n * 100) / 100);
+  const L = ["YOUR WEEK: " + fmt(r.start) + " to " + fmt(r.end), ""];
+  L.push("LAST WEEK",
+    "• Appointments finished: " + r.done.length,
+    "• Money collected: " + $(r.paid) + (r.tips ? " + " + $(r.tips) + " in tips" : ""),
+    "• Hair & supplies you bought: " + $(r.hair),
+    "• Left over after hair: " + $(r.paid + r.tips - r.hair),
+    "• New booking requests: " + r.made.length + (r.cancelled ? " (" + r.cancelled + " cancelled or denied)" : ""), "");
+  L.push("COMING UP (next 7 days): " + (r.upcoming.length ? r.upcoming.length : "nothing booked yet"));
+  r.upcoming.forEach(b => L.push("• " + b.name + ", " + whenText(b) + " (" + plainService_(b) + ")" + (isPaid(b) ? "" : " [no deposit yet]")));
+  L.push("");
+  const todo = [];
+  if(r.pending.length) todo.push(r.pending.length + " request" + (r.pending.length > 1 ? "s" : "") + " waiting for you to approve or deny: " + r.pending.slice(0, 8).map(b => b.name).join(", "));
+  if(r.wrap.length) todo.push(r.wrap.length + " appointment" + (r.wrap.length > 1 ? "s" : "") + " to wrap up (mark done, what they paid and tipped): " + r.wrap.slice(0, 8).map(b => b.name).join(", "));
+  if(r.refunds.length) todo.push(r.refunds.length + " deposit" + (r.refunds.length > 1 ? "s" : "") + " to send back: " + r.refunds.slice(0, 8).map(b => b.name).join(", "));
+  if(r.questions) todo.push(r.questions + " question" + (r.questions > 1 ? "s" : "") + " from the website to answer");
+  L.push("NEEDS YOU: " + (todo.length ? "" : "nothing, you're all caught up!"));
+  todo.forEach(t => L.push("• " + t));
+  L.push("", "Open your admin site: " + SITE_URL + "admin.html");
+  return L.join("\n");
+}
+function weeklyReport(){
+  try{
+    const r = weeklyReportData_(readBookings(), new Date());
+    sendMail_({ to: REPORT_EMAIL, subject: "💗 Ehiffect weekly report: " + r.done.length + " done, " + r.made.length + " new requests", body: weeklyReportText_(r) });
+  }catch(err){ console.error("weekly report failed: " + err); }
+}
+function ensureReportTrigger(){
+  const exists = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "weeklyReport");
+  if(!exists) ScriptApp.newTrigger("weeklyReport").timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(8).create();
+  return !exists;
+}
+function turnOnWeeklyReport(){
+  const created = ensureReportTrigger();
+  SpreadsheetApp.getActiveSpreadsheet().toast(created ? "Done. Every Monday morning a report goes to " + REPORT_EMAIL + "." : "Already on.", "Ehiffect", 8);
+}
+function sendWeeklyReportNow(){
+  weeklyReport();
+  SpreadsheetApp.getActiveSpreadsheet().toast("Sent a report to " + REPORT_EMAIL + ".", "Ehiffect", 8);
+}
+
 function onOpen(){
   SpreadsheetApp.getUi().createMenu("Ehiffect")
     .addItem("Set dashboard passcode", "setAdminPasscode")
@@ -2013,6 +2082,8 @@ function onOpen(){
     .addItem("Which email am I sending from?", "checkEmailSender")
     .addItem("Back up the sheet now", "backupNow")
     .addItem("Turn on weekly backup", "turnOnWeeklyBackup")
+    .addItem("Turn on weekly report email", "turnOnWeeklyReport")
+    .addItem("Send the weekly report now", "sendWeeklyReportNow")
     .addToUi();
 }
 
