@@ -54,13 +54,14 @@
 // sender, the sheet + script must be owned by this Google account (the dashboard line under EHIFFECT tells you
 // which address emails are really coming from right now).
 const BUSINESS_EMAIL = "thehiffect@gmail.com";
-const NOTIFY_EMAIL = BUSINESS_EMAIL;                  // where new-booking emails go
+const NOTIFY_EMAIL = BUSINESS_EMAIL;                  // the address clients reply to
+const OWNER_EMAIL = "ehivoltk@gmail.com";              // YOUR inbox: where new-booking requests and other alerts for you are sent
 const SENDER_NAME = "The Ehiffect";                   // the name clients see on your emails
 
 // Every email goes through here. If sending fails, the reason is remembered (one note for emails to YOU, one for
 // emails to clients) so the admin site can warn you instead of the failure going unnoticed. A later success clears it.
 function sendMail_(opts){
-  const key = String(opts.to || "").toLowerCase() === NOTIFY_EMAIL.toLowerCase() ? "mailErr_owner" : "mailErr_client";
+  const key = String(opts.to || "").toLowerCase() === OWNER_EMAIL.toLowerCase() ? "mailErr_owner" : "mailErr_client";
   try{
     const r = MailApp.sendEmail(Object.assign({ name: SENDER_NAME, replyTo: BUSINESS_EMAIL }, opts));
     try{ const p = PropertiesService.getScriptProperties(); if(p.getProperty(key)) p.deleteProperty(key); }catch(x){}
@@ -843,7 +844,7 @@ function handleCreate(body){
 function sendBookingEmail(body, v, photoUrls){
   try{
     sendMail_({
-      to: NOTIFY_EMAIL,
+      to: OWNER_EMAIL,
       subject: (hasWarning(v) ? "⚠ HEADS UP — " : "") + (isSqueeze(v) ? (/LESS THAN 24 HRS/.test(String(v.serviceLabel)) ? "⏰⚡ LAST-MINUTE SQUEEZE-IN — " : "⚡ SQUEEZE-IN — ") : "") + "New Ehiffect booking request — " + (v.name || "unknown"),
       body:
         (v.dealAlert ? "⚠ DEAL ALERT: " + v.dealAlert + "\n" : "") +
@@ -922,7 +923,7 @@ function sendApprovalEmail(b){
     // failing completely silently, so a bad address or quota issue doesn't go unnoticed.
     try{
       sendMail_({
-        to: NOTIFY_EMAIL,
+        to: OWNER_EMAIL,
         subject: "⚠ Approval email to " + (b.name || "a client") + " failed to send",
         body: "Tried to email " + (b.email || "(no email)") + " when approving this booking, but it failed:\n\n" + err.message
       });
@@ -1119,7 +1120,7 @@ function readThread(b){ try{ const t = JSON.parse(b.thread || "[]"); return Arra
 function readCheckIn(b){ try{ return JSON.parse(b.checkIn || "null"); }catch(e){ return null; } }
 function hasRequest(b){ return !!String(b.reqDate || "").trim(); }
 
-function notifyMe(subject, body){ try{ sendMail_({ to: NOTIFY_EMAIL, subject: subject, body: body }); }catch(e){} }
+function notifyMe(subject, body){ try{ sendMail_({ to: OWNER_EMAIL, subject: subject, body: body }); }catch(e){} }
 
 // One branded email to a client: plain-text + simple HTML, with a pink "Manage my appointment" button.
 function sendClientEmail(b, subject, paras, opts){
@@ -3789,5 +3790,5 @@ function cleanLegacyValues(){
 }
 
 function testEmail(){
-  sendMail_({ to: NOTIFY_EMAIL, subject: "Test email from Ehiffect script", body: "If you're reading this, email sending works!" });
+  sendMail_({ to: OWNER_EMAIL, subject: "Test email from Ehiffect script", body: "If you're reading this, email sending works!" });
 }
