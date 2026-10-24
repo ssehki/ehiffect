@@ -1894,7 +1894,7 @@ function handleFeedback(body){
       body: "Someone left feedback on your website.\n\nRating: " + "★".repeat(rating) + "☆".repeat(5 - rating) + " (" + rating + "/5)\n" +
             (service ? "Service: " + service + "\n" : "") + (again ? "Would book again: " + again + "\n" : "") +
             "\nWhat they enjoyed:\n" + (enjoyed || "(left blank)") + "\n\nWhat could be better:\n" + (improve || "(left blank)") +
-            "\n\nAll feedback is in the Feedback tab of your Sheet and under Money → Client feedback on your admin site." });
+            "\n\nAll feedback is in the Feedback tab of your Sheet and in the Feedback tab of your admin site." });
   }catch(e){}
   return { ok: true };
 }
@@ -2090,7 +2090,7 @@ function weeklyReportText_(r){
     "• Left over after hair: " + $(r.paid + r.tips - r.hair),
     "• New booking requests: " + r.made.length + (r.cancelled ? " (" + r.cancelled + " cancelled or denied)" : ""));
   if(r.feedback.length) L.push("• Anonymous feedback: " + r.feedback.length + ", averaging " +
-    (Math.round(r.feedback.reduce((t, f) => t + f.rating, 0) / r.feedback.length * 10) / 10) + "/5 (read it under Money → Client feedback)");
+    (Math.round(r.feedback.reduce((t, f) => t + f.rating, 0) / r.feedback.length * 10) / 10) + "/5 (read it in the Feedback tab of your admin site)");
   L.push("");
   L.push("COMING UP (next 7 days): " + (r.upcoming.length ? r.upcoming.length : "nothing booked yet"));
   r.upcoming.forEach(b => L.push("• " + b.name + ", " + whenText(b) + " (" + plainService_(b) + ")" + (isPaid(b) ? "" : " [no deposit yet]")));

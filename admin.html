@@ -84,7 +84,7 @@
   /* tabs */
   .tabs{ position:fixed; left:0; right:0; bottom:0; z-index:20; background:rgba(23,18,20,.96); backdrop-filter:blur(8px); border-top:1px solid var(--line);
          padding-bottom:env(safe-area-inset-bottom); }
-  .tabs-in{ max-width:680px; margin:0 auto; display:grid; grid-template-columns:repeat(5,1fr); height:var(--tab-h); }
+  .tabs-in{ max-width:680px; margin:0 auto; display:grid; grid-template-columns:repeat(6,1fr); height:var(--tab-h); }
   .tab{ border:none; background:none; color:var(--muted); font-size:11.5px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; position:relative; }
   .tab .ic{ font-size:19px; line-height:1; }
   .tab.on{ color:var(--pink); }
@@ -366,8 +366,8 @@ function render(){
   const app = document.getElementById("app");
   if(!S.key || (!S.data && !S.loading)){ app.innerHTML = loginScreen(); renderLayer(); const i = document.getElementById("pass"); if(i) i.focus(); return; }
   if(S.loading && !S.data){ app.innerHTML = `<div class="login"><h1>The Ehiffect</h1><p>Loading your bookings…</p></div>`; renderLayer(); return; }
-  const screen = { inbox, schedule, clients, hair, more }[S.tab] || inbox;
-  const n = needsCount();
+  const screen = { inbox, schedule, clients, hair, more, feedback: feedbackScreen }[S.tab] || inbox;
+  const n = needsCount(), fbN = S.tab === "feedback" ? 0 : fbNewCount();
   const outdated = needsNewScript() ? `<div class="box alert" style="margin:0 0 14px;"><h4>Your Sheet's script needs updating</h4>
       <div style="font-size:13.5px; line-height:1.55;">New features (deleting bookings, editing prices &amp; deals, weekly hours) need the newest <b>Code.gs</b>. In your Google Sheet:
       <b>Extensions → Apps Script</b> → paste the new Code.gs over everything → <b>Save</b> → <b>Deploy → Manage deployments → ✏️ → New version → Deploy</b>.</div></div>` : '';
@@ -379,8 +379,8 @@ function render(){
   app.innerHTML = `<div class="page">${outdated}${mailBox}${staleNote}${screen()}</div>
   ${S.retry ? `<div class="syncbar"><span>Not saved — your signal dropped.</span><button class="btn primary" data-a="retry-save">Try again</button></div>` : ''}
   <nav class="tabs" aria-label="Sections"><div class="tabs-in">
-    ${[["inbox","✉︎","Inbox"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"]].map(([k,ic,l]) =>
-      `<button class="tab ${S.tab===k?'on':''}" data-a="tab" data-k="${k}" aria-current="${S.tab===k?'page':'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k==='inbox' && n ? `<span class="badge">${n}</span>` : ''}</button>`).join("")}
+    ${[["inbox","✉︎","Inbox"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"],["feedback","★","Feedback"]].map(([k,ic,l]) =>
+      `<button class="tab ${S.tab===k?'on':''}" data-a="tab" data-k="${k}" aria-current="${S.tab===k?'page':'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k==='inbox' && n ? `<span class="badge">${n}</span>` : ''}${k==='feedback' && fbN ? `<span class="badge">${fbN}</span>` : ''}</button>`).join("")}
   </div></nav>`;
   renderLayer();
 }
@@ -597,7 +597,6 @@ function more(){
         sub: when(b) + " · paid " + money(paidOf(b)) + (num(b.tip) ? " + " + money(b.tip) + " tip" : "") + (num(b.hairCost) ? " · hair " + money(b.hairCost) : ""),
         actions: `<span class="serif" style="font-size:19px; font-weight:600; color:${profitOf(b) >= 0 ? 'var(--good)' : 'var(--bad)'};">${money(profitOf(b))}</span>` })).join("")}</div>` : `<p class="empty">Nothing marked done in ${esc(label.split(" ")[0])} yet. Use "Wrap up" in your Inbox after each appointment.</p>`}
     ${reportSection()}
-    ${feedbackSection()}
     ${pricesSection()}
     <h2 class="sec">Emails</h2>
     <p class="hint" style="margin-top:-4px;">The wording clients get. Change it here and every future email uses it. You can still tweak any single email before it sends.</p>
@@ -944,7 +943,7 @@ document.addEventListener("click", async e => {
   }
   if(a === "refresh-now"){ S.refreshFailed = false; render(); load(true); return; }
   if(a === "logout"){ store.clear(); S.key = ""; S.data = null; S.loginErr = ""; render(); return; }
-  if(a === "tab"){ S.tab = k; S.open = null; S.client = null; window.scrollTo(0, 0); render(); return; }
+  if(a === "tab"){ S.fbSeenBefore = null; S.tab = k; S.open = null; S.client = null; window.scrollTo(0, 0); render(); return; }
   if(a === "refresh"){ load(false); return; }
   if(a === "open"){ S.open = k; S.replyDraft = ""; renderLayer(); return; }
   if(a === "client"){ S.client = k; renderLayer(); return; }
@@ -1067,6 +1066,9 @@ document.addEventListener("click", async e => {
     try{ await navigator.clipboard.writeText(text); toast("Copied"); }catch(err){ prompt("Copy this:", text); }
     return;
   }
+  if(a === "fb-stars"){ S.fbStars = k === "low" ? "low" : (Number(k) || 0); if(S.fbStars && S.fbStars === S.fbLast) S.fbStars = 0; S.fbLast = S.fbStars; render(); return; }
+  if(a === "fb-svc"){ S.fbService = k; render(); return; }
+  if(a === "fb-clear"){ S.fbStars = 0; S.fbLast = 0; S.fbService = ""; render(); return; }
   if(a === "copy-feedback"){
     const text = feedbackLink(k);
     try{ await navigator.clipboard.writeText(text); toast("Copied. It's anonymous, so you won't see who sent what"); }catch(err){ prompt("Copy this:", text); }
@@ -1218,27 +1220,53 @@ function reportBody(){
 }
 /* ---------- anonymous client feedback ---------- */
 function feedbackLink(key){ return SITE_URL + "#feedback" + (key && key !== "general" ? "=" + key : ""); }
-function feedbackSection(){
-  const F = S.data.feedback;
+// Which responses you've already looked at, so the tab can show a badge for new ones (remembered on this phone).
+const FB_SEEN_KEY = "ehiffect_fb_seen";
+function fbSeen(){ try{ return JSON.parse(localStorage.getItem(FB_SEEN_KEY) || "[]"); }catch(e){ return []; } }
+function fbNewCount(){ const F = (S.data && S.data.feedback) || [], seen = fbSeen(); return F.filter(f => seen.indexOf(f.id) === -1).length; }
+function fbMarkSeen(){ try{ localStorage.setItem(FB_SEEN_KEY, JSON.stringify(((S.data && S.data.feedback) || []).map(f => f.id))); }catch(e){} }
+function feedbackScreen(){
+  const all = S.data.feedback;
   const stars = n => "★".repeat(n) + "☆".repeat(5 - n);
-  const head = `<p class="hint" style="margin:0 0 10px;">Clients get this link in the thank-you email after you wrap up. It's anonymous: you see their answers, never who sent them. You can also copy it and text it to anyone.</p>
-    <div class="btn-row" style="margin:0 0 12px;"><button class="btn" data-a="copy-feedback" data-k="">Copy feedback link</button></div>`;
-  if(!F) return `<details class="fold" ${S.openFeedback ? "open" : ""} data-keep="openFeedback"><summary>⭐ Client feedback</summary><div>${head}
-    <p class="hint">Update your Sheet's script (paste the new Code.gs and deploy a new version) to see feedback here.</p></div></details>`;
-  const avg = F.length ? Math.round(F.reduce((t, f) => t + f.rating, 0) / F.length * 10) / 10 : 0;
-  const answered = F.filter(f => f.again), yes = answered.filter(f => f.again === "Yes").length;
-  return `<details class="fold" ${S.openFeedback ? "open" : ""} data-keep="openFeedback"><summary>⭐ Client feedback${F.length ? ` · ${avg}/5 from ${F.length}` : ''}</summary><div>${head}
-    ${F.length ? `<div class="stat-grid">
-      <div class="stat"><b>${avg}</b><span>average rating out of 5</span></div>
+  const top = `<p class="hint" style="margin:-6px 0 12px;">Clients get this in the thank-you email after you wrap up. It's anonymous: you see their answers, never who sent them.</p>
+    <div class="btn-row" style="margin:0 0 18px;"><button class="btn primary" data-a="copy-feedback" data-k="">Copy feedback link</button>
+      <a class="btn" href="${feedbackLink("")}" target="_blank" rel="noopener" style="text-decoration:none;">See the form ↗</a></div>`;
+  if(!all) return header("Feedback", "What clients thought of their appointments") + top +
+    `<div class="box alert"><h4>One more step</h4><div style="font-size:13.5px; line-height:1.55;">To see feedback here, update your Sheet's script: <b>Extensions → Apps Script</b> → paste the new Code.gs over everything → <b>Save</b> → <b>Deploy → Manage deployments → ✏️ → New version → Deploy</b>.</div></div>`;
+  const services = Array.from(new Set(all.map(f => f.service || "Not said")));
+  const svcF = S.fbService && services.indexOf(S.fbService) !== -1 ? S.fbService : "";
+  const F = all.filter(f => (!svcF || (f.service || "Not said") === svcF) && (!S.fbStars || (S.fbStars === "low" ? f.rating <= 3 : f.rating === S.fbStars)));
+  const pool = all.filter(f => !svcF || (f.service || "Not said") === svcF);
+  const avg = pool.length ? Math.round(pool.reduce((t, f) => t + f.rating, 0) / pool.length * 10) / 10 : 0;
+  const answered = pool.filter(f => f.again), yes = answered.filter(f => f.again === "Yes").length;
+  const counts = [5, 4, 3, 2, 1].map(n => [n, pool.filter(f => f.rating === n).length]);
+  const most = Math.max(1, ...counts.map(c => c[1]));
+  const seen = S.fbSeenBefore || (S.fbSeenBefore = fbSeen());   // "new" tags stay until you leave the tab
+  const chip = (attr, val, label, on) => `<button class="btn ${on ? "primary" : ""}" data-a="${attr}" data-k="${esc(String(val))}" style="padding:6px 12px; font-size:12.5px;">${esc(label)}</button>`;
+  const out = header("Feedback", "What clients thought of their appointments") + top + (all.length ? `
+    <div class="stat-grid">
+      <div class="stat"><b>${avg}<span style="font-size:16px; color:var(--pink);"> ★</span></b><span>average rating${svcF ? " for " + esc(svcF) : ""}</span></div>
       <div class="stat"><b>${answered.length ? Math.round(yes / answered.length * 100) + "%" : "—"}</b><span>would book again</span></div>
+      <div class="stat"><b>${pool.length}</b><span>response${pool.length === 1 ? "" : "s"}</span></div>
+      <div class="stat"><b>${pool.filter(f => f.improve).length}</b><span>with something to improve</span></div>
     </div>
-    <div class="list">${F.map(f => `<div class="row" style="cursor:default; display:block;">
-      <div class="row-title"><span style="color:var(--pink); letter-spacing:.05em;">${stars(f.rating)}</span> ${f.again ? `<span class="tag ${f.again === "Yes" ? "good" : f.again === "No" ? "bad" : ""}">book again: ${esc(f.again.toLowerCase())}</span>` : ''}</div>
-      <div class="row-sub">${esc([f.service, f.on].filter(Boolean).join(" · "))}</div>
-      ${f.enjoyed ? `<div class="row-note" style="margin-top:6px;"><b>Enjoyed:</b> ${esc(f.enjoyed)}</div>` : ''}
-      ${f.improve ? `<div class="row-note" style="margin-top:6px;"><b>Could be better:</b> ${esc(f.improve)}</div>` : ''}
-    </div>`).join("")}</div>` : `<p class="empty">No feedback yet.</p>`}
-  </div></details>`;
+    <div class="box" style="margin-top:10px;">${counts.map(([n, c]) => `<button data-a="fb-stars" data-k="${n}" style="all:unset; cursor:pointer; display:flex; align-items:center; gap:10px; margin:4px 0; width:100%;" aria-label="Show ${n}-star responses">
+      <span style="width:62px; color:var(--pink); font-size:13px; letter-spacing:.04em;">${n} ★</span>
+      <span style="flex:1; height:8px; background:var(--panel-2); border-radius:4px; overflow:hidden;"><span style="display:block; height:100%; width:${c / most * 100}%; background:var(--pink); border-radius:4px;"></span></span>
+      <span style="width:26px; text-align:right; font-size:13px; color:var(--muted);">${c}</span></button>`).join("")}</div>
+    <h2 class="sec">Responses<span class="n quiet">${F.length}</span></h2>
+    <div class="btn-row" style="margin:-4px 0 8px; flex-wrap:wrap;">${chip("fb-stars", "", "All ratings", !S.fbStars)}${chip("fb-stars", "low", "3 ★ or less", S.fbStars === "low")}${S.fbStars && S.fbStars !== "low" ? chip("fb-stars", S.fbStars, S.fbStars + " ★ only", true) : ""}</div>
+    ${services.length > 1 ? `<div class="btn-row" style="margin:0 0 12px; flex-wrap:wrap;">${chip("fb-svc", "", "All services", !svcF)}${services.map(x => chip("fb-svc", x, x, svcF === x)).join("")}</div>` : ""}
+    ${F.length ? `<div class="list">${F.map(f => `<div class="row" style="cursor:default; display:block;">
+      <div class="row-title"><span style="color:var(--pink); letter-spacing:.05em;">${stars(f.rating)}</span> ${seen.indexOf(f.id) === -1 ? '<span class="tag warn">new</span>' : ''} ${f.again ? `<span class="tag ${f.again === "Yes" ? "good" : f.again === "No" ? "bad" : ""}">book again: ${esc(f.again.toLowerCase())}</span>` : ''}</div>
+      <div class="row-sub">${esc([f.service || "Service not said", f.on].filter(Boolean).join(" · "))}</div>
+      ${f.enjoyed ? `<div class="row-note"><b>Enjoyed:</b> ${esc(f.enjoyed)}</div>` : ''}
+      ${f.improve ? `<div class="row-note" style="border-left-color:var(--warn);"><b>Could be better:</b> ${esc(f.improve)}</div>` : ''}
+      ${!f.enjoyed && !f.improve ? '<div class="hint" style="margin:6px 0 0;">Just a rating, no comments.</div>' : ''}
+    </div>`).join("")}</div>` : `<p class="empty">No responses match. <button class="btn" data-a="fb-clear">Show all</button></p>`}` :
+    `<p class="empty">No feedback yet. It'll show up here as soon as someone fills out the form.</p>`);
+  fbMarkSeen();
+  return out;
 }
 function reportSection(){
   const per = (v, l) => `<option value="${v}" ${(S.rpPeriod || "month") === v ? "selected" : ""}>${l}</option>`;
