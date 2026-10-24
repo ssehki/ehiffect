@@ -1037,6 +1037,13 @@ function doGet(e){
   // Live prices / deals / weekly hours for the website (public: nothing private in here).
   if(action === "config"){ try{ return json(publicConfig_()); }catch(err){ return json({ ok: false }); } }
 
+  // The anonymous feedback form (#feedback on the website).
+  if(action === "feedback"){
+    let body;
+    try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
+    try{ return json(handleFeedback(body)); }catch(err){ return json({ ok: false, error: "Couldn't send right now. Please try again in a bit." }); }
+  }
+
   // A question typed into the website's "Ask me a question" form.
   if(action === "inquiry"){
     let body;
@@ -1250,8 +1257,8 @@ const EMAIL_DEFAULTS = {
     subject: "About your reschedule request", button: "Manage my appointment",
     body: "I wasn't able to move your appointment to {newWhen}, so it's staying on {oldWhen}.\n\nIf you need to talk it through, reply to this email or send me a message from your appointment page." },
   rebook: { label: "Thank you + aftercare + rebook", when: "After an appointment is wrapped up (you can switch it off for any one client in Wrap up)",
-    subject: "Thank you, {first}! Your aftercare guide and next steps 💗", button: "See my aftercare guide", button2: "Book my next appointment",
-    body: "Thank you so much for coming in, {first}! I loved doing your {service}. 💗\n\nYour {guideTitle} aftercare guide is ready. Tap the first button below to read it any time.\n\n{rebookTiming}\n\nWhen you're ready for your next appointment, tap the second button to book. If you post your hair, tag @ehiffect. I'd love to see it!" },
+    subject: "Thank you, {first}! Your aftercare guide and next steps 💗", button: "See my aftercare guide", button2: "Book my next appointment", button3: "Leave anonymous feedback",
+    body: "Thank you so much for coming in, {first}! I loved doing your {service}. 💗\n\nYour {guideTitle} aftercare guide is ready. Tap the first button below to read it any time.\n\n{rebookTiming}\n\nWhen you're ready for your next appointment, tap the second button to book. If you post your hair, tag @ehiffect. I'd love to see it!\n\nI'd also love to hear how your appointment went. The last button opens a quick feedback form. It's anonymous (your name and contact info aren't attached), so please be honest!" },
   rebookInvite: { label: "Invite to rebook", when: "Only when you choose to send it, for someone who cancelled or didn't come",
     subject: "Book a new time with The Ehiffect", button: "Book a new time",
     body: "I'd love to see you again, {first}. Whenever you're ready, you can pick a new time with the button below." },
@@ -1276,7 +1283,7 @@ function getTemplates(){
     const d = EMAIL_DEFAULTS[k], s = saved[k] || {};
     out[k] = { label: d.label, when: d.when, subject: s.subject !== undefined ? s.subject : d.subject,
                body: s.body !== undefined ? s.body : d.body, button: s.button !== undefined ? s.button : d.button,
-               button2: s.button2 !== undefined ? s.button2 : d.button2, edited: !!saved[k] };
+               button2: s.button2 !== undefined ? s.button2 : d.button2, button3: s.button3 !== undefined ? s.button3 : d.button3, edited: !!saved[k] };
   });
   return out;
 }
@@ -1329,7 +1336,8 @@ function sendTemplate(b, kind, extra, override){
     const t = getTemplates().rebook || {};
     return sendClientEmail(b, subject, paras, { buttons: [
       { label: button || "See my aftercare guide", url: guideUrl_(b) },
-      { label: t.button2 || "Book my next appointment", url: SITE_URL } ] });
+      { label: t.button2 || "Book my next appointment", url: SITE_URL },
+      { label: t.button3 || "Leave anonymous feedback", url: feedbackUrl_(b) } ] });
   }
   const toSite = ["cancelled", "denied", "clientCancelled", "rebookInvite"].indexOf(kind) !== -1;    // these buttons go to the booking site, not the manage page
   return sendClientEmail(b, subject, paras, button ? { linkLabel: button, tab: tab, url: toSite ? SITE_URL : "" } : { link: false });
@@ -1713,6 +1721,7 @@ function adminData(){
   return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, mailErrors: mailErrors_(), builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
            config: getSiteConfig_(), catalog: PRICE_CATALOG.map(r => ({ id: r[0], group: r[1], label: r[2], price: r[3], was: r[4] || 0 })),
            inquiries: readInquiries_().filter(q => q.status !== "done").reverse().slice(0, 40),
+           feedback: readFeedback_().reverse().slice(0, 200), feedbackUrl: feedbackUrl_(),
            settings: settings, cashtag: CASHTAG, siteUrl: SITE_URL };
 }
 
@@ -1841,6 +1850,52 @@ function handleInquiryDone(body){
   const q = readInquiries_().find(x => x.id === body.id);
   if(!q) return { ok: false };
   sh.getRange(q.row, INQUIRY_HEADERS.indexOf("status") + 1).setValue("done");
+  return { ok: true };
+}
+
+// ---- Anonymous feedback after appointments ("Feedback" tab) ----
+// The link only carries the service type (e.g. #feedback=si), never who the client is. Only the day it came in
+// is kept (no time), so a review can't be matched to an appointment by the clock.
+const FEEDBACK_HEADERS = ["id", "receivedOn", "service", "rating", "bookAgain", "enjoyed", "improve"];
+const FEEDBACK_AGAIN = ["Yes", "Maybe", "No"];
+function feedbackUrl_(b){ const k = b ? guideKey_(b) : ""; return SITE_URL + "#feedback" + (k && k !== "general" ? "=" + k : ""); }
+function feedbackSheet_(){
+  const sh = getOrCreateSheet("Feedback");
+  if(sh.getLastRow() === 0){
+    sh.getRange(1, 1, 1, FEEDBACK_HEADERS.length).setValues([FEEDBACK_HEADERS]);
+    styleHeaderRow(sh.getRange(1, 1, 1, FEEDBACK_HEADERS.length)); sh.setFrozenRows(1); sh.setTabColor(COLORS.pink);
+    [90, 100, 130, 60, 80, 380, 380].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  }
+  return sh;
+}
+function readFeedback_(){
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Feedback");
+  if(!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, FEEDBACK_HEADERS.length).getValues().map(r => ({
+    id: String(r[0]), on: asDate(r[1]) || String(r[1]), service: String(r[2]), rating: Number(r[3]) || 0,
+    again: String(r[4]), enjoyed: String(r[5]), improve: String(r[6])
+  })).filter(f => f.id);
+}
+function handleFeedback(body){
+  if(body.website) return { ok: true };                          // hidden field only bots fill in
+  const rating = Math.round(Number(body.rating));
+  const again = FEEDBACK_AGAIN.indexOf(body.again) !== -1 ? body.again : "";
+  const enjoyed = clip(body.enjoyed, 1500), improve = clip(body.improve, 1500);
+  const g = AFTERCARE_GUIDES[String(body.service || "")], service = g ? (g === AFTERCARE_GUIDES.general ? "Other" : g.title) : "";
+  if(!(rating >= 1 && rating <= 5)) return { ok: false, error: "Tap a star rating first." };
+  const cache = CacheService.getScriptCache();                   // flood protection: 30 an hour overall
+  const hourly = Number(cache.get("fb_hour") || 0);
+  if(hourly >= 30) return { ok: false, error: "Lots of feedback right now. Please try again in a little while." };
+  cache.put("fb_hour", String(hourly + 1), 3600);
+  const day = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy");
+  feedbackSheet_().appendRow([Utilities.getUuid().slice(0, 8), day, service, rating, again, enjoyed, improve]);
+  try{
+    sendMail_({ to: OWNER_EMAIL, subject: "⭐ New anonymous feedback: " + rating + "/5" + (service ? " (" + service + ")" : ""),
+      body: "Someone left feedback on your website.\n\nRating: " + "★".repeat(rating) + "☆".repeat(5 - rating) + " (" + rating + "/5)\n" +
+            (service ? "Service: " + service + "\n" : "") + (again ? "Would book again: " + again + "\n" : "") +
+            "\nWhat they enjoyed:\n" + (enjoyed || "(left blank)") + "\n\nWhat could be better:\n" + (improve || "(left blank)") +
+            "\n\nAll feedback is in the Feedback tab of your Sheet and under Money → Client feedback on your admin site." });
+  }catch(e){}
   return { ok: true };
 }
 
@@ -2018,9 +2073,10 @@ function weeklyReportData_(all, now){
   const wrap = all.filter(b => b.status === "approved" && !isServiced(b) && (d => d && d < today && (today - d) < 30 * 864e5)(parseDay(b)));
   const refunds = all.filter(b => (b.status === "denied" || b.status === "cancelled") && isPaid(b) && !isRefunded(b));
   let questions = 0; try{ questions = readInquiries_().filter(q => q.status === "new").length; }catch(e){}
+  let feedback = []; try{ feedback = readFeedback_().filter(f => (d => !isNaN(d) && d >= start && d < end)(new Date(f.on))); }catch(e){}
   const paid = done.reduce((t, b) => t + num(b.amountPaid), 0), tips = done.reduce((t, b) => t + num(b.tip), 0), hair = done.reduce((t, b) => t + num(b.hairCost), 0);
   return { start: start, end: new Date(end.getTime() - 864e5), done: done, made: made, upcoming: upcoming, pending: pending, wrap: wrap, refunds: refunds,
-           questions: questions, paid: paid, tips: tips, hair: hair,
+           questions: questions, feedback: feedback, paid: paid, tips: tips, hair: hair,
            cancelled: made.filter(b => b.status === "cancelled" || b.status === "denied").length };
 }
 function weeklyReportText_(r){
@@ -2032,7 +2088,10 @@ function weeklyReportText_(r){
     "• Money collected: " + $(r.paid) + (r.tips ? " + " + $(r.tips) + " in tips" : ""),
     "• Hair & supplies you bought: " + $(r.hair),
     "• Left over after hair: " + $(r.paid + r.tips - r.hair),
-    "• New booking requests: " + r.made.length + (r.cancelled ? " (" + r.cancelled + " cancelled or denied)" : ""), "");
+    "• New booking requests: " + r.made.length + (r.cancelled ? " (" + r.cancelled + " cancelled or denied)" : ""));
+  if(r.feedback.length) L.push("• Anonymous feedback: " + r.feedback.length + ", averaging " +
+    (Math.round(r.feedback.reduce((t, f) => t + f.rating, 0) / r.feedback.length * 10) / 10) + "/5 (read it under Money → Client feedback)");
+  L.push("");
   L.push("COMING UP (next 7 days): " + (r.upcoming.length ? r.upcoming.length : "nothing booked yet"));
   r.upcoming.forEach(b => L.push("• " + b.name + ", " + whenText(b) + " (" + plainService_(b) + ")" + (isPaid(b) ? "" : " [no deposit yet]")));
   L.push("");
@@ -2210,7 +2269,8 @@ function emailTemplate(type, b, dep){
         body: hi + "Good news, your order has shipped! Thank you so much for supporting Ehiffect. Let me know when it arrives, and reach out if you have any questions." + footer };
     case 6:
       return { subject: "Thank you from Ehiffect",
-        body: hi + "Thank you so much for coming in. I hope you love your " + plainService_(b) + "! If you post it, tag @ehiffect so I can see it." + footer };
+        body: hi + "Thank you so much for coming in. I hope you love your " + plainService_(b) + "! If you post it, tag @ehiffect so I can see it." +
+              "\n\nI'd love to hear how it went. This quick feedback form is anonymous: " + feedbackUrl_(b) + footer };
     default:
       return { subject: "Your Ehiffect appointment is approved!", body: approvalEmailBody(b, dep) };
   }

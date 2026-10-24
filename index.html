@@ -475,6 +475,10 @@
   .m-chips{ display:flex; flex-wrap:wrap; gap:6px; }
   .m-chip{ padding:9px 12px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12.5px; cursor:pointer; border-radius:999px; }
   .m-chip.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
+  .fb-stars{ display:flex; gap:4px; }
+  .fb-star{ background:none; border:none; padding:2px 4px; font-size:34px; line-height:1; color:var(--line); cursor:pointer; }
+  .fb-star.on{ color:var(--pink); }
+  .fb-star:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
   .m-danger{ background:#c9716f; } .m-danger:hover{ background:#e39997; }
   .m-thread{ display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto; }
   .m-bubble{ max-width:85%; padding:9px 12px; border-radius:12px; font-size:13.5px; line-height:1.45; }
@@ -1284,6 +1288,7 @@ let state = {
   customDetails: "",
   takedownKey: null, takedownWashConfirmed: false,
   inqName: "", inqEmail: "", inqPhone: "", inqAbout: "", inqMsg: "", inqBusy: false, inqDone: false, inqErr: "",
+  fbRating: 0, fbAgain: "", fbService: "", fbEnjoyed: "", fbImprove: "", fbBusy: false, fbDone: false, fbErr: "",
   showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
   manageToken: "", manage: null, mLoading: false, mErr: "", mTab: "", mForm: {}, mPhotos: [], mNotice: "", mErrText: "", mBusy: false,
   installTexture: "",
@@ -1331,6 +1336,7 @@ function render(){
   else if(state.view === "admin-gate") app.innerHTML = renderGate();
   else if(state.view === "admin") app.innerHTML = renderAdmin();
   else if(state.view === "questions") app.innerHTML = renderQuestions();
+  else if(state.view === "feedback") app.innerHTML = renderFeedback();
   else if(state.view === "aftercare") app.innerHTML = renderAftercare();
   else if(state.view === "gallery") app.innerHTML = renderGallery();
   else if(state.view === "manage") app.innerHTML = renderManage();
@@ -2618,6 +2624,41 @@ function renderQuestions(){
   </div>`;
 }
 
+/* ============== anonymous feedback (#feedback, or #feedback=si from the thank-you email) ============== */
+const FEEDBACK_SERVICES = [["si","Sew-In"],["qw","Quick Weave"],["braids","Braids & Twists"],["cornrows","Cornrows"],["crochet","Crochet"],["takedown","Takedown"],["general","Something else"]];
+const FEEDBACK_AGAIN = ["Yes", "Maybe", "No"];
+function renderFeedback(){
+  const stars = [1,2,3,4,5].map(n=>`<button class="fb-star ${state.fbRating>=n?'on':''}" data-action="fb-rate" data-key="${n}" aria-label="${n} star${n>1?'s':''}" aria-pressed="${state.fbRating===n}">★</button>`).join('');
+  const words = ["", "Not great", "Could be better", "It was okay", "Really good", "Loved it!"];
+  return `<div class="wrap">
+    <div class="hero">
+      <h1 class="title" style="margin-top:0;">How Was Your Appointment?</h1>
+      <p class="tagline">uncomplicated &amp; at your service</p>
+    </div>
+    <div class="card">
+      ${state.fbDone ? `
+        <div class="step-label"><span class="step-title">Thank you so much! 💗</span></div>
+        <p class="opt-sub">Your feedback was sent. It really helps me make every appointment better.</p>
+        <button class="cta-btn" data-action="go-landing" style="margin:12px 0 0;">Back to the booking site</button>` : `
+        <span class="back-link" data-action="go-landing">&lsaquo; back</span>
+        <div class="takedown-note" style="margin:0 0 16px;"><b>This is anonymous.</b> Your name, email, and phone number aren't attached, so please be honest. Every answer is optional except the stars.</div>
+        <div class="field"><label>How would you rate your appointment?</label>
+          <div class="fb-stars" role="group" aria-label="Rating">${stars}</div>
+          <div class="opt-sub" style="min-height:18px;">${words[state.fbRating] || 'tap a star'}</div></div>
+        <div class="field"><label>Which service did you get? <span class="opt-sub">(optional)</span></label>
+          <div class="m-chips">${FEEDBACK_SERVICES.map(([k,l])=>`<button class="m-chip ${state.fbService===k?'on':''}" data-action="fb-service" data-key="${k}">${escapeHTML(l)}</button>`).join('')}</div></div>
+        <div class="field"><label>What did you enjoy about your appointment?</label><textarea id="fb-enjoyed" maxlength="1500" placeholder="the style, the vibe, the timing, anything you loved">${escapeHTML(state.fbEnjoyed)}</textarea></div>
+        <div class="field"><label>What didn't you like, or what could be better?</label><textarea id="fb-improve" maxlength="1500" placeholder="anything that could have gone better">${escapeHTML(state.fbImprove)}</textarea></div>
+        <div class="field"><label>Would you book with me again?</label>
+          <div class="m-chips">${FEEDBACK_AGAIN.map(o=>`<button class="m-chip ${state.fbAgain===o?'on':''}" data-action="fb-again" data-key="${o}">${o}</button>`).join('')}</div></div>
+        <input type="text" id="fb-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;"/>
+        ${state.fbErr ? `<div class="opt-sub" style="color:var(--pink); margin:0 0 10px;">${escapeHTML(state.fbErr)}</div>` : ''}
+        <button class="cta-btn" data-action="fb-send" ${state.fbBusy ? 'disabled' : ''} style="margin:0;">${state.fbBusy ? 'Sending…' : 'Send my feedback'}</button>`}
+    </div>
+    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
+  </div>`;
+}
+
 function renderGate(){
   return `<div class="wrap admin-wrap"><div class="gate">
   <div class="logo-block"><img class="logo-img small" src="data:image/png;base64,${LOGO_B64}" alt="The Ehiffect"/></div>
@@ -2808,6 +2849,26 @@ function attachHandlers(){
       }
       else if(action==='quiz-back'){
         if(state.quizStep > 0){ state.quizStep--; state.qmReset = true; }
+      }
+      else if(action==='fb-rate'){ state.fbRating = parseInt(key); state.fbErr = ""; }
+      else if(action==='fb-service'){ state.fbService = state.fbService===key ? "" : key; }
+      else if(action==='fb-again'){ state.fbAgain = state.fbAgain===key ? "" : key; }
+      else if(action==='fb-send'){
+        if(state.fbBusy) return;
+        if(!state.fbRating){ state.fbErr = "Tap a star rating first."; }
+        else{
+          state.fbErr = ""; state.fbBusy = true; render();
+          try{
+            const hp = (document.getElementById('fb-website') || {}).value || '';
+            const payload = encodeURIComponent(JSON.stringify({ rating: state.fbRating, service: state.fbService, again: state.fbAgain,
+              enjoyed: state.fbEnjoyed.trim(), improve: state.fbImprove.trim(), website: hp }));
+            const res = await fetch(CONFIG.apiUrl + "?action=feedback&payload=" + payload);
+            const j = await res.json();
+            if(j && j.ok){ state.fbDone = true; state.fbEnjoyed = ""; state.fbImprove = ""; window.scrollTo(0,0); }
+            else state.fbErr = (j && j.error) || "Couldn't send right now. Please try again in a bit.";
+          }catch(err){ state.fbErr = "Couldn't send right now. Please try again in a bit."; }
+          state.fbBusy = false;
+        }
       }
       else if(action==='inq-another'){ state.inqDone = false; state.inqErr = ""; }
       else if(action==='inq-send'){
@@ -3146,7 +3207,8 @@ function attachHandlers(){
     'f-group-names':'treatmentGroupNames',
     'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',
     'f-custom-details':'customDetails',
-    'inq-name':'inqName', 'inq-email':'inqEmail', 'inq-phone':'inqPhone', 'inq-about':'inqAbout', 'inq-msg':'inqMsg'
+    'inq-name':'inqName', 'inq-email':'inqEmail', 'inq-phone':'inqPhone', 'inq-about':'inqAbout', 'inq-msg':'inqMsg',
+    'fb-enjoyed':'fbEnjoyed', 'fb-improve':'fbImprove'
   };
   Object.entries(liveFieldMap).forEach(([id, key])=>{
     const el2 = document.getElementById(id);
@@ -3362,6 +3424,10 @@ function checkRoute(){
   }
   if(window.location.hash === '#admin'){ window.location.replace('admin.html'); return; }   // the full admin site lives at admin.html
   else if(window.location.hash === '#work'){ state.view = 'gallery'; }
+  else if(/^#feedback(=[a-z]+)?$/.test(window.location.hash)){
+    const k = window.location.hash.replace(/^#feedback=?/, '');
+    state.view = 'feedback'; if(k && FEEDBACK_SERVICES.some(s => s[0] === k)) state.fbService = k;
+  }
   else if(/^#aftercare(-[a-z]+)?$/.test(window.location.hash)){
     const k = window.location.hash.replace('#aftercare', '').replace(/^-/, '');
     state.view = 'aftercare'; state.aftercareTab = k === 'quickweave' ? 'qw' : (AFTERCARE[k] ? k : 'si');

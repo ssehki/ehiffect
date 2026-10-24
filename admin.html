@@ -597,6 +597,7 @@ function more(){
         sub: when(b) + " · paid " + money(paidOf(b)) + (num(b.tip) ? " + " + money(b.tip) + " tip" : "") + (num(b.hairCost) ? " · hair " + money(b.hairCost) : ""),
         actions: `<span class="serif" style="font-size:19px; font-weight:600; color:${profitOf(b) >= 0 ? 'var(--good)' : 'var(--bad)'};">${money(profitOf(b))}</span>` })).join("")}</div>` : `<p class="empty">Nothing marked done in ${esc(label.split(" ")[0])} yet. Use "Wrap up" in your Inbox after each appointment.</p>`}
     ${reportSection()}
+    ${feedbackSection()}
     ${pricesSection()}
     <h2 class="sec">Emails</h2>
     <p class="hint" style="margin-top:-4px;">The wording clients get. Change it here and every future email uses it. You can still tweak any single email before it sends.</p>
@@ -702,6 +703,7 @@ function detailSheet(b){
         ${b.email && !b.isBundle ? `<button class="btn" data-a="send-estimate" data-k="${esc(b.key)}">Send cost estimate</button>` : ''}
         ${b.email ? `<button class="btn" data-a="custom" data-k="${esc(b.key)}">Write an email</button>` : ''}
         ${b.manageUrl ? `<button class="btn" data-a="copy-link" data-k="${esc(b.key)}">Copy their manage link</button>` : ''}
+        ${!b.isBundle ? `<button class="btn" data-a="copy-feedback" data-k="${esc(guideKeyFor(b))}">Copy feedback link</button>` : ''}
         ${b.text ? `<button class="btn" data-a="copy-text" data-k="${esc(b.key)}">Copy ${esc(String(b.textLabel || 'text').toLowerCase())}</button>` : ''}
       </div>
       ${b.checkIn ? `<details class="fold" open><summary>📋 Hair check-in</summary><div>
@@ -1065,6 +1067,11 @@ document.addEventListener("click", async e => {
     try{ await navigator.clipboard.writeText(text); toast("Copied"); }catch(err){ prompt("Copy this:", text); }
     return;
   }
+  if(a === "copy-feedback"){
+    const text = feedbackLink(k);
+    try{ await navigator.clipboard.writeText(text); toast("Copied. It's anonymous, so you won't see who sent what"); }catch(err){ prompt("Copy this:", text); }
+    return;
+  }
   if(a === "tpl"){ S.tpl = k; renderLayer(); return; }
   if(a === "tpl-save" || a === "tpl-reset"){
     S.busy = "Saving…"; renderLayer();
@@ -1208,6 +1215,30 @@ function reportBody(){
         ${up > 0 ? `At +${Math.round(up * 100)}% you could lose up to <b>${pct(breakEven)}</b> of your bookings and still make what you make now.` : 'Pick a raise above to see how many bookings you could lose and still come out ahead.'}</div>
     </div>
     <p class="hint">This is an estimate from your finished appointments. It assumes the same mix of services; real results depend on your clients.</p>`;
+}
+/* ---------- anonymous client feedback ---------- */
+function feedbackLink(key){ return SITE_URL + "#feedback" + (key && key !== "general" ? "=" + key : ""); }
+function feedbackSection(){
+  const F = S.data.feedback;
+  const stars = n => "★".repeat(n) + "☆".repeat(5 - n);
+  const head = `<p class="hint" style="margin:0 0 10px;">Clients get this link in the thank-you email after you wrap up. It's anonymous: you see their answers, never who sent them. You can also copy it and text it to anyone.</p>
+    <div class="btn-row" style="margin:0 0 12px;"><button class="btn" data-a="copy-feedback" data-k="">Copy feedback link</button></div>`;
+  if(!F) return `<details class="fold" ${S.openFeedback ? "open" : ""} data-keep="openFeedback"><summary>⭐ Client feedback</summary><div>${head}
+    <p class="hint">Update your Sheet's script (paste the new Code.gs and deploy a new version) to see feedback here.</p></div></details>`;
+  const avg = F.length ? Math.round(F.reduce((t, f) => t + f.rating, 0) / F.length * 10) / 10 : 0;
+  const answered = F.filter(f => f.again), yes = answered.filter(f => f.again === "Yes").length;
+  return `<details class="fold" ${S.openFeedback ? "open" : ""} data-keep="openFeedback"><summary>⭐ Client feedback${F.length ? ` · ${avg}/5 from ${F.length}` : ''}</summary><div>${head}
+    ${F.length ? `<div class="stat-grid">
+      <div class="stat"><b>${avg}</b><span>average rating out of 5</span></div>
+      <div class="stat"><b>${answered.length ? Math.round(yes / answered.length * 100) + "%" : "—"}</b><span>would book again</span></div>
+    </div>
+    <div class="list">${F.map(f => `<div class="row" style="cursor:default; display:block;">
+      <div class="row-title"><span style="color:var(--pink); letter-spacing:.05em;">${stars(f.rating)}</span> ${f.again ? `<span class="tag ${f.again === "Yes" ? "good" : f.again === "No" ? "bad" : ""}">book again: ${esc(f.again.toLowerCase())}</span>` : ''}</div>
+      <div class="row-sub">${esc([f.service, f.on].filter(Boolean).join(" · "))}</div>
+      ${f.enjoyed ? `<div class="row-note" style="margin-top:6px;"><b>Enjoyed:</b> ${esc(f.enjoyed)}</div>` : ''}
+      ${f.improve ? `<div class="row-note" style="margin-top:6px;"><b>Could be better:</b> ${esc(f.improve)}</div>` : ''}
+    </div>`).join("")}</div>` : `<p class="empty">No feedback yet.</p>`}
+  </div></details>`;
 }
 function reportSection(){
   const per = (v, l) => `<option value="${v}" ${(S.rpPeriod || "month") === v ? "selected" : ""}>${l}</option>`;
