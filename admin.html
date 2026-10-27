@@ -603,6 +603,7 @@ function more(){
     <div class="list">${Object.keys(T).filter(k => k !== "custom").map(k => `<div class="row" data-a="tpl" data-k="${k}">
       <div class="row-main"><div class="row-title">${esc(T[k].label)} ${T[k].edited ? '<span class="tag good">edited</span>' : ''}</div><div class="row-sub">${esc(T[k].when)}</div></div>
       <span class="chev" aria-hidden="true">›</span></div>`).join("")}</div>
+    ${calendarSection()}
     <h2 class="sec">Deals &amp; hours</h2>
     ${dealsSection()}
     ${hoursSection()}
@@ -612,6 +613,27 @@ function more(){
     <div class="list">
       <a class="row" href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;"><div class="row-main"><div class="row-title">Open booking site</div></div><span class="chev">↗</span></a>
       <div class="row" data-a="logout"><div class="row-main"><div class="row-title">Log out of this phone</div></div></div>
+    </div>`;
+}
+
+function calendarSection(){
+  const c = (S.data && S.data.calendar) || null;
+  if(!c) return '';
+  const st = c.status;
+  const line = !st ? `<span class="tag bad">not run yet</span> It hasn't synced since the last update. Tap "Sync now".`
+    : st.ok ? `<span class="tag good">synced</span> ${esc(st.at)}`
+    : `<span class="tag bad">not syncing</span> ${esc(st.text)}`;
+  const where = c.own ? `your <b>Ehiffect Appointments</b> calendar on <b>${esc(c.account)}</b>`
+                      : `the <b>main calendar</b> of <b>${esc(c.account)}</b> (not a separate Ehiffect calendar yet)`;
+  return `<h2 class="sec">Google Calendar</h2>
+    <div class="box">
+      <div style="font-size:14px; line-height:1.6;">${line}<br>Approved bookings are put on ${where}.</div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn primary" data-a="cal-sync" ${S.calBusy ? 'disabled' : ''}>${S.calBusy ? 'Working…' : 'Sync now'}</button>
+        ${c.own ? '' : `<button class="btn" data-a="cal-setup" ${S.calBusy ? 'disabled' : ''}>Create the Ehiffect calendar</button>`}
+      </div>
+      <p class="hint" style="margin:8px 0 0;">To see it on a different Google account: open calendar.google.com signed in as ${esc(c.account)}, hover the calendar, ⋮ → Settings and sharing → Share with specific people → add your other email.
+        Only <b>approved</b> bookings from today onward show up.</p>
     </div>`;
 }
 
@@ -1011,6 +1033,18 @@ document.addEventListener("click", async e => {
       if(r && r.ok){ S.data.bookings = S.data.bookings.filter(x => x.key !== k); S.open = null; S.client = null; render(); toast("Deleted " + first(b.name)); load(true); }
       else { renderLayer(); toast((r && r.error) || "Couldn't delete — try again."); }
     }catch(err){ S.busy = ""; renderLayer(); failToast(err); }
+    return;
+  }
+  if(a === "cal-sync" || a === "cal-setup"){
+    if(S.calBusy) return; S.calBusy = true; render();
+    try{
+      const r = await api("calendarSync", { setup: a === "cal-setup" });
+      S.calBusy = false;
+      if(r && r.calendar) S.data.calendar = r.calendar;
+      render();
+      if(r && r.ok) toast("Calendar synced: " + r.added + " added, " + r.updated + " changed, " + r.removed + " removed" + (r.name ? " (" + r.name + ")" : ""));
+      else toast((r && r.error) ? "Calendar problem: " + r.error : "Calendar didn't sync, try again.");
+    }catch(err){ S.calBusy = false; render(); failToast(err); }
     return;
   }
   if(a === "inq-done"){

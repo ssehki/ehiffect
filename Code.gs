@@ -250,7 +250,7 @@ function publicConfig_(){
   if(hit){ try{ return JSON.parse(hit); }catch(e){} }
   const c = getSiteConfig_();
   const out = { ok: true, v: API_VERSION, prices: c.prices, saleEnds: c.saleEnds, hours: c.hours, latest: c.latest,
-    deals: c.deals.map(d => { const o = Object.assign({}, d); delete o.cost; delete o.oneTime; return o; }) };
+    deals: c.deals.map(d => { const o = Object.assign({}, d); delete o.cost; delete o.oneTime; return o; }), reviews: publicReviews_() };
   try{ cache.put("pubcfg", JSON.stringify(out), 60); }catch(e){}
   return out;
 }
@@ -1019,7 +1019,7 @@ function doGet(e){
   }
 
   // The admin site (admin.html). Same passcode as your dashboard.
-  if(["adminData", "emailDraft", "adminAct", "adminCreate", "customEmail", "saveTemplate", "setDaysOff", "adminDelete", "inquiryDone", "saveConfig"].indexOf(action) !== -1){
+  if(["adminData", "emailDraft", "adminAct", "adminCreate", "customEmail", "saveTemplate", "setDaysOff", "adminDelete", "inquiryDone", "saveConfig", "feedbackShow"].indexOf(action) !== -1){
     let body;
     try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
     const auth = checkAdmin_(body.adminKey); if(auth !== "ok") return json({ ok: false, error: auth });
@@ -1718,7 +1718,7 @@ function adminData(){
   const all = readBookings();
   if(ensureTokens(all)) all.splice(0, all.length, ...readBookings());
   const settings = getSettings();
-  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, mailErrors: mailErrors_(), builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
+  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, mailErrors: mailErrors_(), calendar: calendarInfo_(), builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
            config: getSiteConfig_(), catalog: PRICE_CATALOG.map(r => ({ id: r[0], group: r[1], label: r[2], price: r[3], was: r[4] || 0 })),
            inquiries: readInquiries_().filter(q => q.status !== "done").reverse().slice(0, 40),
            feedback: readFeedback_().reverse().slice(0, 200), feedbackUrl: feedbackUrl_(),
@@ -1856,7 +1856,8 @@ function handleInquiryDone(body){
 // ---- Anonymous feedback after appointments ("Feedback" tab) ----
 // The link only carries the service type (e.g. #feedback=si), never who the client is. Only the day it came in
 // is kept (no time), so a review can't be matched to an appointment by the clock.
-const FEEDBACK_HEADERS = ["id", "receivedOn", "service", "rating", "bookAgain", "enjoyed", "improve"];
+// okToShare = the client ticked "okay to post"; showOnSite = you chose to show it on the homepage (Feedback tab in admin).
+const FEEDBACK_HEADERS = ["id", "receivedOn", "service", "rating", "bookAgain", "enjoyed", "improve", "okToShare", "showOnSite"];
 const FEEDBACK_AGAIN = ["Yes", "Maybe", "No"];
 function feedbackUrl_(b){ const k = b ? guideKey_(b) : ""; return SITE_URL + "#feedback" + (k && k !== "general" ? "=" + k : ""); }
 function feedbackSheet_(){
@@ -1864,23 +1865,27 @@ function feedbackSheet_(){
   if(sh.getLastRow() === 0){
     sh.getRange(1, 1, 1, FEEDBACK_HEADERS.length).setValues([FEEDBACK_HEADERS]);
     styleHeaderRow(sh.getRange(1, 1, 1, FEEDBACK_HEADERS.length)); sh.setFrozenRows(1); sh.setTabColor(COLORS.pink);
-    [90, 100, 130, 60, 80, 380, 380].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+    [90, 100, 130, 60, 80, 380, 380, 90, 90].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  }
+  if(String(sh.getRange(1, FEEDBACK_HEADERS.length).getValue()) === ""){     // tabs made before reviews existed get the new columns
+    sh.getRange(1, 1, 1, FEEDBACK_HEADERS.length).setValues([FEEDBACK_HEADERS]);
+    styleHeaderRow(sh.getRange(1, 1, 1, FEEDBACK_HEADERS.length));
   }
   return sh;
 }
 function readFeedback_(){
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Feedback");
   if(!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, FEEDBACK_HEADERS.length).getValues().map(r => ({
+  return sh.getRange(2, 1, sh.getLastRow() - 1, FEEDBACK_HEADERS.length).getValues().map((r, i) => ({
     id: String(r[0]), on: asDate(r[1]) || String(r[1]), service: String(r[2]), rating: Number(r[3]) || 0,
-    again: String(r[4]), enjoyed: String(r[5]), improve: String(r[6])
+    again: String(r[4]), enjoyed: String(r[5]), improve: String(r[6]), share: isTrue(r[7]), shown: isTrue(r[8]), row: i + 2
   })).filter(f => f.id);
 }
 function handleFeedback(body){
   if(body.website) return { ok: true };                          // hidden field only bots fill in
   const rating = Math.round(Number(body.rating));
   const again = FEEDBACK_AGAIN.indexOf(body.again) !== -1 ? body.again : "";
-  const enjoyed = clip(body.enjoyed, 1500), improve = clip(body.improve, 1500);
+  const enjoyed = clip(body.enjoyed, 1500), improve = clip(body.improve, 1500), share = body.share === true;
   const g = AFTERCARE_GUIDES[String(body.service || "")], service = g ? (g === AFTERCARE_GUIDES.general ? "Other" : g.title) : "";
   if(!(rating >= 1 && rating <= 5)) return { ok: false, error: "Tap a star rating first." };
   const cache = CacheService.getScriptCache();                   // flood protection: 30 an hour overall
@@ -1888,15 +1893,34 @@ function handleFeedback(body){
   if(hourly >= 30) return { ok: false, error: "Lots of feedback right now. Please try again in a little while." };
   cache.put("fb_hour", String(hourly + 1), 3600);
   const day = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MM/dd/yyyy");
-  feedbackSheet_().appendRow([Utilities.getUuid().slice(0, 8), day, service, rating, again, enjoyed, improve]);
+  feedbackSheet_().appendRow([Utilities.getUuid().slice(0, 8), day, service, rating, again, enjoyed, improve, share, false]);
   try{
     sendMail_({ to: OWNER_EMAIL, subject: "⭐ New anonymous feedback: " + rating + "/5" + (service ? " (" + service + ")" : ""),
       body: "Someone left feedback on your website.\n\nRating: " + "★".repeat(rating) + "☆".repeat(5 - rating) + " (" + rating + "/5)\n" +
             (service ? "Service: " + service + "\n" : "") + (again ? "Would book again: " + again + "\n" : "") +
             "\nWhat they enjoyed:\n" + (enjoyed || "(left blank)") + "\n\nWhat could be better:\n" + (improve || "(left blank)") +
+            (share && enjoyed ? "\n\nThey said it's okay to post what they enjoyed as a review. To show it on your homepage, tap \"Show on website\" in the Feedback tab of your admin site." : "") +
             "\n\nAll feedback is in the Feedback tab of your Sheet and in the Feedback tab of your admin site." });
   }catch(e){}
   return { ok: true };
+}
+
+// Turn one review on or off for the homepage. Only works for people who said it's okay to post.
+function handleFeedbackShow(body){
+  const f = readFeedback_().find(x => x.id === String(body.id || ""));
+  if(!f) return { ok: false, error: "Feedback not found" };
+  if(!f.share && body.shown) return { ok: false, error: "They didn't say it's okay to post this one." };
+  feedbackSheet_().getRange(f.row, FEEDBACK_HEADERS.indexOf("showOnSite") + 1).setValue(!!body.shown);
+  try{ CacheService.getScriptCache().remove("pubcfg"); }catch(e){}          // homepage picks it up right away
+  return { ok: true };
+}
+// The reviews the homepage pops up: only ones the client okayed AND you switched on. Just the stars, the
+// "what I enjoyed" words, and the service, never the "could be better" part.
+function publicReviews_(){
+  try{
+    return readFeedback_().filter(f => f.share && f.shown && f.enjoyed.trim()).reverse().slice(0, 30)
+      .map(f => ({ r: f.rating, t: f.enjoyed.trim(), s: f.service }));
+  }catch(e){ return []; }
 }
 
 function handleCustomEmail(body){
@@ -2040,6 +2064,8 @@ function adminApi(action, body){
   if(action === "adminDelete") return handleAdminDelete(body);
   if(action === "saveConfig") return handleSaveConfig(body);
   if(action === "inquiryDone") return handleInquiryDone(body);
+  if(action === "calendarSync") return adminCalendar_(body);
+  if(action === "feedbackShow") return handleFeedbackShow(body);
   if(action === "emailDraft") return emailDraft(body);
   if(action === "adminAct") return handleAdminAct(body);
   if(action === "customEmail") return handleCustomEmail(body);
@@ -2681,8 +2707,7 @@ function openHairOrders(){
 
 // Menu item: makes a dedicated "Ehiffect Appointments" calendar, points the sync at it, and fills it
 // with your approved bookings. Then you share it to the Google account you actually check.
-function createEhiffectCalendar(){
-  const ui = SpreadsheetApp.getUi();
+function ensureEhiffectCalendar_(){
   const props = PropertiesService.getScriptProperties();
   let cal = null;
   const existing = props.getProperty("calendarId");
@@ -2692,6 +2717,26 @@ function createEhiffectCalendar(){
     try{ cal.setColor(CalendarApp.Color.PINK); }catch(e){}
     props.setProperty("calendarId", cal.getId());
   }
+  return cal;
+}
+// What the admin site shows about the calendar (cheap: nothing here talks to Google Calendar).
+function calendarInfo_(){
+  let st = null; try{ st = JSON.parse(PropertiesService.getScriptProperties().getProperty("calendarStatus") || "null"); }catch(e){}
+  return { on: !!CALENDAR_SYNC, own: !!calendarId_(), account: senderAddress_(), status: st };
+}
+function adminCalendar_(body){
+  try{
+    if(body && body.setup) ensureEhiffectCalendar_();
+    const r = syncCalendar();
+    let name = "";
+    try{ const c = calendarId_() ? CalendarApp.getCalendarById(calendarId_()) : CalendarApp.getDefaultCalendar(); name = c ? c.getName() : ""; }catch(e){}
+    return { ok: !r.error, error: r.error || "", added: r.added || 0, updated: r.updated || 0, removed: r.removed || 0, name: name, calendar: calendarInfo_() };
+  }catch(err){ return { ok: false, error: String((err && err.message) || err), calendar: calendarInfo_() }; }
+}
+
+function createEhiffectCalendar(){
+  const ui = SpreadsheetApp.getUi();
+  const cal = ensureEhiffectCalendar_();
   const r = syncCalendar();
   const me = Session.getEffectiveUser().getEmail();
   ui.alert("Ehiffect Appointments calendar is ready ✓",
