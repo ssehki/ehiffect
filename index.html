@@ -475,6 +475,21 @@
   .m-chips{ display:flex; flex-wrap:wrap; gap:6px; }
   .m-chip{ padding:9px 12px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12.5px; cursor:pointer; border-radius:999px; }
   .m-chip.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
+  #review-root{ position:fixed; left:16px; bottom:calc(32px + env(safe-area-inset-bottom)); z-index:35; width:340px; max-width:calc(100% - 250px);
+    background:#FFFFFF; color:#211A1B; border:1px solid rgba(184,92,130,0.30); border-radius:10px; padding:10px 34px 11px 14px;
+    box-shadow:0 10px 26px rgba(36,19,24,0.16); opacity:0; transform:translateY(18px); pointer-events:none; transition:opacity .35s ease, transform .35s ease; }
+  #review-root.in{ opacity:1; transform:none; pointer-events:auto; }
+  .rv-head{ display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+  .rv-stars{ color:#B85C82; font-size:13px; letter-spacing:.08em; }
+  .rv-svc{ font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C7B7E; }
+  .rv-text{ font-size:13px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .rv-x{ position:absolute; top:4px; right:4px; width:28px; height:28px; border:none; background:none; color:#8C7B7E; font-size:18px; line-height:1; cursor:pointer; border-radius:50%; }
+  .rv-x:focus-visible{ outline:2px solid #B85C82; }
+  @media (max-width:480px){
+    #review-root{ left:12px; right:12px; width:auto; max-width:none; bottom:calc(12px + env(safe-area-inset-bottom)); padding:8px 32px 9px 12px; }
+    .rv-text{ font-size:12.5px; line-height:1.35; -webkit-line-clamp:2; }
+  }
+  @media (prefers-reduced-motion: reduce){ #review-root{ transform:none; transition:opacity .2s linear; } }
   .fb-stars{ display:flex; gap:4px; }
   .fb-star{ background:none; border:none; padding:2px 4px; font-size:34px; line-height:1; color:var(--line); cursor:pointer; }
   .fb-star.on{ color:var(--pink); }
@@ -668,23 +683,6 @@ const TAKEDOWNS = [
 const QUIZ_SPEED = { qw:'shorter', cornrows:'shorter', twostrand:'shorter', crochet:'moderate', si:'longer', braids:'longer', marley:'longer' };
 
 const QUIZ = [
-  // Takedowns come first, because plenty of people don't know they're something you offer.
-  { key:"goal", q:"Are you trying to take your hair down?", hint:"I do takedowns (removal only) as well as new styles.", options:[
-    { key:"new", label:"No — I want a new style", sub:"Help me find the right style" },
-    { key:"down", label:"Yes — I just need it taken down", sub:"Removal only, no new style" },
-    { key:"both", label:"Both — take it down and do something new", sub:"I'll see takedown options and style matches" },
-  ]},
-  { key:"tdtype", q:"What are you taking down?", options:[
-    { key:"sew", label:"A sew-in or quick weave", sub:"Tracks, thread, and a braid-down" },
-    { key:"crochet", label:"Crochet", sub:"Crochet hair over a braid-down" },
-    { key:"other", label:"Something else / I'm not sure", sub:"Braids, twists, or I'm not certain what I have", open:true },
-  ]},
-  { key:"tdscope", q:"How much do you want taken out?", options:[
-    { key:"thread", label:"Just the hair — my braid-down stays in", sub:"Thread & Track Removal" },
-    { key:"full", label:"The hair and the braid-down", sub:"Full Sew-In Takedown" },
-    { key:"complete", label:"Everything out, plus careful detangling", sub:"Complete Takedown + Detangling" },
-    { key:"unsure", label:"I'm not sure", sub:"Show me the options" },
-  ]},
   { key:"who", q:"Who are we styling?", options:[
     { key:"w", label:"Women's styles", sub:"Sew-ins, quick weaves, braids & twists, crochet, and cornrows" },
     { key:"m", label:"Men's styles", sub:"Two-strand twists, Marley twists, and cornrows" },
@@ -782,35 +780,10 @@ const QUIZ_SEEN_KEY = "ehiffectQuizSeen";
 function quizAlreadySeen(){ try{ return sessionStorage.getItem(QUIZ_SEEN_KEY)==='1'; }catch(e){ return false; } }
 function markQuizSeen(){ state.showQuizPrompt = false; try{ sessionStorage.setItem(QUIZ_SEEN_KEY,'1'); }catch(e){} }
 function escapeHTML(str){ return String(str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-// Which questions apply depends on the first answer: "just a takedown" skips the style questions,
-// "a new style" skips the takedown ones, and "both" asks everything.
-const QUIZ_TAKEDOWN_QS = ['tdtype','tdscope'];
-const QUIZ_STYLE_QS = ['who','vision','chair','matters','last','budget','hair'];
 function quizQuestions(){
   const who = state.quizAnswers.who;
-  const goal = state.quizAnswers.goal;
-  const wantsTakedown = goal === 'down' || goal === 'both';
   const fits = x => !x.for || !who || x.for===who;
-  const applies = q => {
-    if(QUIZ_TAKEDOWN_QS.includes(q.key)){
-      if(!wantsTakedown) return false;
-      return q.key !== 'tdscope' || state.quizAnswers.tdtype === 'sew';
-    }
-    if(QUIZ_STYLE_QS.includes(q.key)) return goal !== 'down';
-    return true;
-  };
-  return QUIZ.filter(q => fits(q) && applies(q)).map(q=>({ ...q, q:(q.qFor && q.qFor[who]) || q.q, hint:(q.hintFor && q.hintFor[who]) || q.hint, options:q.options.filter(fits) }));
-}
-// Which takedowns match their answers (keys into TAKEDOWNS). Empty = they weren't sure → suggest a consultation.
-function quizTakedowns(){
-  const a = state.quizAnswers;
-  if(a.goal !== 'down' && a.goal !== 'both') return [];
-  if(a.tdtype === 'crochet') return ['crochet'];
-  if(a.tdtype === 'sew'){
-    if(['thread','full','complete'].includes(a.tdscope)) return [a.tdscope];
-    return ['thread','full','complete'];            // "not sure": show all three sew-in options
-  }
-  return [];
+  return QUIZ.filter(fits).map(q=>({ ...q, q:(q.qFor && q.qFor[who]) || q.q, hint:(q.hintFor && q.hintFor[who]) || q.hint, options:q.options.filter(fits) }));
 }
 function quizPicked(){
   const picked = [];
@@ -1288,7 +1261,7 @@ let state = {
   customDetails: "",
   takedownKey: null, takedownWashConfirmed: false,
   inqName: "", inqEmail: "", inqPhone: "", inqAbout: "", inqMsg: "", inqBusy: false, inqDone: false, inqErr: "",
-  fbRating: 0, fbAgain: "", fbService: "", fbEnjoyed: "", fbImprove: "", fbBusy: false, fbDone: false, fbErr: "",
+  fbRating: 0, fbAgain: "", fbService: "", fbEnjoyed: "", fbImprove: "", fbShare: false, fbBusy: false, fbDone: false, fbErr: "",
   showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
   manageToken: "", manage: null, mLoading: false, mErr: "", mTab: "", mForm: {}, mPhotos: [], mNotice: "", mErrText: "", mBusy: false,
   installTexture: "",
@@ -1300,6 +1273,7 @@ let state = {
   name:"", phone:"", ig:"", email:"", date:"", time:"", notes:"", referenceLink:"", calendarMonth:null,
   photos: [],
   agreedPolicy: false,
+  contentOk: "",
   error: "",
   bookings: [], adminInput:"", adminError:"", filter:"all",
   loadingAdmin: false,
@@ -1359,6 +1333,7 @@ function render(){
   fabRoot.classList.toggle('compact', window.scrollY > 40);
   if(!fabHTML) fabRoot.classList.remove('fab-away');
   // cream page edges on desktop for the light-theme pages (homepage + Style Finder)
+  syncReviewPop();
   const light = ['landing','aftercare'].includes(state.view) ? '#F8F3EF' : '';
   document.documentElement.style.background = light; document.body.style.background = light;
   attachHandlers();
@@ -1671,23 +1646,9 @@ function renderQuiz(){
       <button class="cta-btn" data-action="quiz-name-submit">See my match</button>
       <button class="cta-btn secondary" data-action="quiz-name-skip" style="margin-bottom:0;">Skip</button>`;
   } else {
-    const goal = state.quizAnswers.goal;
-    const tdKeys = quizTakedowns();
-    const downOnly = goal === 'down';
-    const matches = downOnly ? [] : quizMatches();
-    const consult = downOnly ? tdKeys.length === 0 : quizNeedsConsult(matches);
+    const matches = quizMatches();
+    const consult = quizNeedsConsult(matches);
     const shown = matches.slice(0, Math.max(1, state.quizShowCount||1));
-    const tdCard = (k, i) => {
-      const t = TAKEDOWNS.find(x => x.key === k); if(!t) return '';
-      return `
-      <div class="card quiz-result">
-        <div class="quiz-rank">${tdKeys.length > 1 ? 'Takedown option ' + (i+1) : 'Your takedown'}</div>
-        <div class="quiz-match">${t.name}</div>
-        <p class="quiz-desc">${t.desc}</p>
-        <div class="quiz-price"><b>${money(t.price)}</b> removal only — no new style. Your hair needs to be washed and fully dry when you arrive.</div>
-        <button class="cta-btn" data-action="quiz-book" data-key="takedown:${t.key}" style="margin:16px 0 0;">Book this takedown</button>
-      </div>`;
-    };
     const card = (r, i) => {
       const svc = QUIZ_SERVICES[r.key];
       const why = quizReasonSentence(r.reasons);
@@ -1703,13 +1664,8 @@ function renderQuiz(){
       </div>`;
     };
     body = `
-      <h2 class="quiz-q" id="qm-q" style="font-size:28px;">${downOnly ? 'Your Takedown' : 'Your Style Match'}</h2>
-      <p class="quiz-hint">${downOnly
-        ? (tdKeys.length ? (state.quizName ? escapeHTML(state.quizName) + ', here' : 'Here') + (tdKeys.length===1 ? ' is the takedown' : ' are the takedowns') + ' that fit what you described.'
-                         : "I'm not sure which takedown fits yet — let's figure it out together.")
-        : (state.quizName ? `${escapeHTML(state.quizName)}, based` : 'Based') + ` on your preferences, here ${matches.length===1?'is the style':'are the styles'} we think you'll love.`}</p>
-      ${tdKeys.map(tdCard).join('')}
-      ${goal === 'both' && matches.length ? '<p class="quiz-hint" style="margin-top:18px;">And for your new style:</p>' : ''}
+      <h2 class="quiz-q" id="qm-q" style="font-size:28px;">Your Style Match</h2>
+      <p class="quiz-hint">${(state.quizName ? `${escapeHTML(state.quizName)}, based` : 'Based') + ` on your preferences, here ${matches.length===1?'is the style':'are the styles'} we think you'll love.`}</p>
       ${shown.map(card).join('')}
       ${matches.length > shown.length ? `<button class="cta-btn secondary" data-action="quiz-more" style="margin-top:16px;">See another recommendation</button>` : ''}
       ${consult ? `
@@ -2433,6 +2389,10 @@ function renderBook(){
         <input type="text" id="f-reference-link" value="${state.referenceLink}" placeholder="link to the style you want" style="margin-top:5px;"/>
       </div>
 
+      ${contentQuestionApplies() ? `<div class="field"><label>Are you okay with me taking photos or videos of your hair for my page?</label>
+        <p class="opt-sub" style="margin:4px 0 10px;">I love sharing my work on @ehiffect. It's totally fine to say no; it won't change anything about your appointment.</p>
+        <div class="m-chips">${CONTENT_ANSWERS.map(o=>`<button class="m-chip ${state.contentOk===o?'on':''}" data-action="pick-content" data-key="${escapeHTML(o)}">${escapeHTML(o)}</button>`).join('')}</div></div>` : ''}
+
       <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
     </div>` : ''}
 
@@ -2462,6 +2422,10 @@ function renderBook(){
     <div class="footer-note">up to 2 deals per booking, confirmed at approval<br/>bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
+
+// Photos/videos for your page: asked for services, not hair orders or consultations (Code.gs keeps the same three answers).
+const CONTENT_ANSWERS = ["Yes, photos & videos are fine", "Yes, but keep my face out", "No, please don't post me"];
+function contentQuestionApplies(){ return !!state.category && state.category !== 'bundles' && state.category !== 'consult'; }
 
 function renderBundles(){
   return `
@@ -2648,7 +2612,11 @@ function renderFeedback(){
         <div class="field"><label>Which service did you get? <span class="opt-sub">(optional)</span></label>
           <div class="m-chips">${FEEDBACK_SERVICES.map(([k,l])=>`<button class="m-chip ${state.fbService===k?'on':''}" data-action="fb-service" data-key="${k}">${escapeHTML(l)}</button>`).join('')}</div></div>
         <div class="field"><label>What did you enjoy about your appointment?</label><textarea id="fb-enjoyed" maxlength="1500" placeholder="the style, the vibe, the timing, anything you loved">${escapeHTML(state.fbEnjoyed)}</textarea></div>
-        <div class="field"><label>What didn't you like, or what could be better?</label><textarea id="fb-improve" maxlength="1500" placeholder="anything that could have gone better">${escapeHTML(state.fbImprove)}</textarea></div>
+        <div class="agree-row" style="margin:-4px 0 18px;">
+          <input type="checkbox" id="fb-share" ${state.fbShare?'checked':''} data-action="fb-share"/>
+          <label for="fb-share">It's okay to post what I enjoyed as a review on the website. No name, still anonymous.</label>
+        </div>
+        <div class="field"><label>What didn't you like, or what could be better? <span class="opt-sub">(never posted)</span></label><textarea id="fb-improve" maxlength="1500" placeholder="anything that could have gone better">${escapeHTML(state.fbImprove)}</textarea></div>
         <div class="field"><label>Would you book with me again?</label>
           <div class="m-chips">${FEEDBACK_AGAIN.map(o=>`<button class="m-chip ${state.fbAgain===o?'on':''}" data-action="fb-again" data-key="${o}">${o}</button>`).join('')}</div></div>
         <input type="text" id="fb-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;"/>
@@ -2823,9 +2791,7 @@ function attachHandlers(){
       else if(action==='quiz-answer'){
         const q = quizQuestions()[state.quizStep];
         if(q.key==='who' && state.quizAnswers.who !== key){                          // switching paths clears old style answers
-          const keep = {};
-          ['goal','tdtype','tdscope'].forEach(k => { if(state.quizAnswers[k] !== undefined) keep[k] = state.quizAnswers[k]; });
-          state.quizAnswers = keep;
+          state.quizAnswers = {};
         }
         state.quizAnswers[q.key] = key;
         state.quizStep++; state.qmReset = true;
@@ -2852,6 +2818,7 @@ function attachHandlers(){
       }
       else if(action==='fb-rate'){ state.fbRating = parseInt(key); state.fbErr = ""; }
       else if(action==='fb-service'){ state.fbService = state.fbService===key ? "" : key; }
+      else if(action==='fb-share'){ state.fbShare = !state.fbShare; }
       else if(action==='fb-again'){ state.fbAgain = state.fbAgain===key ? "" : key; }
       else if(action==='fb-send'){
         if(state.fbBusy) return;
@@ -2861,7 +2828,7 @@ function attachHandlers(){
           try{
             const hp = (document.getElementById('fb-website') || {}).value || '';
             const payload = encodeURIComponent(JSON.stringify({ rating: state.fbRating, service: state.fbService, again: state.fbAgain,
-              enjoyed: state.fbEnjoyed.trim(), improve: state.fbImprove.trim(), website: hp }));
+              enjoyed: state.fbEnjoyed.trim(), improve: state.fbImprove.trim(), share: state.fbShare, website: hp }));
             const res = await fetch(CONFIG.apiUrl + "?action=feedback&payload=" + payload);
             const j = await res.json();
             if(j && j.ok){ state.fbDone = true; state.fbEnjoyed = ""; state.fbImprove = ""; window.scrollTo(0,0); }
@@ -3032,6 +2999,7 @@ function attachHandlers(){
       else if(action==='pick-bundle-source'){ state.bundleHairSource = key; }
       else if(action==='pick-bundle-texture'){ state.bundleTexture = el.value; }
       else if(action==='toggle-agree'){ state.agreedPolicy = !state.agreedPolicy; }
+      else if(action==='pick-content'){ state.contentOk = key; if(/photos or videos/.test(state.error)) state.error = ""; }
       else if(action==='remove-photo'){ state.photos.splice(parseInt(key),1); }
       else if(action==='view-photo'){ window.open(el.getAttribute('data-src'), '_blank'); return; }
       else if(action==='submit'){
@@ -3079,6 +3047,9 @@ function attachHandlers(){
             : "Please check the box confirming you've read and agree to the policies.";
           render(); return;
         }
+        if(contentQuestionApplies() && CONTENT_ANSWERS.indexOf(state.contentOk) === -1){
+          state.error = "Please let me know if you're okay with photos or videos of your hair."; render(); return;
+        }
         if(state.category==='crochet'){
           state.crochetDetails = document.getElementById('f-crochet-details').value.trim();
           if(!state.crochetHairSource || !state.crochetConfirmed){ state.error = "Please pick who's providing the hair and confirm you'll send hair details."; render(); return; }
@@ -3110,7 +3081,8 @@ function attachHandlers(){
           bookingType: state.bookingType, partnerName: state.bookingType!=='solo' ? state.partnerName : '',
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
           giftKit: kitLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)') : '',
-          total: (rawTotal===null ? "Quote pending" : rawTotal)
+          total: (rawTotal===null ? "Quote pending" : rawTotal),
+          contentOk: contentQuestionApplies() ? state.contentOk : ''
         };
         const originalBtnText = el.textContent;
         el.disabled = true; el.textContent = "Sending...";
@@ -3120,7 +3092,7 @@ function attachHandlers(){
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, contentOk:"", error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
         refreshTakenDates();                 // the day that was just booked should close right away
       }
       else if(action==='admin-login'){
@@ -3379,6 +3351,48 @@ function applyLiveConfig(cfg){
     else if(Array.isArray(v) && v.length) WEEKDAY_WINDOWS[k] = v.filter(w => w && /^\d{2}:\d{2}$/.test(w.start) && /^\d{2}:\d{2}$/.test(w.end)).map(w => ({ start:w.start, end:w.end }));
   });
   LATEST_BOOKABLE_TIME = /^\d{2}:\d{2}$/.test(cfg.latest || '') ? cfg.latest : LATEST_BOOKABLE_DEFAULT;
+  REVIEWS = (Array.isArray(cfg.reviews) ? cfg.reviews : []).filter(r => r && r.t && r.r >= 1 && r.r <= 5);
+}
+
+/* ============== review pop-ups (homepage) ==============
+   Reviews you switched on in admin (Feedback tab) slide up at the bottom one at a time, stay a few
+   seconds, then make way for the next. Lives outside #app so re-renders don't restart it.          */
+let REVIEWS = [];
+const REVIEW_SHOW_MS = 4500, REVIEW_GAP_MS = 700, REVIEW_HIDE_KEY = "ehiffectReviewsHidden";
+const reviewTicker = { i: 0, timer: null, running: false, paused: false };
+function reviewsHidden(){ try{ return sessionStorage.getItem(REVIEW_HIDE_KEY) === "1"; }catch(e){ return false; } }
+function syncReviewPop(){
+  const want = state.view === 'landing' && !state.quizOpen && REVIEWS.length > 0 && !reviewsHidden();
+  let root = document.getElementById('review-root');
+  if(!want){
+    if(root) root.classList.remove('in');
+    clearTimeout(reviewTicker.timer); reviewTicker.running = false;
+    return;
+  }
+  if(!root){
+    root = document.createElement('div'); root.id = 'review-root'; root.setAttribute('role', 'status'); root.setAttribute('aria-live', 'polite');
+    root.addEventListener('mouseenter', () => { reviewTicker.paused = true; });
+    root.addEventListener('mouseleave', () => { reviewTicker.paused = false; });
+    root.addEventListener('click', e => {
+      if(!e.target.closest('.rv-x')) return;
+      try{ sessionStorage.setItem(REVIEW_HIDE_KEY, "1"); }catch(err){}
+      syncReviewPop();
+    });
+    document.body.appendChild(root);
+  }
+  if(!reviewTicker.running){ reviewTicker.running = true; reviewTicker.timer = setTimeout(showNextReview, 1500); }
+}
+function showNextReview(){
+  const root = document.getElementById('review-root');
+  if(!root || !reviewTicker.running) return;
+  const rv = REVIEWS[reviewTicker.i % REVIEWS.length]; reviewTicker.i++;
+  root.innerHTML = `<div class="rv-head"><span class="rv-stars" aria-label="${rv.r} out of 5 stars">${'★'.repeat(rv.r)}${'☆'.repeat(5 - rv.r)}</span>${rv.s ? `<span class="rv-svc">${escapeHTML(rv.s)}</span>` : ''}</div>
+    <div class="rv-text">“${escapeHTML(rv.t)}”</div>
+    <button class="rv-x" aria-label="Hide reviews">×</button>`;
+  requestAnimationFrame(() => root.classList.add('in'));
+  const stay = () => { if(reviewTicker.paused){ reviewTicker.timer = setTimeout(stay, 500); return; }
+    root.classList.remove('in'); reviewTicker.timer = setTimeout(showNextReview, REVIEW_GAP_MS); };
+  reviewTicker.timer = setTimeout(stay, REVIEW_SHOW_MS);
 }
 
 const LIVE_CFG_KEY = "ehiffectLiveConfig";

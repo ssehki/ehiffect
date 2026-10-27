@@ -339,6 +339,14 @@ function clashNote(b){
   const c = clashes(b); if(!c.length) return "";
   return `<div class="row-note" style="border-color:var(--bad);">⚠ Overlaps with ${c.map(x => esc(first(x.name)) + " at " + esc(x.time || "?")).join(", ")} (counting your ${BUFFER_MIN}-min buffer)</div>`;
 }
+// What they said about photos/videos for your page (asked on the booking form).
+function contentTag(b){
+  const v = String(b.contentOk || "");
+  if(/^No/i.test(v)) return '<span class="tag bad">📸 don\'t post</span>';
+  if(/face/i.test(v)) return '<span class="tag warn">📸 no face</span>';
+  if(/^Yes/i.test(v)) return '<span class="tag good">📸 ok to post</span>';
+  return '';
+}
 function todo(b){ return (b.needsHair && !b.hairOrdered) || (b.kit && b.kit !== "—" && !b.kitPacked); }
 function lists(){
   const all = S.data.bookings, t = todayIso();
@@ -429,7 +437,7 @@ function inbox(){
         <div class="row-title">${esc(b.name)} ${todo(b) ? '<span class="tag warn">to prep</span>' : ''}${b.status === 'pending' ? ' <span class="tag bad">not approved yet</span>' : ''}${b.isSqueeze ? ' <span class="tag warn">⚡ squeeze-in</span>' : ''}</div>
         <div class="row-sub">${esc((b.time || "no time") + " · " + svcName(b))}</div>
         ${b.needsHair ? `<div class="row-note">✂ ${esc(b.hairDetails)}</div>` : ''}
-        <div>${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
+        <div>${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/^No|face/i.test(b.contentOk || '') ? contentTag(b) : ''}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
         ${clashNote(b)}
       </div>
       <div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">
@@ -710,6 +718,7 @@ function detailSheet(b){
         ${b.bookingType && b.bookingType !== 'solo' ? `<dt>Booking</dt><dd>${esc(b.bookingType)} with ${esc(b.partnerName || b.partnerContact || '?')}</dd>` : ''}
         ${b.needsHair ? `<dt>Hair</dt><dd>${b.hairOrdered ? 'Ordered ' + esc(b.hairOrderedOn) : '<span style="color:var(--warn)">Not ordered yet</span>'}</dd>` : ''}
         ${b.notes ? `<dt>Notes</dt><dd>${esc(b.notes)}</dd>` : ''}
+        ${b.contentOk ? `<dt>Content</dt><dd>${contentTag(b)} ${esc(b.contentOk)}</dd>` : ''}
         ${b.cancelInfo ? `<dt>Cancel</dt><dd>${esc(b.cancelInfo)}</dd>` : ''}
         <dt>Booked</dt><dd>${esc(b.submittedAt || '—')}</dd>
         ${b.lastEmail ? `<dt>Last email</dt><dd class="hint">${esc(b.lastEmail)}</dd>` : ''}
@@ -1101,6 +1110,16 @@ document.addEventListener("click", async e => {
     return;
   }
   if(a === "fb-stars"){ S.fbStars = k === "low" ? "low" : (Number(k) || 0); if(S.fbStars && S.fbStars === S.fbLast) S.fbStars = 0; S.fbLast = S.fbStars; render(); return; }
+  if(a === "fb-show"){
+    const f = (S.data.feedback || []).find(x => x.id === k), on = el.getAttribute("data-on") === "1";
+    if(!f) return;
+    try{
+      const r = await api("feedbackShow", { id: k, shown: on });
+      if(r && r.ok){ f.shown = on; cacheSave(); render(); toast(on ? "Showing on your homepage" : "Taken off your homepage"); }
+      else toast((r && r.error) || "Couldn't save");
+    }catch(err){ failToast(err); }
+    return;
+  }
   if(a === "fb-svc"){ S.fbService = k; render(); return; }
   if(a === "fb-clear"){ S.fbStars = 0; S.fbLast = 0; S.fbService = ""; render(); return; }
   if(a === "copy-feedback"){
@@ -1262,7 +1281,9 @@ function fbMarkSeen(){ try{ localStorage.setItem(FB_SEEN_KEY, JSON.stringify(((S
 function feedbackScreen(){
   const all = S.data.feedback;
   const stars = n => "★".repeat(n) + "☆".repeat(5 - n);
+  const onSite = (all || []).filter(f => f.shown && f.share).length;
   const top = `<p class="hint" style="margin:-6px 0 12px;">Clients get this in the thank-you email after you wrap up. It's anonymous: you see their answers, never who sent them.</p>
+    ${all ? `<p class="hint" style="margin:0 0 12px;">⭐ <b>${onSite}</b> review${onSite === 1 ? "" : "s"} popping up on your homepage. Tap "Show on website" on any response the client said was okay to post. Only the stars, service, and what they enjoyed are shown.</p>` : ''}
     <div class="btn-row" style="margin:0 0 18px;"><button class="btn primary" data-a="copy-feedback" data-k="">Copy feedback link</button>
       <a class="btn" href="${feedbackLink("")}" target="_blank" rel="noopener" style="text-decoration:none;">See the form ↗</a></div>`;
   if(!all) return header("Feedback", "What clients thought of their appointments") + top +
@@ -1297,6 +1318,10 @@ function feedbackScreen(){
       ${f.enjoyed ? `<div class="row-note"><b>Enjoyed:</b> ${esc(f.enjoyed)}</div>` : ''}
       ${f.improve ? `<div class="row-note" style="border-left-color:var(--warn);"><b>Could be better:</b> ${esc(f.improve)}</div>` : ''}
       ${!f.enjoyed && !f.improve ? '<div class="hint" style="margin:6px 0 0;">Just a rating, no comments.</div>' : ''}
+      ${f.share && f.enjoyed ? `<div class="btn-row" style="margin:10px 0 0;">${f.shown
+          ? `<span class="tag good" style="align-self:center;">on your website ✓</span><button class="btn" data-a="fb-show" data-k="${esc(f.id)}" data-on="0" style="padding:6px 12px; font-size:12.5px;">Hide it</button>`
+          : `<button class="btn" data-a="fb-show" data-k="${esc(f.id)}" data-on="1" style="padding:6px 12px; font-size:12.5px;">Show on website</button>`}</div>`
+        : f.enjoyed ? '<div class="hint" style="margin:8px 0 0;">Didn\'t okay posting, so it stays private.</div>' : ''}
     </div>`).join("")}</div>` : `<p class="empty">No responses match. <button class="btn" data-a="fb-clear">Show all</button></p>`}` :
     `<p class="empty">No feedback yet. It'll show up here as soon as someone fills out the form.</p>`);
   fbMarkSeen();
