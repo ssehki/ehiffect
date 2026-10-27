@@ -387,7 +387,7 @@ function saveSetting(key, value){
 const REORDER_COLUMNS = true;
 const DISPLAY_ORDER = [
   "id", "name", "phone", "ig", "email", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "amountPaid", "grandTotal", "dealsUsed",
-  "giftKit", "careKitCost", "kitComp", "kitPacked", "shipped", "serviced", "servicedOn", "dealAlert", "checks", "notes", "submittedAt", "photoUrls",
+  "giftKit", "careKitCost", "kitComp", "kitPacked", "shipped", "serviced", "servicedOn", "dealAlert", "checks", "notes", "contentOk", "submittedAt", "photoUrls",
   "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed"
 ];
 
@@ -410,7 +410,7 @@ const HEADERS = [
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
   "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "rebookEmailed", "calendarEvent", "hairOrdered", "hairOrderedOn",
   "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
-  "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source"
+  "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source", "contentOk"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -781,6 +781,9 @@ function savePhotos(photos){
 // Blocks rapid duplicate submissions (accidental double-clicks, or a script hammering the
 // public create endpoint) from the same phone number. Looks like a normal success to whoever
 // sent it — it just doesn't actually save a second row — so it gives an attacker no signal.
+// "Are you okay with photos/videos of your hair for my page?" — asked on the booking form, saved word for word.
+const CONTENT_ANSWERS = ["Yes, photos & videos are fine", "Yes, but keep my face out", "No, please don't post me"];
+
 const CREATE_RATE_LIMIT_SECONDS = 30;
 function isRecentDuplicate(all, phone){
   const key = phoneKey(phone);
@@ -820,7 +823,8 @@ function handleCreate(body){
       giftKit: body.giftKit || "", careKitCost: body.careKitCost || "", kitComp: false, kitPacked: false,
       visitCount: visitCount, loyaltyFlag: loyaltyFlag, dealKeys: dealKeys.join(", "), dealAlert: dealAlert,
       depositPaid: false, depositRefunded: false, checks: "", approvalEmailed: false,
-      shipped: false, serviced: false, servicedOn: "", manageToken: newToken_()
+      shipped: false, serviced: false, servicedOn: "", manageToken: newToken_(),
+      contentOk: CONTENT_ANSWERS.indexOf(body.contentOk) !== -1 ? body.contentOk : ""
     };
     const row = new Array(cols.width).fill("");           // each value goes under its own header
     Object.keys(values).forEach(f => { row[cols.map[f]] = values[f]; });
@@ -861,6 +865,7 @@ function sendBookingEmail(body, v, photoUrls){
         "Total: $" + v.total + "\n" +
         "Preferred date/time: " + v.date + " " + v.time + "\n" +
         "Notes: " + v.notes + "\n" +
+        (v.contentOk ? "Photos/videos for your page: " + v.contentOk + "\n" : "") +
         (photoUrls.length ? "Photos:\n" + photoUrls.join("\n") + "\n" : "") +
         (v.loyaltyFlag ? "\n🎉 If approved, this would be visit #" + v.visitCount + " for this client — surprise loyalty gift time!\n" : "") +
         "\nApprove or deny it from your dashboard."
@@ -1674,7 +1679,7 @@ function adminBooking(b, settings){
     needsHair: needsHairFromMe(b), hairDetails: hairDetails(b), isConsult: isConsult(b), dateIso: isoOf(b), timeMin: parseMinutes(b),
     approvalEmailed: isTrue(b.approvalEmailed), depositEmailed: isTrue(b.depositEmailed),
     tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || ""),
-    isSqueeze: isSqueeze(b), service: cleanService(b)
+    isSqueeze: isSqueeze(b), service: cleanService(b), contentOk: String(b.contentOk || "")
   });
 }
 
@@ -2747,6 +2752,15 @@ function createEhiffectCalendar(){
     "3. Under \"Share with specific people\", click Add people → type your other email → choose \"See all event details\" → Send\n" +
     "4. Open the email on your other account and click the link to add the calendar.\n\n" +
     "It then shows up in your Google Calendar app on that account too.", ui.ButtonSet.OK);
+}
+
+// Run this once from the Apps Script editor (function dropdown -> authorizeAll -> Run) to give the script permission for
+// Calendar, Gmail and Drive. It works from the editor (the menu items below only work from inside the sheet).
+function authorizeAll(){
+  const r = syncCalendar();
+  let left = "?"; try{ left = MailApp.getRemainingDailyQuota(); }catch(e){ left = "problem: " + e.message; }
+  try{ DriveApp.getRootFolder(); }catch(e){}
+  console.log("CALENDAR: " + (r.error ? "PROBLEM: " + r.error : "OK (" + r.added + " added, " + r.updated + " changed, " + r.removed + " removed)") + "  |  EMAILS LEFT TODAY: " + left + "  |  SENDING FROM: " + senderAddress_());
 }
 
 // Menu item: runs the calendar sync now and tells you what happened.
