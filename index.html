@@ -103,6 +103,7 @@
   .opt-flag{ font-size:9.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--pink-deep); margin-bottom:4px; }
   .style-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
   .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; padding-left:6px; padding-right:6px; }
+  .style-row .sty-price{ display:block; margin-top:2px; font-size:10.5px; font-weight:400; opacity:.7; letter-spacing:.02em; }
   .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
@@ -2187,8 +2188,8 @@ function renderBook(){
           <div class="opt-sub" style="margin-bottom:6px;">Style</div>
           <div class="length-row style-row">
             <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
-            ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 3px; color:inherit; opacity:.75;">Most requested</span>Versatile (+${money(VERSATILE_SURCHARGE[state.category])})</div>` : ''}
-            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling (+${money(FULANI_SURCHARGE[state.category])})</div>
+            ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 3px; color:inherit; opacity:.75;">Most requested</span>Versatile<span class="sty-price">+${money(VERSATILE_SURCHARGE[state.category])}</span></div>` : ''}
+            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling<span class="sty-price">+${money(FULANI_SURCHARGE[state.category])}</span></div>
           </div>
         </div>` : ''}
 
