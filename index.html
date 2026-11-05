@@ -105,6 +105,8 @@
   .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; padding-left:6px; padding-right:6px; }
   .style-row .sty-price{ display:block; margin-top:2px; font-size:10.5px; font-weight:400; opacity:.7; letter-spacing:.02em; }
   .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
+  .own-hair{ margin-top:14px; font-size:13px; color:var(--pink-deep); cursor:pointer; text-decoration:underline; text-underline-offset:3px; text-decoration-color:var(--line); }
+  .own-hair:hover{ text-decoration-color:var(--pink-deep); }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
   .opt-price{ font-size:14px; color:var(--pink); font-weight:600; white-space:nowrap; margin-left:10px;}
@@ -560,7 +562,7 @@ const INSTALLS = {
     { key:"service", name:"Service only", price:135 },
     { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:175 },
     { key:"human", name:"+ human hair (2 bundles)", price:265, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
-    { key:"human3", name:"+ human hair (3 bundles)", price:285, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
+    { key:"human3", name:"+ human hair (3 bundles)", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
     { key:"raw", name:"+ raw hair", price:600, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]},
@@ -2153,8 +2155,9 @@ function renderBook(){
         </div>` : ''}
       ${(state.category==='qw'||state.category==='si') ? `
         <div class="includes-note"><b>What’s included:</b> ${INSTALL_INCLUDES[state.category].yes}.<br><b>Not included:</b> ${INSTALL_INCLUDES[state.category].no}</div>
+        ${(() => { const base = INSTALLS[state.category].tiers.find(t=>t.key==='service'); return base ? `<div class="own-hair" data-action="pick-tier" data-key="service" data-own="1" role="button" tabindex="0">Bringing your own hair? ${base.name} from ${money(base.price)} ↓</div>` : ''; })()}
         <div class="opt-group" style="margin-top:14px;">
-          ${INSTALLS[state.category].tiers.map(t=>`
+          ${INSTALLS[state.category].tiers.slice().reverse().map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
               <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
               <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
@@ -2976,7 +2979,8 @@ function attachHandlers(){
         else if(state.dealsSelected.length < MAX_DEALS){ state.dealsSelected.push(key); }
       }
       else if(action==='pick-style'){ state.style = key; }
-      else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
+      else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.addBundleCount=0; state.installTexture=""; state.error='';
+        if(el.dataset.own) setTimeout(()=>{ const t = document.querySelector('[data-action="pick-tier"][data-key="service"]:not([data-own])'); if(t) t.scrollIntoView({ block:'center', behavior:'smooth' }); }, 80); }
       else if(action==='pick-install-texture'){ state.installTexture = el.value; }
       else if(action==='pick-length'){ state.length = key; state.addBundleCount = state.addBundleCount || 1; }
       else if(action==='bundle-plus'){ state.addBundleCount++; }
