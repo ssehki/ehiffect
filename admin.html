@@ -855,6 +855,12 @@ function composeSheet(){
       <div id="c-fields" style="${(c.send === false || !d.to) && c.kind !== 'custom' ? 'opacity:.4; pointer-events:none;' : ''}">
         <div class="field"><label>Subject</label><input type="text" id="c-subject" value="${esc(d.subject)}"/></div>
         <div class="field"><label>Message</label><textarea id="c-body" style="min-height:260px;">${esc(d.body)}</textarea></div>
+        ${(() => { const b = get(c.key); if(!b || b.isBundle) return ''; const n = num(b.grandTotal) ?? num(b.total);
+          return `<div class="field" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="hint" style="margin:0;">Cost estimate $</span>
+            <input type="text" id="c-est" inputmode="decimal" value="${n === null || n === undefined ? '' : esc(String(n))}" style="width:90px; flex:none;"/>
+            <button class="btn" type="button" data-a="c-estimate">Add cost estimate to this email</button>
+          </div>`; })()}
         <div class="field"><label>Pink button (leave blank for none)</label><input type="text" id="c-button" value="${esc(d.button)}"/></div>
         <p class="hint">Changes here only affect this one email. To change the wording for everyone, go to More → Emails.</p>
       </div>`}
@@ -1066,6 +1072,20 @@ document.addEventListener("click", async e => {
   }
   if(a === "tick"){ act({ key:k, changes:{ [el.dataset.f]: el.checked } }, "Saving…", el.checked ? "Checked off" : "Unchecked"); return; }
   if(a === "custom"){ const b = get(k); compose({ key:k, kind:"custom", title:"Email " + first(b.name), okLabel:"Send email", doneText:"Email sent" }); return; }
+  if(a === "c-estimate"){
+    const bod = document.getElementById("c-body"), inp = document.getElementById("c-est");
+    if(!bod || !inp) return;
+    const n = Number(String(inp.value).replace(/[$,\s]/g, ""));
+    if(!inp.value.trim() || isNaN(n) || n < 0){ toast("Type the estimate amount first."); return; }
+    const amount = "$" + (Math.round(n * 100) / 100);
+    const para = "Estimated total: " + amount + ". This is an estimate. I'll confirm your final price before your appointment.";
+    let text = bod.value.replace(/\n*Estimated total: [^\n]*(\n|$)/g, "\n").replace(/\s+$/, "");
+    bod.value = (text ? text + "\n\n" : "") + para;
+    if(S.compose && S.compose.draft) S.compose.draft.body = bod.value;
+    bod.scrollTop = bod.scrollHeight;
+    toast("Added " + amount + " to your email");
+    return;
+  }
   if(a === "c-toggle"){ S.compose.send = el.checked; const sub = document.getElementById("c-subject"), bod = document.getElementById("c-body"), btn = document.getElementById("c-button");
     if(S.compose.draft && sub){ S.compose.draft.subject = sub.value; S.compose.draft.body = bod.value; S.compose.draft.button = btn.value; } S.keepScroll = true; renderLayer(); return; }
   if(a === "c-go"){
