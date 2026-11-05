@@ -151,28 +151,32 @@ const API_VERSION = 4;
 // Every price you can edit: [id, group, label, price, regular ("was") price or 0]. These are the website's
 // built-in numbers — the admin site shows them as "default" and lets you override each one.
 const PRICE_CATALOG = [
-  ["si.service","Sew-In","Installation only",120,150],
-  ["si.synthetic","Sew-In","+ synthetic hair (3 bundles)",150,180],
-  ["si.human","Sew-In","Human hair package — 2 bundles",200,220],
+  ["si.service","Sew-In","Installation only",175,0],
+  ["si.synthetic","Sew-In","+ synthetic hair (3 bundles)",200,0],
+  ["si.human","Sew-In","Human hair package — 2 bundles",295,0],
   ["si.human.add1620","Sew-In","Human hair package — 2 bundles — each extra bundle, 16–20\"",50],
-  ["si.human.add22","Sew-In","Human hair package — 2 bundles — each extra bundle, 22\"+",60],
-  ["si.human3","Sew-In","Human hair package — 3 bundles",275,0],
+  ["si.human.add22","Sew-In","Human hair package — 2 bundles — each extra bundle, 22\"+",70],
+  ["si.human3","Sew-In","Human hair package — 3 bundles",325,0],
   ["si.human3.add1620","Sew-In","Human hair package — 3 bundles — each extra bundle, 16–20\"",50],
-  ["si.human3.add22","Sew-In","Human hair package — 3 bundles — each extra bundle, 22\"+",60],
-  ["si.raw","Sew-In","Raw hair package",400,0],
-  ["qw.service","Quick Weave","Service only",90,0],
-  ["qw.synthetic","Quick Weave","+ synthetic hair (3 bundles)",130,0],
-  ["qw.human","Quick Weave","+ human hair (2 bundles)",200,220],
+  ["si.human3.add22","Sew-In","Human hair package — 3 bundles — each extra bundle, 22\"+",70],
+  ["si.premium","Sew-In","Premium human hair package (Triippy) — 3 bundles",375,0],
+  ["si.premium.add1620","Sew-In","Premium human hair package (Triippy) — 3 bundles — each extra bundle, 16–20\"",50],
+  ["si.premium.add22","Sew-In","Premium human hair package (Triippy) — 3 bundles — each extra bundle, 22\"+",70],
+  ["si.raw","Sew-In","Raw hair package",650,0],
+  ["qw.service","Quick Weave","Service only",135,0],
+  ["qw.synthetic","Quick Weave","+ synthetic hair (3 bundles)",175,0],
+  ["qw.human","Quick Weave","+ human hair (2 bundles)",265,0],
   ["qw.human.add1620","Quick Weave","+ human hair (2 bundles) — each extra bundle, 16–20\"",50],
-  ["qw.human.add22","Quick Weave","+ human hair (2 bundles) — each extra bundle, 22\"+",60],
-  ["qw.human3","Quick Weave","+ human hair (3 bundles)",240,0],
+  ["qw.human.add22","Quick Weave","+ human hair (2 bundles) — each extra bundle, 22\"+",70],
+  ["qw.human3","Quick Weave","+ human hair (3 bundles)",285,0],
   ["qw.human3.add1620","Quick Weave","+ human hair (3 bundles) — each extra bundle, 16–20\"",50],
-  ["qw.human3.add22","Quick Weave","+ human hair (3 bundles) — each extra bundle, 22\"+",60],
-  ["qw.raw","Quick Weave","+ raw hair",400,0],
+  ["qw.human3.add22","Quick Weave","+ human hair (3 bundles) — each extra bundle, 22\"+",70],
+  ["qw.raw","Quick Weave","+ raw hair",600,0],
   ["fulani.si","Add-ons","Fulani styling upcharge — Sew-In",70],
   ["fulani.qw","Add-ons","Fulani styling upcharge — Quick Weave",70],
-  ["addon.curls","Add-ons","Curls / wand styling",7],
-  ["addon.closure","Add-ons","Closure install",15],
+  ["addon.versatile","Add-ons","Versatile styling (sew-in)",20],
+  ["addon.curls","Add-ons","Curls / wand styling",15],
+  ["addon.closure","Add-ons","Closure install",30],
   ["addon.extraBundleSynthetic","Add-ons","Extra bundle (synthetic)",25],
   ["addon.extraBundleHuman","Add-ons","Extra bundle (human)",50],
   ["braid.box.large","Braids & Twists","Box Braids — Large",180],
@@ -181,7 +185,7 @@ const PRICE_CATALOG = [
   ["braid.twist.large","Braids & Twists","Twists — Large",150],
   ["braid.twist.medium","Braids & Twists","Twists — Medium",180],
   ["braid.twist.small","Braids & Twists","Twists — Small",200],
-  ["braid.twostrand.standard","Braids & Twists","Two-Strand Twists — Standard",50],
+  ["braid.twostrand.standard","Braids & Twists","Two-Strand Twists — Standard",75],
   ["braid.marley.large","Braids & Twists","Marley Twists — Large",100],
   ["braid.marley.medium","Braids & Twists","Marley Twists — Medium",140],
   ["braid.marley.small","Braids & Twists","Marley Twists — Small",180],
@@ -195,8 +199,9 @@ const PRICE_CATALOG = [
   ["pack.mini","Braids & Twists","Hair pack (mini twists)",15],
   ["cornrow.6","Cornrows & Crochet","Cornrows — 6 rows",40],
   ["cornrow.8-10","Cornrows & Crochet","Cornrows — 8–10 rows",50],
-  ["crochet.own","Cornrows & Crochet","Crochet — bringing own hair",50],
-  ["crochet.stylist","Cornrows & Crochet","Crochet — hair provided",80],
+  ["cornrow.custom","Cornrows & Crochet","Cornrows — Custom (starting price)",80],
+  ["crochet.own","Cornrows & Crochet","Crochet — bringing own hair",75],
+  ["crochet.stylist","Cornrows & Crochet","Crochet — hair provided",100],
   ["treat.massage","Treatments","Hair massage",60],
   ["treat.group2","Treatments","Group of 2 (total)",80],
   ["treat.group3","Treatments","Group of 3 (total)",100],
@@ -206,7 +211,7 @@ const PRICE_CATALOG = [
   ["td.crochet","Takedowns","Crochet Takedown",50],
   ["kit.mini","Kits & fees","Mini Care Kit (add-on price)",35],
   ["kit.luxury","Kits & fees","Luxury Care Kit (upgrade price)",50],
-  ["fee.squeeze","Kits & fees","Squeeze-in fee",20]
+  ["fee.squeeze","Kits & fees","Squeeze-in fee",35]
 ];
 // The deals built into your website (the admin site can rename, re-word, pause or remove them).
 const BUILTIN_DEALS = [
@@ -1304,11 +1309,16 @@ function saveTemplate(kind, t){
 }
 
 // The fill-in values for one client. `extra` can add/override any of them.
+// The squeeze-in / priority fee currently in force (your admin price if you set one, otherwise the default).
+function squeezeFee_(){
+  try{ const o = (cfgGet_("cfg_prices", {}) || {})["fee.squeeze"]; if(o && typeof o.p === "number" && o.p >= 0) return o.p; }catch(e){}
+  return 35;
+}
 function templateVars(b, extra){
   const dep = getSettings().depositAmount, owed = isPaid(b) && !isRefunded(b);
   return Object.assign({
     first: firstName(b), name: b.name || "", service: plainService_(b), when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
-    squeezeLine: isSqueeze(b) ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
+    squeezeLine: isSqueeze(b) ? "This is a squeeze-in appointment, so a $" + squeezeFee_() + " squeeze-in fee is included in your total." : "",
     total: (b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed",
     estimate: hasGrandOverride(b) ? "$" + Number(b.grandTotal) : ((b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed"),
     deposit: "$" + dep, cashtag: CASHTAG, site: SITE_URL,

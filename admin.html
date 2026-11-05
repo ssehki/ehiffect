@@ -888,7 +888,7 @@ function tplSample(){
     depositLine: paid ? "Your deposit is already in — your spot is locked in." : "To lock in your spot, send your $" + dep + " deposit to " + cash + " on Cash App. It comes off your total at your appointment, and you'll get an email as soon as I receive it.",
     depositNote: "Your $" + dep + " deposit will be sent back to you.",
     checkinLine: b && b.checkIn ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
-    squeezeLine: b && b.isSqueeze ? "This is a squeeze-in appointment, so a $20 squeeze-in fee is included in your total." : "",
+    squeezeLine: b && b.isSqueeze ? "This is a squeeze-in appointment, so a $35 squeeze-in fee is included in your total." : "",
     within24Line: "I'll confirm within 24 hours.",
     nextSteps: "your $" + dep + " deposit details",
     guideTitle: (() => { const g = ((S.data && S.data.guides) || {})[guideKeyFor(b || { serviceLabel:"Sew-In" })]; return g ? g.title : "Sew-In"; })(),

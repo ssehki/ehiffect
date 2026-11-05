@@ -550,20 +550,22 @@ const LOGO_LIGHT_B64 = "iVBORw0KGgoAAAANSUhEUgAAApEAAAJMCAYAAACii/06AAEAAElEQVR4
 const SALE_ENDS = new Date(2026, 9, 31, 23, 59, 59);
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
-    { key:"service", name:"Service only", price:90 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:130 },
-    { key:"human", name:"+ human hair (2 bundles)", price:200, was:220, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Longer lengths priced accordingly." },
-    { key:"human3", name:"+ human hair (3 bundles)", price:240, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Longer lengths priced accordingly.",
+    { key:"service", name:"Service only", price:135 },
+    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:175 },
+    { key:"human", name:"+ human hair (2 bundles)", price:265, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
+    { key:"human3", name:"+ human hair (3 bundles)", price:285, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"+ raw hair", price:400, note:"Price varies by length and type. Final quote after your consultation." },
+    { key:"raw", name:"+ raw hair", price:600, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]},
   si: { label:"Sew-In", tiers:[
-    { key:"service", name:"Installation only", price:120, was:150 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:150, was:180 },
-    { key:"human", name:"Human hair package — 2 bundles", price:200, was:220, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Add bundles or longer lengths below." },
-    { key:"human3", name:"Human hair package — 3 bundles", price:275, lengths:true, addBundle:{ "16-20":50, "22+":60 }, base:"12–14” base length · Longer lengths priced accordingly.",
+    { key:"service", name:"Installation only", price:175 },
+    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:200 },
+    { key:"human", name:"Human hair package — 2 bundles", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Add bundles or longer lengths below." },
+    { key:"human3", name:"Human hair package — 3 bundles", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"Raw hair package", price:400, note:"Price varies by length and type. Final quote after your consultation." },
+    { key:"premium", name:"Premium human hair package (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
+      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
+    { key:"raw", name:"Raw hair package", price:650, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]}
 };
 
@@ -572,11 +574,15 @@ const INSTALLS = {
 const FULANI_SURCHARGE = { qw: 70, si: 70 };
 
 const INSTALL_ADDONS = [
-  { key:"curls", name:"Curls / wand styling", price:7 },
-  { key:"closure", name:"Closure install", price:15 },
+  { key:"versatile", name:"Versatile styling", price:20, only:"si", note:"Part it and style it different ways. Installation only becomes $195 with this add-on." },
+  { key:"curls", name:"Curls / wand styling", price:15 },
+  { key:"closure", name:"Closure install", price:30 },
   { key:"extraBundleSynthetic", name:"Extra bundle (synthetic)", price:25 },
   { key:"extraBundleHuman", name:"Extra bundle (human)", price:50 },
 ];
+
+// the add-ons shown for the service being booked (versatile styling is for sew-ins only)
+function installAddons(){ return INSTALL_ADDONS.filter(a => !a.only || a.only === state.category); }
 
 const BRAID_STYLES = { twist:"Twists", marley:"Marley Twists", mini:"Mini Twists", twostrand:"Two Strand Twists", micro:"Micro Twists", box:"Box Braids" };
 // A note shown under the Style picker once a style is chosen, explaining what it's done with.
@@ -596,7 +602,7 @@ const TWIST_SIZES = [
   { key:"small", name:"Small", price:200 },
 ];
 const TWO_STRAND_SIZES = [
-  { key:"standard", name:"Standard", price:50 },
+  { key:"standard", name:"Standard", price:75 },
 ];
 const MARLEY_TWIST_SIZES = [
   { key:"large", name:"Large", price:100 },
@@ -625,6 +631,7 @@ let BOHO_PRICE = 40;
 const CORNROW_OPTIONS = [
   { key:"6", name:"6 rows", price:40 },
   { key:"8-10", name:"8–10 rows", price:50 },
+  { key:"custom", name:"Custom", price:80, plus:true, note:"Starting price. Tell me the style in your notes and I’ll confirm the final price." },
 ];
 
 const TREATMENTS = [
@@ -662,7 +669,7 @@ function textureOptionsHTML(list, selected){
   if(raw.length) html += `<optgroup label="Raw">${raw.map(opt).join('')}</optgroup>`;
   return html;
 }
-const CROCHET_PRICES = { own:50, stylist:80 };
+const CROCHET_PRICES = { own:75, stylist:100 };
 
 // Takedowns — removal only. Client must come with the install already washed and fully dry.
 const TAKEDOWNS = [
@@ -724,7 +731,7 @@ const QUIZ = [
     { key:"open", label:"I'm open to recommendations", open:true },
   ]},
   { key:"budget", q:"What investment range feels comfortable for you?",
-    hintFor:{ w:"Starting prices run from $40 (cornrows) to $400+ (raw hair packages).", m:"Men's styles run from $40 (cornrows) to $180 (small Marley twists), plus hair if needed." }, options:[
+    hintFor:{ w:"Starting prices run from $40 (cornrows) to $650+ (raw hair packages).", m:"Men's styles run from $40 (cornrows) to $180 (small Marley twists), plus hair if needed." }, options:[
     { for:"w", key:"u100", label:"Under $100", max:99 },
     { for:"w", key:"100", label:"$100–$175", max:175 },
     { for:"w", key:"176", label:"$175–$250", max:250 },
@@ -874,7 +881,7 @@ const MAX_DEALS = 2;
 const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
 
 const MINI_KIT_MIN_TOTAL = 200;
-const LUXURY_INCLUDED_MIN = 400;
+const LUXURY_INCLUDED_MIN = 500;
 let LUXURY_KIT_PRICE = 50;
 let MINI_KIT_PURCHASE_PRICE = 35; // buying the Mini Care Kit on its own, for bookings under $200 that don't otherwise qualify free
 let BRAID_HAIR_PACK_PRICE = 20;
@@ -989,7 +996,7 @@ async function refreshTakenDates(){
   }catch(err){ /* live sync failed — manual BLOCKED_DATES still works, just no auto-block this load */ }
 }
 // Squeeze-ins: a request for a day that's already booked. Always needs your approval.
-let SQUEEZE_IN_FEE = 20;
+let SQUEEZE_IN_FEE = 35;
 function squeezeApplies(){ return !!state.squeezeIn && state.category && state.category!=='bundles' && state.category!=='consult'; }
 // It's only a squeeze-in (and only costs the fee) when the day they picked is actually already booked.
 // On the confirmation screen the answer is frozen, because their own new booking now marks that day as taken.
@@ -1370,7 +1377,7 @@ function computeBaseTotal(){
       total += tier.price;
       if(tier.addBundle && state.addBundleCount>0 && state.length) total += tier.addBundle[state.length] * state.addBundleCount;
       if(state.style === 'fulani') total += FULANI_SURCHARGE[state.category];
-      for(const a of INSTALL_ADDONS){ if(state.addons[a.key]) total += a.price; }
+      for(const a of installAddons()){ if(state.addons[a.key]) total += a.price; }
     }
   } else if(state.category==='braids'){
     const size = currentBraidSizes().find(s=>s.key===state.braidSize);
@@ -1445,7 +1452,7 @@ function computeBaseTotal(){
 // Care kits apply to service bookings only (bundles have their own flow; custom is quote-based).
 function kitsApply(){ return state.category && state.category!=='bundles' && state.category!=='custom' && state.category!=='consult' && state.category!=='takedown'; }
 
-// Luxury Care Kit is included (no +$50) with qualifying $400+ hair packages.
+// Luxury Care Kit is included (no +$50) with qualifying $500+ hair packages.
 function luxuryIncluded(){
   if(!(state.category==='qw' || state.category==='si')) return false;
   const tier = currentTier();
@@ -1494,7 +1501,7 @@ function kitStatusText(){
 // Stored with the booking so it can be cross-checked on the dashboard/sheet.
 function kitLabelText(clientFacing){
   if(!kitsApply()) return '';
-  if(luxuryIncluded()) return clientFacing ? 'Luxury Care Kit (included)' : 'Luxury Care Kit — included ($400+ package)';
+  if(luxuryIncluded()) return clientFacing ? 'Luxury Care Kit (included)' : 'Luxury Care Kit — included ($500+ package)';
   const reasons = miniKitReasons();
   const why = (!clientFacing && reasons.length) ? ` (${reasons.join(', ')})` : '';
   if(state.luxuryKit) return `Luxury Care Kit (+${money(LUXURY_KIT_PRICE)})` + (reasons.length && !clientFacing ? ` — in place of complimentary Mini${why}` : '');
@@ -2132,7 +2139,7 @@ function renderBook(){
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
-              <div><div class="opt-name">${t.name}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
+              <div><div class="opt-name">${t.name}${t.popular ? ' <span style="display:inline-block; margin-left:6px; padding:1px 7px; border:1px solid var(--pink-deep); border-radius:999px; font-size:9.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--pink-deep); vertical-align:middle;">Most popular</span>' : ''}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
               <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
@@ -2188,7 +2195,7 @@ function renderBook(){
             </div>` : ''}
         </div>` : ''}
 
-      ${state.category==='cornrows' ? `<div class="opt-group" style="margin-top:14px;">${CORNROW_OPTIONS.map(c=>`<div class="opt ${state.cornrowKey===c.key?'selected':''}" data-action="pick-cornrow" data-key="${c.key}"><span class="opt-name">${c.name}</span><span class="opt-price">${money(c.price)}</span></div>`).join('')}</div>` : ''}
+      ${state.category==='cornrows' ? `<div class="opt-group" style="margin-top:14px;">${CORNROW_OPTIONS.map(c=>`<div class="opt ${state.cornrowKey===c.key?'selected':''}" data-action="pick-cornrow" data-key="${c.key}"><div><div class="opt-name">${c.name}</div>${c.note ? `<div class="opt-sub">${c.note}</div>` : ''}</div><span class="opt-price">${money(c.price)}${c.plus ? '+' : ''}</span></div>`).join('')}</div>` : ''}
 
       ${state.category==='crochet' ? `
         <div class="opt-group" style="margin-top:14px;">
@@ -2255,7 +2262,7 @@ function renderBook(){
     ${(state.category==='qw'||state.category==='si') && state.tierKey ? `
     <div class="card">
       <div class="step-label"><span class="step-num">2</span><span class="step-title">Add-ons</span></div>
-      ${INSTALL_ADDONS.map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>${a.note ? `<div class="addon-note">${a.note}</div>` : ''}`).join('')}
+      ${installAddons().map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>${a.note ? `<div class="addon-note">${a.note}</div>` : ''}`).join('')}
       <div class="total-bar"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
