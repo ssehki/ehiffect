@@ -100,6 +100,8 @@
   .opt.disabled .opt-price{ color:var(--muted); text-transform:none; font-size:12px; }
   .opt-name{ font-size:14.5px; font-weight:500; }
   .opt-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
+  .includes-note b{ color:var(--cream); font-weight:600; }
   .opt-price{ font-size:14px; color:var(--pink); font-weight:600; white-space:nowrap; margin-left:10px;}
 
   .length-row{ display:flex; gap:8px; margin-top:10px; padding-left:2px; flex-wrap:wrap; }
@@ -572,6 +574,12 @@ const INSTALLS = {
 // Fulani styling is a technique upcharge on top of whichever tier is picked —
 // PLACEHOLDER surcharge derived from a "$140-160 total" range — confirm exact number.
 const FULANI_SURCHARGE = { qw: 70, si: 70 };
+
+// What the price covers, shown above the options so nobody is surprised at the appointment.
+const INSTALL_INCLUDES = {
+  si: { yes:"the braid-down, the sewing, and styling of your choice", no:"a wash and dry. Please arrive with your hair already washed and fully dry." },
+  qw: { yes:"the install and styling of your choice", no:"a wash and dry. Please arrive with your hair already washed and fully dry." },
+};
 
 const INSTALL_ADDONS = [
   { key:"versatile", name:"Versatile styling", price:20, only:"si", note:"Part it and style it different ways. Installation only becomes $195 with this add-on." },
@@ -2136,6 +2144,7 @@ function renderBook(){
           First-time clients booking qualifying sew-in packages receive a curated haircare gift, complete with personalized aftercare guidance to help maintain their style.
         </div>` : ''}
       ${(state.category==='qw'||state.category==='si') ? `
+        <div class="includes-note"><b>What’s included:</b> ${INSTALL_INCLUDES[state.category].yes}.<br><b>Not included:</b> ${INSTALL_INCLUDES[state.category].no}</div>
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
