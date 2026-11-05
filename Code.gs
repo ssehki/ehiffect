@@ -175,6 +175,7 @@ const PRICE_CATALOG = [
   ["fulani.si","Add-ons","Fulani styling upcharge — Sew-In",70],
   ["fulani.qw","Add-ons","Fulani styling upcharge — Quick Weave",70],
   ["addon.versatile","Add-ons","Versatile styling (sew-in)",20],
+  ["addon.versatile.qw","Add-ons","Versatile styling (quick weave)",20],
   ["addon.curls","Add-ons","Curls / wand styling",15],
   ["addon.closure","Add-ons","Closure install",30],
   ["addon.extraBundleSynthetic","Add-ons","Extra bundle (synthetic)",25],

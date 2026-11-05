@@ -101,7 +101,8 @@
   .opt-name{ font-size:14.5px; font-weight:500; }
   .opt-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
   .opt-flag{ font-size:9.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--pink-deep); margin-bottom:4px; }
-  .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+  .style-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
+  .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; padding-left:6px; padding-right:6px; }
   .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
@@ -577,8 +578,8 @@ const INSTALLS = {
 // Fulani styling is a technique upcharge on top of whichever tier is picked —
 // PLACEHOLDER surcharge derived from a "$140-160 total" range — confirm exact number.
 const FULANI_SURCHARGE = { qw: 70, si: 70 };
-// Versatile styling: a parting that can be styled several ways. A styling choice (like Fulani), sew-ins only.
-const VERSATILE_SURCHARGE = { si: 20 };
+// Versatile styling: a parting that can be styled several ways. A styling choice (like Fulani), sew-ins and quick weaves.
+const VERSATILE_SURCHARGE = { si: 20, qw: 20 };
 
 // What the price covers, shown above the options so nobody is surprised at the appointment.
 const INSTALL_INCLUDES = {
@@ -2186,8 +2187,8 @@ function renderBook(){
           <div class="opt-sub" style="margin-bottom:6px;">Style</div>
           <div class="length-row style-row">
             <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
-            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling (+${money(FULANI_SURCHARGE[state.category])})</div>
             ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 3px; color:inherit; opacity:.75;">Most requested</span>Versatile (+${money(VERSATILE_SURCHARGE[state.category])})</div>` : ''}
+            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling (+${money(FULANI_SURCHARGE[state.category])})</div>
           </div>
         </div>` : ''}
 
@@ -3298,6 +3299,7 @@ const PRICE_REGISTRY = (() => {
   onObj('fulani.si', 'Add-ons', 'Fulani styling upcharge — Sew-In', FULANI_SURCHARGE, 'si');
   onObj('fulani.qw', 'Add-ons', 'Fulani styling upcharge — Quick Weave', FULANI_SURCHARGE, 'qw');
   onObj('addon.versatile', 'Add-ons', 'Versatile styling (sew-in)', VERSATILE_SURCHARGE, 'si');
+  onObj('addon.versatile.qw', 'Add-ons', 'Versatile styling (quick weave)', VERSATILE_SURCHARGE, 'qw');
   INSTALL_ADDONS.forEach(a => onObj('addon.' + a.key, 'Add-ons', a.name, a, 'price'));
   [['box','Box Braids',BOX_BRAID_SIZES],['twist','Twists',TWIST_SIZES],['twostrand','Two-Strand Twists',TWO_STRAND_SIZES],
    ['marley','Marley Twists',MARLEY_TWIST_SIZES],['mini','Mini Twists',MINI_TWIST_SIZES],['micro','Micro Twists',MICRO_TWIST_SIZES]]
