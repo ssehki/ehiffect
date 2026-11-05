@@ -566,7 +566,7 @@ const INSTALLS = {
     { key:"human", name:"Human hair package — 2 bundles", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Add bundles or longer lengths below." },
     { key:"human3", name:"Human hair package — 3 bundles", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"Triippy human hair — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"Premium bundles · 12–14” base length · Longer lengths priced accordingly.",
+    { key:"premium", name:"Premium bundles", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"3 bundles (Triippy hair) · 12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
     { key:"raw", name:"Raw hair package", price:650, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]}
@@ -1551,7 +1551,7 @@ function dealsLabelText(clientFacing){
 function serviceLabelText(){
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier(); if(!tier) return '';
-    let s = `${INSTALLS[state.category].label} — ${tier.name}`;
+    let s = `${INSTALLS[state.category].label} — ${tier.labelName || tier.name}`;
     if(state.installTexture) s += `, texture: ${state.installTexture}`;
     if(state.style === 'fulani') s += ` (Fulani styling)`;
     if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${state.length}`;
