@@ -107,6 +107,11 @@
   .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
   .own-hair{ margin-top:14px; font-size:13px; color:var(--pink-deep); cursor:pointer; text-decoration:underline; text-underline-offset:3px; text-decoration-color:var(--line); }
   .own-hair:hover{ text-decoration-color:var(--pink-deep); }
+  .home-reviews{ margin-top:34px; }
+  .hr-card{ margin:0 0 10px; padding:14px 16px; background:#FFFFFF; border:1px solid var(--line); border-radius:8px; text-align:left; }
+  .hr-stars{ color:#B85C82; font-size:13px; letter-spacing:.08em; margin-bottom:4px; }
+  .hr-card blockquote{ margin:0; font-size:14px; line-height:1.5; color:#211A1B; }
+  .hr-card figcaption{ margin-top:6px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C7B7E; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
   .opt-price{ font-size:14px; color:var(--pink); font-weight:600; white-space:nowrap; margin-left:10px;}
@@ -1621,8 +1626,19 @@ function renderLanding(){
 
     <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your appointment? ›</div>
     <div class="back-link" data-action="landing-pick" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin-top:0;">Need a consultation first? ›</div>
+    ${homeReviewsHTML()}
     <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
+}
+
+// Up to three of the reviews you turned on (Feedback tab, Show on website), newest first. Hidden when there are none.
+function homeReviewsHTML(){
+  const list = (typeof REVIEWS !== 'undefined' ? REVIEWS : []).slice(0, 3);
+  if(!list.length) return '';
+  return `<section class="home-reviews" aria-label="What clients say">
+    <p class="eyebrow" style="margin-bottom:12px;">what clients say</p>
+    ${list.map(r => `<figure class="hr-card"><div class="hr-stars" aria-label="${r.r} out of 5 stars">${'★'.repeat(r.r)}${'☆'.repeat(5 - r.r)}</div><blockquote>“${escapeHTML(r.t)}”</blockquote>${r.s ? `<figcaption>${escapeHTML(r.s)}</figcaption>` : ''}</figure>`).join('')}
+  </section>`;
 }
 
 // The Style Finder opens as a modal over whatever page they're on.
