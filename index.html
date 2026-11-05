@@ -100,6 +100,7 @@
   .opt.disabled .opt-price{ color:var(--muted); text-transform:none; font-size:12px; }
   .opt-name{ font-size:14.5px; font-weight:500; }
   .opt-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .opt-flag{ font-size:9.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--pink-deep); margin-bottom:4px; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
   .opt-price{ font-size:14px; color:var(--pink); font-weight:600; white-space:nowrap; margin-left:10px;}
@@ -565,7 +566,7 @@ const INSTALLS = {
     { key:"human", name:"Human hair package — 2 bundles", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Add bundles or longer lengths below." },
     { key:"human3", name:"Human hair package — 3 bundles", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"Premium human hair package (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
+    { key:"premium", name:"Triippy human hair — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"Premium bundles · 12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
     { key:"raw", name:"Raw hair package", price:650, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]}
@@ -2148,7 +2149,7 @@ function renderBook(){
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
-              <div><div class="opt-name">${t.name}${t.popular ? ' <span style="display:inline-block; margin-left:6px; padding:1px 7px; border:1px solid var(--pink-deep); border-radius:999px; font-size:9.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--pink-deep); vertical-align:middle;">Most popular</span>' : ''}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
+              <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
               <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
