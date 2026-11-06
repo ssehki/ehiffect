@@ -562,12 +562,14 @@ const LOGO_LIGHT_B64 = "iVBORw0KGgoAAAANSUhEUgAAApEAAAJMCAYAAACii/06AAEAAElEQVR4
 const SALE_ENDS = new Date(2026, 9, 31, 23, 59, 59);
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
-    { key:"service", name:"Service only", price:135 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:175 },
-    { key:"human", name:"+ human hair (2 bundles)", price:265, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
+    { key:"service", name:"Service only", price:120 },
+    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:160 },
+    { key:"human", name:"+ human hair (2 bundles)", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
     { key:"human3", name:"+ human hair (3 bundles)", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"+ raw hair", price:600, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
+    { key:"premium", name:"+ premium bundles", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"3 bundles (Triippy hair) · 12–14” base length · Longer lengths priced accordingly.",
+      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
+    { key:"raw", name:"+ raw hair", price:610, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]},
   si: { label:"Sew-In", tiers:[
     { key:"service", name:"Installation only", price:175 },
