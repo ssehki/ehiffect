@@ -97,6 +97,20 @@
   .field textarea{ min-height:90px; resize:vertical; line-height:1.5; }
   .in:focus, .field input:focus, .field textarea:focus, .field select:focus{ outline:2px solid var(--pink); outline-offset:1px; }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .cal{ margin:10px 0 4px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); }
+  .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .cal-head b{ font-family:'Cormorant Garamond', serif; font-size:19px; font-weight:600; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; }
+  .cal-names span{ text-align:center; font-size:11px; color:var(--muted); letter-spacing:.08em; }
+  .cal-day{ aspect-ratio:1; border-radius:50%; border:1px solid var(--line-2); background:transparent; color:var(--cream); font-size:14px; cursor:pointer; padding:0; min-width:0; }
+  .cal-day:hover:not(:disabled){ border-color:var(--pink); }
+  .cal-day.today{ border-color:var(--muted); }
+  .cal-day.sel{ background:var(--pink); border-color:var(--pink); color:#241318; font-weight:600; }
+  .cal-day.off{ background:var(--line-2); color:var(--muted); text-decoration:line-through; cursor:default; }
+  .cal-day:disabled{ opacity:.3; cursor:default; }
+  .cal-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .cal-chips .btn{ padding:6px 10px; font-size:12.5px; }
+  .cal-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-size:13px; color:var(--muted); }
   .check{ display:flex; align-items:center; gap:10px; padding:10px 0; font-size:14px; }
   .check input{ width:20px; height:20px; accent-color:var(--pink); }
   .hint{ font-size:12px; color:var(--muted); line-height:1.5; }
@@ -191,7 +205,7 @@ const S = {
   client: null,        // phone key whose client sheet is open
   compose: null,       // email composer { title, key, kind, changes, request, draft, okLabel, toast }
   tpl: null,           // template being edited
-  showPast: false, toast: "", busy: "", dayOffDraft: { start:"", end:"", note:"" },
+  showPast: false, toast: "", busy: "", dayOffDraft: { start:"", end:"", note:"" }, doCal: null, doSel: {},
   wrap: null,          // booking key being wrapped up (paid / tip / hair cost)
   adding: false,       // "Add appointment" sheet
   month: null          // revenue month being viewed, "YYYY-MM"
@@ -495,6 +509,33 @@ function inbox(){
     ${!all ? `<p class="empty" style="text-align:center; margin-top:26px;">You're all caught up ✨</p>` : ''}`;
 }
 
+// A month calendar where you tap the days you want off. Taps add up across months; "Block" saves them all at once.
+function dayOffCalendar(off, t){
+  const cal = S.doCal || (S.doCal = { y: Number(t.slice(0, 4)), m: Number(t.slice(5, 7)) - 1 });
+  const pad = n => String(n).padStart(2, "0");
+  const first = new Date(cal.y, cal.m, 1), dim = new Date(cal.y, cal.m + 1, 0).getDate();
+  const iso = d => cal.y + "-" + pad(cal.m + 1) + "-" + pad(d);
+  const offOn = i => off.some(x => i >= x.start && i <= x.end);
+  const picked = Object.keys(S.doSel || {}).length;
+  let cells = "";
+  for(let i = 0; i < first.getDay(); i++) cells += `<span></span>`;
+  for(let d = 1; d <= dim; d++){
+    const i = iso(d), past = i < t, off1 = offOn(i), sel = !!(S.doSel || {})[i];
+    cells += `<button type="button" class="cal-day ${sel ? 'sel' : ''} ${off1 ? 'off' : ''} ${i === t ? 'today' : ''}" data-a="do-day" data-k="${i}" ${past ? 'disabled' : ''} aria-pressed="${sel}" aria-label="${esc(dayLabel(i))}${off1 ? ', already blocked' : ''}">${d}</button>`;
+  }
+  const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return `<div class="cal">
+    <div class="cal-head"><button type="button" class="btn" data-a="do-month" data-k="-1" aria-label="Previous month">‹</button>
+      <b>${esc(first.toLocaleDateString(undefined, { month: "long", year: "numeric" }))}</b>
+      <button type="button" class="btn" data-a="do-month" data-k="1" aria-label="Next month">›</button></div>
+    <div class="cal-grid cal-names">${wd.map(n => `<span>${n[0]}</span>`).join("")}</div>
+    <div class="cal-grid">${cells}</div>
+    <p class="hint" style="margin:8px 0 6px;">Tap the days you want off. Pick a whole weekday for this month:</p>
+    <div class="cal-chips">${wd.map((n, i) => `<button type="button" class="btn" data-a="do-wd" data-k="${i}">${n}</button>`).join("")}<button type="button" class="btn" data-a="do-all">Whole month</button></div>
+    <div class="cal-foot"><span><b>${picked}</b> day${picked === 1 ? "" : "s"} picked</span>${picked ? `<button type="button" class="btn" data-a="do-clear">Clear</button>` : ''}</div>
+  </div>`;
+}
+
 function schedule(){
   const t = todayIso(), all = S.data.bookings;
   const shown = all.filter(b => (b.status === "approved" || b.status === "pending") && b.dateIso && (S.showPast || b.dateIso >= t)).sort(byWhen);
@@ -508,13 +549,10 @@ function schedule(){
       ${off.filter(x => x.end >= t).map((x, i) => `<div class="row" style="cursor:default; padding:10px 0; border-top:1px solid var(--line-2);">
           <div class="row-main"><div class="row-title">${x.start === x.end ? shortDay(x.start) : shortDay(x.start) + " – " + shortDay(x.end)}</div><div class="row-sub">${x.squeeze ? '⚡ booked out · squeeze-ins allowed' : 'day off · no bookings'}${x.note ? ' · ' + esc(x.note) : ''}</div></div>
           <button class="btn no" data-a="dayoff-del" data-k="${off.indexOf(x)}">Remove</button></div>`).join("") || `<div class="empty" style="padding-top:0;">No days off coming up.</div>`}
-      <div class="grid2" style="margin-top:10px;">
-        <div class="field"><label>From</label><input type="date" id="do-start" value="${esc(d.start)}" min="${t}"/></div>
-        <div class="field"><label>To (optional)</label><input type="date" id="do-end" value="${esc(d.end)}" min="${t}"/></div>
-      </div>
+      ${dayOffCalendar(off, t)}
       <div class="field"><label>Note (only you see this)</label><input type="text" id="do-note" value="${esc(d.note)}" placeholder="e.g. Thanksgiving, exams"/></div>
       <label class="check"><input type="checkbox" id="do-squeeze" ${d.squeeze?'checked':''}/> I'm booked out — still allow squeeze-in requests</label>
-      <button class="btn primary block" data-a="dayoff-add">Block these days</button>
+      <button class="btn primary block" data-a="dayoff-add">Block the days I picked</button>
     </div></details>
     <label class="check"><input type="checkbox" data-a="past" ${S.showPast?'checked':''}/> Show past appointments</label>
     ${Object.keys(days).length ? Object.keys(days).map(iso => `
@@ -1157,15 +1195,40 @@ document.addEventListener("click", async e => {
     }catch(err){ S.busy = ""; renderLayer(); }
     return;
   }
+  if(a === "do-day" || a === "do-month" || a === "do-wd" || a === "do-all" || a === "do-clear"){
+    S.doSel = S.doSel || {};
+    const t0 = todayIso(), pad = n => String(n).padStart(2, "0");
+    const cal = S.doCal || (S.doCal = { y: Number(t0.slice(0, 4)), m: Number(t0.slice(5, 7)) - 1 });
+    const offList = S.data.daysOff || [], blocked = i => offList.some(x => i >= x.start && i <= x.end);
+    const dim = new Date(cal.y, cal.m + 1, 0).getDate();
+    const monthDays = () => { const out = []; for(let d = 1; d <= dim; d++){ const i = cal.y + "-" + pad(cal.m + 1) + "-" + pad(d); if(i >= t0 && !blocked(i)) out.push(i); } return out; };
+    if(a === "do-day"){
+      if(blocked(k)){ toast("That day is already blocked. Remove it from the list above first."); return; }
+      if(S.doSel[k]) delete S.doSel[k]; else S.doSel[k] = true;
+    }else if(a === "do-month"){
+      const d = new Date(cal.y, cal.m + Number(k), 1); cal.y = d.getFullYear(); cal.m = d.getMonth();
+    }else if(a === "do-wd" || a === "do-all"){
+      const days = monthDays().filter(i => a === "do-all" || isoToDate(i).getDay() === Number(k));
+      const allOn = days.length && days.every(i => S.doSel[i]);
+      days.forEach(i => { if(allOn) delete S.doSel[i]; else S.doSel[i] = true; });
+      if(!days.length) toast("No open days like that left this month.");
+    }else S.doSel = {};
+    const y = window.scrollY; S.openDaysOff = true; render(); window.scrollTo(0, y);
+    return;
+  }
   if(a === "dayoff-add" || a === "dayoff-del"){
     let list = (S.data.daysOff || []).slice();
     if(a === "dayoff-add"){
-      const s = document.getElementById("do-start").value, en = document.getElementById("do-end").value || s, note = document.getElementById("do-note").value;
-      if(!s){ toast("Pick a start date."); return; }
-      list.push({ start:s, end:en, note, squeeze: !!(document.getElementById("do-squeeze") || {}).checked });
+      const picks = Object.keys(S.doSel || {}).sort();
+      if(!picks.length){ toast("Tap the days you want off on the calendar first."); return; }
+      const note = (document.getElementById("do-note") || {}).value || S.dayOffDraft.note || "", squeeze = !!(document.getElementById("do-squeeze") || {}).checked;
+      const runs = [];
+      picks.forEach(d => { const last = runs[runs.length - 1]; if(last && Math.round((isoToDate(d) - isoToDate(last.end)) / 864e5) === 1) last.end = d; else runs.push({ start:d, end:d }); });
+      runs.forEach(r => list.push({ start:r.start, end:r.end, note, squeeze }));
+      S.lastBlocked = picks.length;
     }else list.splice(Number(k), 1);
     S.busy = "Saving…"; renderLayer();
-    try{ const r = await api("setDaysOff", { daysOff:list }); S.busy = ""; if(r && r.ok){ S.data.daysOff = r.daysOff; S.dayOffDraft = { start:"", end:"", note:"", squeeze:false }; S.openDaysOff = true; render(); toast(a === "dayoff-add" ? "Days blocked" : "Day off removed"); } else { renderLayer(); toast("Didn't save — try again."); } }
+    try{ const r = await api("setDaysOff", { daysOff:list }); S.busy = ""; if(r && r.ok){ S.data.daysOff = r.daysOff; S.dayOffDraft = { start:"", end:"", note:"", squeeze:false }; S.doSel = {}; S.openDaysOff = true; render(); toast(a === "dayoff-add" ? (S.lastBlocked + (S.lastBlocked === 1 ? " day blocked" : " days blocked")) : "Day off removed"); } else { renderLayer(); toast("Didn't save — try again."); } }
     catch(err){ S.busy = ""; renderLayer(); }
     return;
   }
