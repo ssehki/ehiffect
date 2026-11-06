@@ -904,10 +904,15 @@ const DEALS = [
 const MAX_DEALS = 2;
 const GROUP_TREATMENT_PRICES = { 2: 80, 3: 100 };
 
+// A first-time client's service total that earns the free Mini Care Kit: $200+ through Nov 30, 2026, $300+ from Dec 1, 2026.
+// It goes by the day the booking is made, so a client isn't affected by which appointment date they click.
 const MINI_KIT_MIN_TOTAL = 200;
+const MINI_KIT_MIN_TOTAL_LATER = 300;
+const MINI_KIT_RAISE_FROM = '2026-12-01';
+function miniKitMin(){ return liveToday() >= MINI_KIT_RAISE_FROM ? MINI_KIT_MIN_TOTAL_LATER : MINI_KIT_MIN_TOTAL; }
 const LUXURY_INCLUDED_MIN = 500;
 let LUXURY_KIT_PRICE = 50;
-let MINI_KIT_PURCHASE_PRICE = 35; // buying the Mini Care Kit on its own, for bookings under $200 that don't otherwise qualify free
+let MINI_KIT_PURCHASE_PRICE = 35; // buying the Mini Care Kit on its own, for bookings under the free-kit minimum ($200, then $300 from Dec 1) that don't otherwise qualify free
 let BRAID_HAIR_PACK_PRICE = 20;
 let TWO_STRAND_HAIR_PACK_PRICE = 10;
 let MINI_TWIST_HAIR_PACK_PRICE = 15;
@@ -1490,7 +1495,7 @@ function miniKitReasons(){
   if(!kitsApply()) return [];
   const reasons = [];
   const base = computeBaseTotal();
-  if(state.isFirstTimeClient===true && base !== null && base >= MINI_KIT_MIN_TOTAL) reasons.push('first-time client, $200+ service');
+  if(state.isFirstTimeClient===true && base !== null && base >= miniKitMin()) reasons.push('first-time client, $' + miniKitMin() + '+ service');
   if(state.category==='si' && state.tierKey && state.tierKey!=='service' && state.isFirstTimeClient===true) reasons.push('first-time sew-in with hair purchase');
   if(state.bookingType==='couple') reasons.push("Couple Booking");
   if(state.bookingType==='bestie') reasons.push('Bestie Booking');
@@ -1520,7 +1525,7 @@ function kitStatusText(){
   }
   if(state.miniKitPurchase) return `You've added the Mini Care Kit (+${money(MINI_KIT_PURCHASE_PRICE)}).`;
   const base = computeBaseTotal();
-  if(state.isFirstTimeClient===null && base !== null && base >= MINI_KIT_MIN_TOTAL)
+  if(state.isFirstTimeClient===null && base !== null && base >= miniKitMin())
     return "First-time clients with qualifying services receive a complimentary Mini Care Kit — we'll confirm once you add your phone number below.";
   return '';
 }
