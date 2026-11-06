@@ -104,6 +104,8 @@
   .style-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
   .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; padding-left:6px; padding-right:6px; }
   .style-row .sty-price{ display:block; margin-top:2px; font-size:10.5px; font-weight:400; opacity:.7; letter-spacing:.02em; }
+  .len-grid{ flex-wrap:wrap; }
+  .len-grid .length-btn{ flex:1 1 28%; min-width:62px; text-align:center; }
   .custom-style-btn{ width:100%; text-align:center; }
   .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
   .home-reviews{ margin-top:34px; }
@@ -594,6 +596,12 @@ const INSTALLS = {
 
 // Fulani styling is a technique upcharge on top of whichever tier is picked —
 // PLACEHOLDER surcharge derived from a "$140-160 total" range — confirm exact number.
+// Extra-bundle lengths a client can pick. 16 to 20 inch bundles use the "16-20" price, 22 inch and up use the "22+" price.
+const EXTRA_LENGTHS = [
+  { key:'16', label:'16"', band:'16-20' }, { key:'18', label:'18"', band:'16-20' }, { key:'20', label:'20"', band:'16-20' },
+  { key:'22', label:'22"', band:'22+' }, { key:'24', label:'24"', band:'22+' }, { key:'26', label:'26"', band:'22+' },
+  { key:'28', label:'28"', band:'22+' }, { key:'30', label:'30"', band:'22+' }, { key:'32+', label:'32"+', band:'22+' },
+];
 const FULANI_SURCHARGE = { qw: 80, si: 80 };
 // Versatile styling: a parting that can be styled several ways. A styling choice (like Fulani), sew-ins and quick weaves.
 const VERSATILE_SURCHARGE = { si: 15, qw: 15 };
@@ -663,7 +671,7 @@ const TREATMENTS = [
   { key:"massage", name:"Hair massage", price:60 },
 ];
 
-const RAW_HUMAN_TEXTURES = ["straight","body wave","deep wave","water wave","cambodian wavy (raw)","burmese curly","eurasian curly","vietnamese curly","loose deep wave","afro curly","bone straight","indian curly","kinky curly","kinky straight","yaki straight","loose wave","natural wave"];
+const RAW_HUMAN_TEXTURES = ["straight","body wave","deep wave","water wave","cambodian wavy (raw)","indian wavy","burmese curly","eurasian curly","vietnamese curly","loose deep wave","afro curly","bone straight","indian curly","kinky curly","kinky straight","yaki straight","loose wave","natural wave"];
 const SYNTHETIC_TEXTURES = ["kinky curly","deep wave","water wave","body wave","straight","yaki straight"];
 
 // Groups a flat texture list into a handful of labeled buckets so the dropdown isn't one
@@ -671,7 +679,7 @@ const SYNTHETIC_TEXTURES = ["kinky curly","deep wave","water wave","body wave","
 // if it's a raw-specific texture waiting on the finalized raw texture list.
 const TEXTURE_GROUPS = {
   straight: ["straight", "bone straight", "yaki straight"],
-  bodywave: ["body wave", "deep wave", "water wave", "loose deep wave", "loose wave", "natural wave"],
+  bodywave: ["body wave", "deep wave", "water wave", "indian wavy", "loose deep wave", "loose wave", "natural wave"],
   curly: ["burmese curly", "eurasian curly", "vietnamese curly", "indian curly", "afro curly"],
   kinky: ["kinky curly", "kinky straight"],
 };
@@ -1318,7 +1326,7 @@ let state = {
 
 function resetSelection(){
   state.style="traditional"; state.customStyle=""; state.customStyleText="";
-  state.tierKey=null; state.length=null; state.addBundleCount=0; state.addons={};
+  state.tierKey=null; state.length=null; state.lengthIn=null; state.addBundleCount=0; state.addons={};
   state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1;
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
@@ -1578,7 +1586,7 @@ function serviceLabelText(){
     if(state.style === 'fulani') s += ` (Fulani styling)`;
     else if(state.style === 'versatile' && VERSATILE_SURCHARGE[state.category]) s += ` (Versatile styling)`;
     else if(state.style === 'custom' && state.category === 'si') s += ` (${state.customStyle==='flipover' ? 'Flipover sew-in' : state.customStyle==='hybrid' ? 'Hybrid sew-in' : (state.customStyleText.trim() ? 'Custom styling: ' + state.customStyleText.trim() : 'Custom styling')})`;
-    if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${state.length}`;
+    if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${(EXTRA_LENGTHS.find(x => x.key === state.lengthIn) || { label: state.length }).label}`;
     return s;
   }
   if(state.category==='braids'){
@@ -2233,14 +2241,14 @@ function renderBook(){
               </div>` : ''}
             ${(state.tierKey===t.key && t.lengths) ? `
               <div style="padding:0 2px;">
-                <div class="opt-sub" style="margin-top:8px;">Need longer? Add bundles at:</div>
-                <div class="length-row">
-                  <div class="length-btn ${state.length==='16-20'?'selected':''}" data-action="pick-length" data-key="16-20">16–20" · +${money(t.addBundle["16-20"])}/bundle</div>
-                  <div class="length-btn ${state.length==='22+'?'selected':''}" data-action="pick-length" data-key="22+">22"+ · +${money(t.addBundle["22+"])}/bundle</div>
-                </div>
+                <div class="opt-sub" style="margin-top:8px;">Need longer? Add extra bundles in the length you want:</div>
+                <div class="opt-sub" style="margin:8px 0 4px;">16–20" · +${money(t.addBundle["16-20"])} per bundle</div>
+                <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='16-20').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
+                <div class="opt-sub" style="margin:10px 0 4px;">22"+ · +${money(t.addBundle["22+"])} per bundle</div>
+                <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='22+').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
                 ${state.length ? `
                 <div class="bundle-row">
-                  <span class="opt-sub">Extra bundles needed</span>
+                  <span class="opt-sub">Extra bundles needed (${(EXTRA_LENGTHS.find(x => x.key === state.lengthIn) || { label:'' }).label})</span>
                   <div class="stepper"><button data-action="bundle-minus" ${state.addBundleCount<=0?'disabled':''}>−</button><span>${state.addBundleCount}</span><button data-action="bundle-plus">+</button></div>
                 </div>` : ''}
               </div>` : ''}
@@ -3080,9 +3088,9 @@ function attachHandlers(){
       }
       else if(action==='pick-style'){ state.style = key; if(key !== 'custom'){ state.customStyle = ''; state.customStyleText = ''; } }
       else if(action==='pick-custom-style'){ state.customStyle = key; if(key !== 'own') state.customStyleText = ''; }
-      else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
+      else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.lengthIn=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
       else if(action==='pick-install-texture'){ state.installTexture = el.value; }
-      else if(action==='pick-length'){ state.length = key; state.addBundleCount = state.addBundleCount || 1; }
+      else if(action==='pick-length'){ const L = EXTRA_LENGTHS.find(x => x.key === key); if(L){ state.lengthIn = L.key; state.length = L.band; state.addBundleCount = state.addBundleCount || 1; } }
       else if(action==='bundle-plus'){ state.addBundleCount++; }
       else if(action==='bundle-minus'){ state.addBundleCount = Math.max(0,state.addBundleCount-1); }
       else if(action==='toggle-addon'){ state.addons[key] = !state.addons[key]; }
