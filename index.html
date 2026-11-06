@@ -115,6 +115,11 @@
   .svc-label { display:block; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#e48aae; margin-bottom:3px; }
   .svc-meta  { display:flex; flex-wrap:wrap; gap:8px 28px; color:#b9aab0; font-size:14px; margin-bottom:12px; }
   .svc-note  { color:#8f8287; font-size:13px; font-style:italic; margin:0; }
+  .opt.tier{ display:block; }
+  .tier-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .tier-lines{ margin-top:3px; }
+  .opt.tier .tier-lines .svc-inc{ font-size:12px; line-height:1.4; margin:0; }
+  .opt.tier .tier-lines .opt-sub{ font-size:11px; line-height:1.4; margin-top:1px; }
   .opt.selected .svc-inc{ color:#3a2830; }
   .opt .svc-inc{ font-size:12.5px; line-height:1.5; margin:5px 0 0; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
@@ -571,18 +576,18 @@ const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
     { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended.", price:120 },
     { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Three bundles of synthetic hair.", price:160 },
-    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
-    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
-    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
-    { key:"raw", name:"Raw hair package", inc:"Three bundles of Triippy raw hair, plus the Luxury Care Kit.", price:610, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"raw", name:"Raw hair package", inc:"Three bundles of raw hair, plus the Luxury Care Kit.", price:610, note:"Starting price. Varies by length. Final quote after your request." },
   ]},
   si: { label:"Sew-In", tiers:[
     { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended.", price:175 },
     { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Three bundles of synthetic hair.", price:200 },
-    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
-    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
-    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
-    { key:"raw", name:"Raw hair package", inc:"Three bundles of Triippy raw hair, plus the Luxury Care Kit.", price:650, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"raw", name:"Raw hair package", inc:"Three bundles of raw hair, plus the Luxury Care Kit.", price:650, note:"Starting price. Varies by length. Final quote after your request." },
   ]}
 };
 
@@ -2226,9 +2231,12 @@ function renderBook(){
         ${serviceBlock(state.category)}
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.slice().reverse().map(t=>`
-            <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
-              <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div>${t.inc ? `<p class="svc-inc">${t.inc}</p>` : ''}${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
-              <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
+            <div class="opt tier ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
+              <div class="tier-head">
+                <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div></div>
+                <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
+              </div>
+              <div class="tier-lines">${t.inc ? `<p class="svc-inc">${t.inc}</p>` : ''}${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
               <div style="padding:0 2px; margin-top:8px;">
