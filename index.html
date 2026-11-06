@@ -2357,6 +2357,43 @@ function renderBook(){
       ` : ''}
     </div>` : ''}
 
+
+    ${showDetails && state.category==='consult' ? `
+    <div class="card">
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
+      <div class="opt-sub" style="margin-bottom:10px;">This will be a phone call — just need a way to reach you.</div>
+      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can call you"/></div>
+      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
+      <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
+      <div class="opt-sub" style="margin-top:-6px;">Add at least one — phone or Instagram.</div>
+    </div>` : ''}
+
+    ${showDetails && state.category!=='consult' ? `
+    <div class="card">
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
+      <div class="field"><label>Name <span style="color:var(--pink);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
+      <div class="field"><label>Phone number <span style="color:var(--pink);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
+      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
+      <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
+
+      <div class="field">
+        <label>Reference photos (optional, up to 3)</label>
+        <div class="photo-row">
+          ${state.photos.map((p,i)=>`<div class="photo-thumb"><img src="${p}"/><div class="rm" data-action="remove-photo" data-key="${i}">×</div></div>`).join('')}
+          ${state.photos.length < 3 ? `<div class="photo-add" id="photo-add-btn">+</div>` : ''}
+        </div>
+        <input type="file" id="photo-input" accept="image/*" multiple style="display:none;"/>
+        <div class="opt-sub" style="margin-top:8px;">Or paste a TikTok/Instagram link instead</div>
+        <input type="text" id="f-reference-link" value="${state.referenceLink}" placeholder="link to the style you want" style="margin-top:5px;"/>
+      </div>
+
+      ${contentQuestionApplies() ? `<div class="field"><label>Are you okay with me taking photos or videos of your hair for my page?</label>
+        <p class="opt-sub" style="margin:4px 0 10px;">I love sharing my work on @ehiffect. It's totally fine to say no; it won't change anything about your appointment.</p>
+        <div class="m-chips">${CONTENT_ANSWERS.map(o=>`<button class="m-chip ${state.contentOk===o?'on':''}" data-action="pick-content" data-key="${escapeHTML(o)}">${escapeHTML(o)}</button>`).join('')}</div></div>` : ''}
+
+      <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
+    </div>` : ''}
+
     ${showDetails && state.category!=='bundles' && state.category!=='treatments' && state.category!=='consult' ? `
     <div class="card">
       <details class="drop" data-keep="dealsOpen" ${state.dealsOpen?'open':''}>
@@ -2401,42 +2438,6 @@ function renderBook(){
       </div>
       </details>
       ${isThanksgivingWeek(state.date) ? `<div class="avail-note" style="margin-top:12px;">🦃 Thanksgiving week discount (15% off) is automatically applied to your total — no need to select it.</div>` : ''}
-    </div>` : ''}
-
-    ${showDetails && state.category==='consult' ? `
-    <div class="card">
-      <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
-      <div class="opt-sub" style="margin-bottom:10px;">This will be a phone call — just need a way to reach you.</div>
-      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can call you"/></div>
-      <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
-      <div class="opt-sub">Add at least one — phone or Instagram.</div>
-      <div class="field" style="margin-top:12px;"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
-    </div>` : ''}
-
-    ${showDetails && state.category!=='consult' ? `
-    <div class="card">
-      <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
-      <div class="field"><label>Name <span style="color:var(--pink);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
-      <div class="field"><label>Phone number <span style="color:var(--pink);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
-      <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
-      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
-
-      <div class="field">
-        <label>Reference photos (optional, up to 3)</label>
-        <div class="photo-row">
-          ${state.photos.map((p,i)=>`<div class="photo-thumb"><img src="${p}"/><div class="rm" data-action="remove-photo" data-key="${i}">×</div></div>`).join('')}
-          ${state.photos.length < 3 ? `<div class="photo-add" id="photo-add-btn">+</div>` : ''}
-        </div>
-        <input type="file" id="photo-input" accept="image/*" multiple style="display:none;"/>
-        <div class="opt-sub" style="margin-top:8px;">Or paste a TikTok/Instagram link instead</div>
-        <input type="text" id="f-reference-link" value="${state.referenceLink}" placeholder="link to the style you want" style="margin-top:5px;"/>
-      </div>
-
-      ${contentQuestionApplies() ? `<div class="field"><label>Are you okay with me taking photos or videos of your hair for my page?</label>
-        <p class="opt-sub" style="margin:4px 0 10px;">I love sharing my work on @ehiffect. It's totally fine to say no; it won't change anything about your appointment.</p>
-        <div class="m-chips">${CONTENT_ANSWERS.map(o=>`<button class="m-chip ${state.contentOk===o?'on':''}" data-action="pick-content" data-key="${escapeHTML(o)}">${escapeHTML(o)}</button>`).join('')}</div></div>` : ''}
-
-      <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
     </div>` : ''}
 
     ${showDetails ? `
@@ -2521,8 +2522,8 @@ function renderBundles(){
       <div class="step-label"><span class="step-title">Your info</span></div>
       <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
-      <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
+      <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="field">
         <label>Preferred pickup date</label>
         <input type="date" id="f-date" value="${state.date}"/>
