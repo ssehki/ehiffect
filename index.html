@@ -115,6 +115,7 @@
   .svc-label { display:block; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#e48aae; margin-bottom:3px; }
   .svc-meta  { display:flex; flex-wrap:wrap; gap:8px 28px; color:#b9aab0; font-size:14px; margin-bottom:12px; }
   .svc-note  { color:#8f8287; font-size:13px; font-style:italic; margin:0; }
+  .opt.selected .svc-inc{ color:#3a2830; }
   .opt .svc-inc{ font-size:12.5px; line-height:1.5; margin:5px 0 0; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
@@ -568,24 +569,20 @@ const LOGO_LIGHT_B64 = "iVBORw0KGgoAAAANSUhEUgAAApEAAAJMCAYAAACii/06AAEAAElEQVR4
 const SALE_ENDS = new Date(2026, 9, 31, 23, 59, 59);
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
-    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended for a full look.", price:120 },
-    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Includes three bundles of synthetic hair.", price:160 },
-    { key:"human", name:"Human hair package — 2 bundles", inc:"Includes two bundles of human hair.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
-    { key:"human3", name:"Human hair package — 3 bundles", inc:"Includes three bundles of human hair.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"Premium bundles", inc:"Includes three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"Raw hair package", inc:"Includes three bundles of Triippy raw hair and the Luxury Care Kit.", price:610, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
+    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended.", price:120 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Three bundles of synthetic hair.", price:160 },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"raw", name:"Raw hair package", inc:"Three bundles of Triippy raw hair, plus the Luxury Care Kit.", price:610, note:"Starting price. Varies by length. Final quote after you send your request." },
   ]},
   si: { label:"Sew-In", tiers:[
-    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended for a full look.", price:175 },
-    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Includes three bundles of synthetic hair.", price:200 },
-    { key:"human", name:"Human hair package — 2 bundles", inc:"Includes two bundles of human hair.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Add bundles or longer lengths below." },
-    { key:"human3", name:"Human hair package — 3 bundles", inc:"Includes three bundles of human hair.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"Premium bundles", inc:"Includes three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"Raw hair package", inc:"Includes three bundles of Triippy raw hair and the Luxury Care Kit.", price:650, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
+    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended.", price:175 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Three bundles of synthetic hair.", price:200 },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after you send your request." },
+    { key:"raw", name:"Raw hair package", inc:"Three bundles of Triippy raw hair, plus the Luxury Care Kit.", price:650, note:"Starting price. Varies by length. Final quote after you send your request." },
   ]}
 };
 
