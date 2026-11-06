@@ -594,9 +594,9 @@ const INSTALLS = {
 
 // Fulani styling is a technique upcharge on top of whichever tier is picked —
 // PLACEHOLDER surcharge derived from a "$140-160 total" range — confirm exact number.
-const FULANI_SURCHARGE = { qw: 70, si: 70 };
+const FULANI_SURCHARGE = { qw: 80, si: 80 };
 // Versatile styling: a parting that can be styled several ways. A styling choice (like Fulani), sew-ins and quick weaves.
-const VERSATILE_SURCHARGE = { si: 20, qw: 20 };
+const VERSATILE_SURCHARGE = { si: 15, qw: 15 };
 
 const INSTALL_ADDONS = [
   { key:"curls", name:"Curls / wand styling", price:15 },
@@ -2249,7 +2249,7 @@ function renderBook(){
             <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling<span class="sty-price">+${money(FULANI_SURCHARGE[state.category])}</span></div>
           </div>
           ${state.category==='si' ? `
-            <div class="length-btn custom-style-btn ${state.style==='custom'?'selected':''}" data-action="pick-style" data-key="custom" style="margin-top:8px;">Custom styling<span class="sty-price" style="display:inline; margin-left:6px;">flipover, hybrid or your own</span></div>
+            <div class="length-btn custom-style-btn ${state.style==='custom'?'selected':''}" data-action="pick-style" data-key="custom" style="margin-top:8px;">Custom styling</div>
             ${state.style==='custom' ? `<div class="custom-style-box">
               <div class="opt-sub" style="margin:12px 0 6px;">Pick a custom style</div>
               <div class="length-row">
