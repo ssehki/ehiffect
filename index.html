@@ -104,6 +104,7 @@
   .style-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
   .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; padding-left:6px; padding-right:6px; }
   .style-row .sty-price{ display:block; margin-top:2px; font-size:10.5px; font-weight:400; opacity:.7; letter-spacing:.02em; }
+  .custom-style-btn{ width:100%; text-align:center; }
   .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
   .home-reviews{ margin-top:34px; }
   .hr-card{ margin:0 0 10px; padding:14px 16px; background:#FFFFFF; border:1px solid var(--line); border-radius:8px; text-align:left; }
@@ -1295,6 +1296,7 @@ let state = {
   showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
   manageToken: "", manage: null, mLoading: false, mErr: "", mTab: "", mForm: {}, mPhotos: [], mNotice: "", mErrText: "", mBusy: false,
   installTexture: "",
+  customStyle: "", customStyleText: "",      // Sew-In "Custom styling": flipover | hybrid | own (+ their words)
   dealsSelected: [],
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
   treatmentGroupSize: 1, treatmentGroupNames: "",
@@ -1310,7 +1312,7 @@ let state = {
 };
 
 function resetSelection(){
-  state.style="traditional";
+  state.style="traditional"; state.customStyle=""; state.customStyleText="";
   state.tierKey=null; state.length=null; state.addBundleCount=0; state.addons={};
   state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1;
   state.cornrowKey=null; state.treatmentKeys={};
@@ -1570,6 +1572,7 @@ function serviceLabelText(){
     if(state.installTexture) s += `, texture: ${state.installTexture}`;
     if(state.style === 'fulani') s += ` (Fulani styling)`;
     else if(state.style === 'versatile' && VERSATILE_SURCHARGE[state.category]) s += ` (Versatile styling)`;
+    else if(state.style === 'custom' && state.category === 'si') s += ` (${state.customStyle==='flipover' ? 'Flipover sew-in' : state.customStyle==='hybrid' ? 'Hybrid sew-in' : (state.customStyleText.trim() ? 'Custom styling: ' + state.customStyleText.trim() : 'Custom styling')})`;
     if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${state.length}`;
     return s;
   }
@@ -2222,11 +2225,6 @@ function renderBook(){
         ` : ''}
       </div>` : ''}
 
-      ${state.category==='si' ? `
-        <div class="signature-card">
-          <div class="signature-eyebrow">The Signature Client Experience</div>
-          First-time clients booking qualifying sew-in packages receive a curated haircare gift, complete with personalized aftercare guidance to help maintain their style.
-        </div>` : ''}
       ${(state.category==='qw'||state.category==='si') ? `
         ${serviceBlock(state.category)}
         <div class="opt-group" style="margin-top:14px;">
@@ -2266,10 +2264,23 @@ function renderBook(){
         <div style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:6px;">Style</div>
           <div class="length-row style-row">
-            <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
+            <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]) || (state.style==='custom' && state.category!=='si'))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
             ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 3px; color:inherit; opacity:.75;">Most requested</span>Versatile<span class="sty-price">+${money(VERSATILE_SURCHARGE[state.category])}</span></div>` : ''}
             <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling<span class="sty-price">+${money(FULANI_SURCHARGE[state.category])}</span></div>
           </div>
+          ${state.category==='si' ? `
+            <div class="length-btn custom-style-btn ${state.style==='custom'?'selected':''}" data-action="pick-style" data-key="custom" style="margin-top:8px;">Custom styling<span class="sty-price" style="display:inline; margin-left:6px;">flipover, hybrid or your own</span></div>
+            ${state.style==='custom' ? `<div class="custom-style-box">
+              <div class="opt-sub" style="margin:12px 0 6px;">Pick a custom style</div>
+              <div class="length-row">
+                <div class="length-btn ${state.customStyle==='flipover'?'selected':''}" data-action="pick-custom-style" data-key="flipover">Flipover sew-in</div>
+                <div class="length-btn ${state.customStyle==='hybrid'?'selected':''}" data-action="pick-custom-style" data-key="hybrid">Hybrid sew-in</div>
+                <div class="length-btn ${state.customStyle==='own'?'selected':''}" data-action="pick-custom-style" data-key="own">Write my own</div>
+              </div>
+              ${state.customStyle==='own' ? `<div class="field" style="margin:10px 0 0;"><label>Describe the style you want</label><input type="text" id="f-custom-style" maxlength="80" value="${escapeHTML(state.customStyleText)}" placeholder="e.g. invisible part with a middle leave-out"/></div>` : ''}
+              <div class="opt-sub" style="margin-top:8px;">Price confirmed when I approve your request.</div>
+            </div>` : ''}
+          ` : ''}
         </div>` : ''}
 
       ${state.category==='braids' ? `
@@ -3059,7 +3070,8 @@ function attachHandlers(){
         if(idx >= 0){ state.dealsSelected.splice(idx,1); }
         else if(state.dealsSelected.length < MAX_DEALS){ state.dealsSelected.push(key); }
       }
-      else if(action==='pick-style'){ state.style = key; }
+      else if(action==='pick-style'){ state.style = key; if(key !== 'custom'){ state.customStyle = ''; state.customStyleText = ''; } }
+      else if(action==='pick-custom-style'){ state.customStyle = key; if(key !== 'own') state.customStyleText = ''; }
       else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
       else if(action==='pick-install-texture'){ state.installTexture = el.value; }
       else if(action==='pick-length'){ state.length = key; state.addBundleCount = state.addBundleCount || 1; }
@@ -3139,6 +3151,9 @@ function attachHandlers(){
         } else if(!state.name || !state.phone){
           state.error = "Please add your name and phone number so I can confirm your appt."; render(); return;
         }
+        if(state.category==='si' && state.style==='custom' && (!state.customStyle || (state.customStyle==='own' && !state.customStyleText.trim()))){
+          state.error = "Please pick your custom style (flipover, hybrid) or describe your own."; render(); return;
+        }
         if((state.category==='qw'||state.category==='si') && state.tierKey && state.tierKey!=='service' && !state.installTexture){
           state.error = "Please choose a texture for your hair."; render(); return;
         }
@@ -3201,7 +3216,7 @@ function attachHandlers(){
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, contentOk:"", error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", customStyle:"", customStyleText:"", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, contentOk:"", error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
         refreshTakenDates();                 // the day that was just booked should close right away
       }
       else if(action==='admin-login'){
@@ -3283,7 +3298,7 @@ function attachHandlers(){
   // keep text/textarea fields synced live so a re-render triggered by another
   // control (checkbox, select, date/time) never wipes what's already been typed
   const liveFieldMap = {
-    'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-email':'email', 'f-notes':'notes', 'f-reference-link':'referenceLink',
+    'f-custom-style':'customStyleText', 'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-email':'email', 'f-notes':'notes', 'f-reference-link':'referenceLink',
     'f-bundle-details':'bundleDetails', 'f-crochet-details':'crochetDetails',
     'f-group-names':'treatmentGroupNames',
     'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',
