@@ -110,6 +110,12 @@
   .hr-stars{ color:#B85C82; font-size:13px; letter-spacing:.08em; margin-bottom:4px; }
   .hr-card blockquote{ margin:0; font-size:14px; line-height:1.5; color:#211A1B; }
   .hr-card figcaption{ margin-top:6px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C7B7E; }
+  .svc-desc  { color:#e9dfe2; font-size:15px; line-height:1.6; margin:10px 0 14px; }
+  .svc-inc   { color:#b9aab0; font-size:14px; line-height:1.6; margin:0 0 12px; }
+  .svc-label { display:block; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#e48aae; margin-bottom:3px; }
+  .svc-meta  { display:flex; flex-wrap:wrap; gap:8px 28px; color:#b9aab0; font-size:14px; margin-bottom:12px; }
+  .svc-note  { color:#8f8287; font-size:13px; font-style:italic; margin:0; }
+  .opt .svc-inc{ font-size:12.5px; line-height:1.5; margin:5px 0 0; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
   .opt-price{ font-size:14px; color:var(--pink); font-weight:600; white-space:nowrap; margin-left:10px;}
@@ -562,24 +568,24 @@ const LOGO_LIGHT_B64 = "iVBORw0KGgoAAAANSUhEUgAAApEAAAJMCAYAAACii/06AAEAAElEQVR4
 const SALE_ENDS = new Date(2026, 9, 31, 23, 59, 59);
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
-    { key:"service", name:"Service only", price:120 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:160 },
-    { key:"human", name:"+ human hair (2 bundles)", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
-    { key:"human3", name:"+ human hair (3 bundles)", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
+    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended for a full look.", price:120 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Includes three bundles of synthetic hair.", price:160 },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"Includes two bundles of human hair.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"Includes three bundles of human hair.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"+ premium bundles", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"3 bundles (Triippy hair) · 12–14” base length · Longer lengths priced accordingly.",
+    { key:"premium", name:"Premium bundles", inc:"Includes three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"+ raw hair", price:610, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
+    { key:"raw", name:"Raw hair package", inc:"Includes three bundles of Triippy raw hair and the Luxury Care Kit.", price:610, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]},
   si: { label:"Sew-In", tiers:[
-    { key:"service", name:"Installation only", price:175 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:200 },
-    { key:"human", name:"+ human hair (2 bundles)", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Add bundles or longer lengths below." },
-    { key:"human3", name:"+ human hair (3 bundles)", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
+    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended for a full look.", price:175 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Includes three bundles of synthetic hair.", price:200 },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"Includes two bundles of human hair.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Add bundles or longer lengths below." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"Includes three bundles of human hair.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"+ premium bundles", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"3 bundles (Triippy hair) · 12–14” base length · Longer lengths priced accordingly.",
+    { key:"premium", name:"Premium bundles", inc:"Includes three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
       note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"+ raw hair", price:650, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
+    { key:"raw", name:"Raw hair package", inc:"Includes three bundles of Triippy raw hair and the Luxury Care Kit.", price:650, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
   ]}
 };
 
@@ -588,12 +594,6 @@ const INSTALLS = {
 const FULANI_SURCHARGE = { qw: 70, si: 70 };
 // Versatile styling: a parting that can be styled several ways. A styling choice (like Fulani), sew-ins and quick weaves.
 const VERSATILE_SURCHARGE = { si: 20, qw: 20 };
-
-// What the price covers, shown above the options so nobody is surprised at the appointment.
-const INSTALL_INCLUDES = {
-  si: { yes:"the braid-down, the sewing, and styling of your choice", no:"a wash and dry. Please arrive with your hair already washed and fully dry." },
-  qw: { yes:"the install and styling of your choice", no:"a wash and dry. Please arrive with your hair already washed and fully dry." },
-};
 
 const INSTALL_ADDONS = [
   { key:"curls", name:"Curls / wand styling", price:15 },
@@ -1596,11 +1596,67 @@ function serviceLabelText(){
   return '';
 }
 
+// A short description under each service: what it is, what's included, how long it takes, how long it lasts, and one note.
+// Any line left as null is simply not shown, so nothing is made up. Fill in the null ones as you decide them.
+const SERVICE_INFO = {
+  si: {
+    desc: "A protective, long-wear install, braided, sewn and styled entirely by hand.",
+    inc: "A full braid-down, bundles sewn with needle and thread, and styling of your choice.",
+    time: "approx. 3–3.5 hours", wear: "6 weeks to 3 months",
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  qw: {
+    desc: "A seamless, low-commitment install for a fresh look in less time.",
+    inc: "A protective shield over your natural hair, tracks precisely placed, and styling of your choice.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  box: {
+    desc: "Lightweight, natural-looking braids, parted cleanly and finished with care.",
+    inc: "Precise parting, braiding hair, and finished ends.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed, fully dry and stretched." },
+  twostrand: {
+    desc: "Clean, defined twists on your natural hair, a classic protective style.",
+    inc: "Sectioning, twisting from root to end, and a finished, polished look.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry. Retwists are not offered." },
+  marley: {
+    desc: "Full, textured twists with a soft, natural finish.",
+    inc: "Sectioning, Marley hair, and twists finished to your preferred length.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  cornrows: {
+    desc: "Neat, sleek cornrows, from simple straight-backs to custom designs.",
+    inc: "Clean parting and cornrows in the style of your choice. Custom designs available on request.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  crochet: {
+    desc: "A quick, versatile protective style with endless texture options.",
+    inc: "A full braid-down, crochet hair looped in, and styling of your choice.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  treatments: {
+    desc: "Restorative care to strengthen, hydrate and revive your hair.",
+    inc: null,
+    time: null, wear: null,
+    note: "Ideal before or between protective styles." },
+};
+// Which description a Braids & Twists style uses (styles without one show nothing).
+const BRAID_SERVICE_KEY = { box:'box', twostrand:'twostrand', marley:'marley' };
+function serviceBlock(key){
+  const i = SERVICE_INFO[key];
+  if(!i) return '';
+  const meta = [i.time ? `<span><span class="svc-label">Time in chair</span>${i.time}</span>` : '', i.wear ? `<span><span class="svc-label">Wear</span>${i.wear}</span>` : ''].join('');
+  return `<p class="svc-desc">${i.desc}</p>` +
+    (i.inc ? `<p class="svc-inc"><span class="svc-label">Your appointment includes</span>${i.inc}</p>` : '') +
+    (meta ? `<div class="svc-meta">${meta}</div>` : '') +
+    (i.note ? `<p class="svc-note">${i.note}</p>` : '');
+}
+
 const CATEGORIES = [
-  { key:'qw', name:'Quick Weave' },
   { key:'si', name:'Sew-In' },
-  { key:'braids', name:'Braids & Twists' },
   { key:'cornrows', name:'Cornrows' },
+  { key:'qw', name:'Quick Weave' },
+  { key:'braids', name:'Braids & Twists' },
   { key:'crochet', name:'Crochet' },
   { key:'treatments', name:'Hair Treatments' },
   { key:'takedown', name:'Takedowns' },
@@ -2170,11 +2226,11 @@ function renderBook(){
           First-time clients booking qualifying sew-in packages receive a curated haircare gift, complete with personalized aftercare guidance to help maintain their style.
         </div>` : ''}
       ${(state.category==='qw'||state.category==='si') ? `
-        <div class="includes-note"><b>What’s included:</b> ${INSTALL_INCLUDES[state.category].yes}.<br><b>Not included:</b> ${INSTALL_INCLUDES[state.category].no}</div>
+        ${serviceBlock(state.category)}
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.slice().reverse().map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
-              <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
+              <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div>${t.inc ? `<p class="svc-inc">${t.inc}</p>` : ''}${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
               <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
@@ -2216,6 +2272,7 @@ function renderBook(){
           <div class="opt-sub" style="margin-bottom:2px;">Style</div>
           <div class="cat-grid">${Object.entries(BRAID_STYLES).map(([k,name])=>`<div class="cat ${state.braidStyle===k?'selected':''}" data-action="pick-braid-style" data-key="${k}"><div class="cat-name">${name}</div></div>`).join('')}</div>
           ${state.braidStyle && BRAID_STYLE_NOTES[state.braidStyle] ? `<div class="opt-sub" style="margin-top:6px;">${BRAID_STYLE_NOTES[state.braidStyle]}</div>` : ''}
+          ${state.braidStyle && BRAID_SERVICE_KEY[state.braidStyle] ? serviceBlock(BRAID_SERVICE_KEY[state.braidStyle]) : ''}
           ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${currentBraidSizes().map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><div><div class="opt-name">${s.name}</div>${s.note ? `<div class="opt-sub">${s.note}</div>` : ''}</div><span class="opt-price">${money(s.price)}${s.note?'+':''}</span></div>`).join('')}` : ''}
           ${state.braidSize ? `<div class="opt-sub" style="margin:12px 0 2px;">Hair</div><div class="length-row"><div class="length-btn ${state.ownHair==='own'?'selected':''}" data-action="pick-own-hair" data-key="own">I have my own hair</div><div class="length-btn ${state.ownHair==='provide'?'selected':''}" data-action="pick-own-hair" data-key="provide">Please provide hair</div></div>` : ''}
           ${state.ownHair==='provide' ? `
@@ -2231,8 +2288,10 @@ function renderBook(){
             </div>` : ''}
         </div>` : ''}
 
+      ${state.category==='cornrows' ? serviceBlock('cornrows') : ''}
       ${state.category==='cornrows' ? `<div class="opt-group" style="margin-top:14px;">${CORNROW_OPTIONS.map(c=>`<div class="opt ${state.cornrowKey===c.key?'selected':''}" data-action="pick-cornrow" data-key="${c.key}"><div><div class="opt-name">${c.name}</div>${c.note ? `<div class="opt-sub">${c.note}</div>` : ''}</div><span class="opt-price">${money(c.price)}${c.plus ? '+' : ''}</span></div>`).join('')}</div>` : ''}
 
+      ${state.category==='crochet' ? serviceBlock('crochet') : ''}
       ${state.category==='crochet' ? `
         <div class="opt-group" style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:6px;">Crochet, no leave-out — who's providing the hair?</div>
@@ -2255,6 +2314,7 @@ function renderBook(){
           <div class="opt-sub">You'll be able to upload inspo photos of the style in the next step.</div>
         </div>` : ''}
 
+      ${state.category==='treatments' ? serviceBlock('treatments') : ''}
       ${state.category==='treatments' ? `<div class="opt-group" style="margin-top:14px;">${TREATMENTS.map(t=>`
         <div class="opt ${state.treatmentKeys[t.key]?'selected':''} ${t.unavailable?'disabled':''}" data-action="${t.unavailable?'treatment-unavailable':'toggle-treatment'}" data-key="${t.key}">
           <div><div class="opt-name">${t.name}</div>${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}${(t.unavailable && state.unavailableNoteKey===t.key) ? `<div class="opt-sub" style="color:var(--pink);">Not currently offering this — check back soon!</div>` : ''}</div>
