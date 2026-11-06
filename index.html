@@ -2204,26 +2204,6 @@ function renderBook(){
       </div>
       <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:12px 0 0;">Not sure yet? Book a consultation ›</div>`}
 
-      ${state.category && state.category!=='consult' ? `
-      <div class="field" style="margin-top:14px; text-align:center;">
-        <label style="display:block;">Booking type</label>
-        <select data-action="pick-booking-type" style="text-align:center; text-align-last:center;">
-          <option value="solo" ${state.bookingType==='solo'?'selected':''}>Solo</option>
-          <option value="couple" ${state.bookingType==='couple'?'selected':''}>Couple Booking</option>
-          <option value="bestie" ${state.bookingType==='bestie'?'selected':''}>Bestie Booking</option>
-        </select>
-        ${bookingTypeShortNote() ? `<div class="opt-sub" style="margin-top:5px;">${bookingTypeShortNote()}</div>` : ''}
-        ${state.bookingType!=='solo' ? `
-        <div class="field" style="margin-top:12px;">
-          <label>${state.bookingType==='couple' ? "Partner's name" : "Bestie's name"}</label>
-          <input type="text" id="f-partner-name" value="${state.partnerName}" placeholder="their name"/>
-        </div>
-        <div class="field">
-          <label>${state.bookingType==='couple' ? "Partner's Instagram handle or phone number" : "Bestie's Instagram handle or phone number"}</label>
-          <input type="text" id="f-partner-contact" value="${state.partnerContact}" placeholder="@theirhandle or their number"/>
-        </div>
-        ` : ''}
-      </div>` : ''}
 
       ${(state.category==='qw'||state.category==='si') ? `
         ${serviceBlock(state.category)}
@@ -2442,6 +2422,29 @@ function renderBook(){
       <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="opt-sub" style="margin-top:-6px;">Add at least one — phone or Instagram.</div>
+    </div>` : ''}
+
+    ${showDetails && state.category!=='consult' ? `
+    <div class="card">
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Booking type</span></div>
+      <div class="field" style="margin:0; text-align:center;">
+        <select data-action="pick-booking-type" aria-label="Booking type" style="text-align:center; text-align-last:center;">
+          <option value="solo" ${state.bookingType==='solo'?'selected':''}>Solo</option>
+          <option value="couple" ${state.bookingType==='couple'?'selected':''}>Couple Booking</option>
+          <option value="bestie" ${state.bookingType==='bestie'?'selected':''}>Bestie Booking</option>
+        </select>
+        ${bookingTypeShortNote() ? `<div class="opt-sub" style="margin-top:5px;">${bookingTypeShortNote()}</div>` : ''}
+        ${state.bookingType!=='solo' ? `
+        <div class="field" style="margin-top:12px;">
+          <label>${state.bookingType==='couple' ? "Partner's name" : "Bestie's name"}</label>
+          <input type="text" id="f-partner-name" value="${state.partnerName}" placeholder="their name"/>
+        </div>
+        <div class="field">
+          <label>${state.bookingType==='couple' ? "Partner's Instagram handle or phone number" : "Bestie's Instagram handle or phone number"}</label>
+          <input type="text" id="f-partner-contact" value="${state.partnerContact}" placeholder="@theirhandle or their number"/>
+        </div>
+        ` : ''}
+      </div>
     </div>` : ''}
 
     ${showDetails && state.category!=='consult' ? `
