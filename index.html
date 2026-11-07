@@ -1434,7 +1434,7 @@ function resetSelection(){
   state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1;
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
-  state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleKitUpgrade=false;
+  state.bundleLength=""; state.bundleQty=1; state.bundleDetails=""; state.bundleTexture=""; state.bundleHairSource=""; state.bundleKitUpgrade=false;
   state.customDetails="";
   state.takedownKey=null; state.takedownWashConfirmed=false;
   state.squeezeIn=false;
@@ -1684,6 +1684,7 @@ function dealsLabelText(clientFacing){
   if(isThanksgivingWeek(state.date)) dealDetails.push(clientFacing ? 'Thanksgiving Week (15% off)' : 'Thanksgiving week (auto 15% off)');
   return dealDetails.join(', ');
 }
+function bundleLengthText(){ const L = EXTRA_LENGTHS.find(x => x.key === state.bundleLength); return L ? ', length ' + L.label : ''; }
 function serviceLabelText(){
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier(); if(!tier) return '';
@@ -1709,7 +1710,7 @@ function serviceLabelText(){
     return s;
   }
   if(state.category==='bundles'){
-    return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
+    return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}${bundleLengthText()}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
   }
   if(state.category==='custom') return `Custom style request (approval-based) — ${state.customDetails}`;
   if(state.category==='takedown'){
@@ -2369,11 +2370,13 @@ function renderBook(){
               </div>` : ''}
             ${(state.tierKey===t.key && t.lengths) ? `
               <div style="padding:0 2px;">
-                <div class="opt-sub" style="margin-top:8px;">Need longer? Add extra bundles in the length you want:</div>
-                <div class="opt-sub" style="margin:8px 0 4px;">16–20"${t.addBundle["16-20"] ? ' · +' + money(t.addBundle["16-20"]) + ' per bundle' : ''}</div>
-                <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='16-20').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
-                <div class="opt-sub" style="margin:10px 0 4px;">22"+${t.addBundle["22+"] ? ' · +' + money(t.addBundle["22+"]) + ' per bundle' : ''}</div>
-                <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='22+').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
+                <div class="field" style="margin:10px 0 0;">
+                  <label>Need longer?</label>
+                  <select id="install-length-${t.key}" data-action="pick-length-select">
+                    <option value="">No, the standard length is fine</option>
+                    ${EXTRA_LENGTHS.map(x => `<option value="${x.key}" ${state.lengthIn===x.key?'selected':''}>Add extra bundles at ${x.label}${t.addBundle[x.band] ? ' (+' + money(t.addBundle[x.band]) + ' per bundle)' : ''}</option>`).join('')}
+                  </select>
+                </div>
                 ${state.length ? `
                 <div class="bundle-row">
                   <span class="opt-sub">Extra bundles needed (${(EXTRA_LENGTHS.find(x => x.key === state.lengthIn) || { label:'' }).label})</span>
@@ -2718,6 +2721,11 @@ function renderBundles(){
           ${textureOptionsHTML(Array.from(new Set([...RAW_HUMAN_TEXTURES, ...SYNTHETIC_TEXTURES])), state.bundleTexture)}
         </select>
       </div>
+      <div class="opt-sub" style="margin-bottom:2px;">Length</div>
+      <div class="opt-sub" style="margin:6px 0 2px;">16–20"</div>
+      <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='16-20').map(x => `<div class="length-btn ${state.bundleLength===x.key?'selected':''}" data-action="pick-bundle-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
+      <div class="opt-sub" style="margin:10px 0 2px;">22"+</div>
+      <div class="length-row len-grid" style="margin-bottom:14px;">${EXTRA_LENGTHS.filter(x => x.band==='22+').map(x => `<div class="length-btn ${state.bundleLength===x.key?'selected':''}" data-action="pick-bundle-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
       <div class="opt-sub" style="margin-bottom:6px;">How many bundles?</div>
       <div class="bundle-row">
         <span class="opt-sub">Quantity</span>
@@ -3261,6 +3269,11 @@ function attachHandlers(){
       else if(action==='pick-custom-style'){ state.customStyle = key; if(key !== 'own') state.customStyleText = ''; }
       else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.lengthIn=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
       else if(action==='pick-install-texture'){ state.installTexture = el.value; }
+      else if(action==='pick-length-select'){
+        const L = EXTRA_LENGTHS.find(x => x.key === el.value);
+        if(L){ state.lengthIn = L.key; state.length = L.band; state.addBundleCount = state.addBundleCount || 1; }
+        else{ state.lengthIn = null; state.length = null; state.addBundleCount = 0; }
+      }
       else if(action==='pick-length'){ const L = EXTRA_LENGTHS.find(x => x.key === key); if(L){ state.lengthIn = L.key; state.length = L.band; state.addBundleCount = state.addBundleCount || 1; } }
       else if(action==='bundle-plus'){ state.addBundleCount++; }
       else if(action==='bundle-minus'){ state.addBundleCount = Math.max(0,state.addBundleCount-1); }
@@ -3305,6 +3318,7 @@ function attachHandlers(){
       else if(action==='qty-plus'){ state.bundleQty++; }
       else if(action==='qty-minus'){ state.bundleQty = Math.max(1, state.bundleQty-1); }
       else if(action==='pick-bundle-source'){ state.bundleHairSource = key; }
+      else if(action==='pick-bundle-length'){ state.bundleLength = key; }
       else if(action==='pick-bundle-texture'){ state.bundleTexture = el.value; }
       else if(action==='toggle-agree'){ state.agreedPolicy = !state.agreedPolicy; }
       else if(action==='pick-content'){ state.contentOk = key; if(/photos or videos/.test(state.error)) state.error = ""; }
