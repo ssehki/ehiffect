@@ -1425,6 +1425,7 @@ function checkoutSummaryHTML(){
     <div class="step-label"><span class="step-title">Your order</span></div>
     <div style="font-size:14px; line-height:1.5;">${escapeHTML(serviceLabelText())}</div>
     <div class="total-bar" style="margin-top:12px;"><span class="label">estimated total</span><span class="amount">${displayTotal(calcTotal())}</span></div>
+    ${state.category !== 'consult' && state.category !== 'bundles' ? `<div style="margin-top:14px;">${regularPanelHTML()}</div>` : ''}
     <span class="back-link" data-action="to-service" role="button" tabindex="0" style="margin:10px 0 0;">&lsaquo; change my ${state.category === 'bundles' ? 'order' : 'service'}</span>
   </div>`;
 }
@@ -1805,7 +1806,7 @@ function tierPrice(t){
 }
 function regularPanelHTML(){
   if(state.regular){
-    return `<div class="reg-ok">Welcome back, <b>${escapeHTML(state.regular.first)}</b>! Your regular Sew-In installation-only price (${money(state.regular.rate)}) is applied. <span class="reg-undo" data-action="regular-clear" role="button" tabindex="0">Not you?</span></div>`;
+    return `<div class="reg-ok">Welcome back, <b>${escapeHTML(state.regular.first)}</b>! ${(state.category==='si' && state.tierKey==='service') ? `Your regular Sew-In installation-only price (${money(state.regular.rate)}) is applied.` : `You're verified as a regular client.`} <span class="reg-undo" data-action="regular-clear" role="button" tabindex="0">Not you?</span></div>`;
   }
   return `<div class="back-link" data-action="regular-toggle" role="button" tabindex="0" style="display:block; text-align:left; margin:0 0 12px;">Regular client? ${state.regularOpen ? '‹' : '›'}</div>` +
     (state.regularOpen ? `<div class="reg-panel">
@@ -2362,7 +2363,6 @@ function renderBook(){
       ` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
       <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 12px;">Not sure yet? Book a consultation ›</div>
-      ${regularPanelHTML()}
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
       </div>`}
