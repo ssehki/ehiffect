@@ -2394,7 +2394,7 @@ function renderBook(){
                 <div class="opt-sub" style="margin-top:12px; color:var(--cream);"><b>Length of your ${tierBundles(t)} bundles</b></div>
                 <div class="opt-sub">Tap a length once for each bundle. Pick the same one ${tierBundles(t)} times, or mix them.</div>
                 ${lenPickerHTML(state.pkgLengths, tierBundles(t), 'pkg-len-add', 'pkg')}
-                <div class="back-link" data-action="toggle-longer" role="button" tabindex="0" style="display:block; margin:14px 0 0;">Need longer? Add extra bundles ${state.longerOpen ? '&lsaquo;' : '&rsaquo;'}</div>
+                <div class="back-link" data-action="toggle-longer" role="button" tabindex="0" style="display:block; margin:14px 0 0;">Need more? Add extra bundles ${state.longerOpen ? '&lsaquo;' : '&rsaquo;'}</div>
                 ${!state.longerOpen && state.length ? `<div class="opt-sub">+${state.addBundleCount} extra bundle(s) at ${(EXTRA_LENGTHS.find(x => x.key === state.lengthIn) || { label:'' }).label}</div>` : ''}
                 ${state.longerOpen ? `
                 <div class="opt-sub" style="margin-top:8px;">Add extra bundles in the length you want:</div>
