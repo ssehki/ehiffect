@@ -126,7 +126,6 @@
   .reg-undo{ margin-left:6px; text-decoration:underline; cursor:pointer; color:var(--pink); }
   .reg-err{ color:#E7A0A0; font-size:12.5px; margin-top:4px; }
   .flow-nav{ position:sticky; top:0; z-index:25; margin:-36px -20px 18px; padding:10px 20px 12px; background:var(--bg); border-bottom:1px solid var(--line); }
-  .fn-back{ display:block; background:none; border:none; padding:2px 0 8px; color:var(--pink); font-family:'Work Sans', sans-serif; font-size:13px; letter-spacing:0.03em; cursor:pointer; }
   .fn-tabs{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
   .fn-tab{ padding:9px 2px; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:10.5px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; }
   .fn-tab.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
@@ -1413,11 +1412,11 @@ function flowNavHTML(){
   const co = (inBook || inBundles) && state.bookStep === 'checkout' && serviceChosen();
   const canCheckout = (inBook || inBundles) && serviceChosen();
   const tab = (act, label, on, off) => `<button type="button" class="fn-tab${on ? ' on' : ''}${off ? ' off' : ''}" data-action="${act}"${on ? ' aria-current="step"' : ''}${off ? ' aria-disabled="true" title="Pick a service first"' : ''}>${label}</button>`;
-  return `<div class="flow-nav"><button type="button" class="fn-back" data-action="go-back">&lsaquo; Back</button>
-    <div class="fn-tabs">${tab('go-landing', 'Home', false, false)}${tab('nav-booking', 'Booking', inBook && !co, false)}${tab('nav-bundles', 'Bundles', inBundles && !co, false)}${tab('nav-checkout', 'Checkout', co, !canCheckout)}</div></div>`;
+  return `<div class="flow-nav"><div class="fn-tabs">${tab('go-landing', 'Home', false, false)}${tab('nav-booking', 'Booking', inBook && !co, false)}${tab('nav-bundles', 'Bundles', inBundles && !co, false)}${tab('nav-checkout', 'Checkout', co, !canCheckout)}</div></div>`;
 }
 function checkoutSummaryHTML(){
   return `<div class="card">
+    <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
     <div class="step-label"><span class="step-title">Your order</span></div>
     <div style="font-size:14px; line-height:1.5;">${escapeHTML(serviceLabelText())}</div>
     <div class="total-bar" style="margin-top:12px;"><span class="label">estimated total</span><span class="amount">${displayTotal(calcTotal())}</span></div>
@@ -2333,6 +2332,7 @@ function renderBook(){
     </div>
 
     ${co ? checkoutSummaryHTML() : `<div class="card">
+      <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
       ${state.category==='consult' ? `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Consultation</span></div>
       <div class="back-link" data-action="pick-category" data-key="" role="button" tabindex="0" style="margin:-4px 0 10px;">See all services instead ›</div>
@@ -2705,6 +2705,7 @@ function renderBundles(){
     </div>
 
     ${co ? checkoutSummaryHTML() : `<div class="card">
+      <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
       <div class="opt-sub" style="margin-bottom:6px;">Virgin or raw hair?</div>
       <div class="length-row">
         <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
