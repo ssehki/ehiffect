@@ -102,12 +102,12 @@
   .opt-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
   .opt-flag{ font-size:9.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--pink-deep); margin-bottom:4px; }
   .style-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
-  .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; padding-left:6px; padding-right:6px; }
+  .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; min-height:50px; padding:6px 4px; font-size:14px; line-height:1.2; }
   .style-row .sty-price{ display:block; margin-top:2px; font-size:10.5px; font-weight:400; opacity:.7; letter-spacing:.02em; }
   .len-grid{ flex-wrap:wrap; gap:6px; margin-top:6px; }
   .len-grid .length-btn{ flex:0 0 auto; width:46px; height:46px; min-width:0; padding:0; font-size:13px; display:flex; align-items:center; justify-content:center; }
-  .custom-style-btn{ width:100%; text-align:center; }
-  .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
+  .custom-style-btn{ width:100%; text-align:center; min-height:0; padding:10px 4px; font-size:14px; }
+  .style-row .opt-flag{ letter-spacing:.1em; font-size:8px; white-space:nowrap; margin-bottom:2px; }
   .home-reviews{ margin-top:34px; }
   .hr-card{ margin:0 0 10px; padding:14px 16px; background:#FFFFFF; border:1px solid var(--line); border-radius:8px; text-align:left; }
   .hr-stars{ color:#B85C82; font-size:13px; letter-spacing:.08em; margin-bottom:4px; }
@@ -578,20 +578,20 @@ const LOGO_LIGHT_B64 = "iVBORw0KGgoAAAANSUhEUgAAApEAAAJMCAYAAACii/06AAEAAElEQVR4
 const SALE_ENDS = new Date(2026, 9, 31, 23, 59, 59);
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
-    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended.", price:120 },
-    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Three bundles of synthetic hair.", price:160 },
-    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
-    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
-    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
-    { key:"raw", name:"Raw hair package", inc:"Three bundles of raw hair, plus the Luxury Care Kit.", price:610, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"service", name:"Installation only", inc:"bring your own hair, three bundles recommended.", price:120 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"three bundles of synthetic hair included.", price:160, lengths:true, addBundle:{ "16-20":25, "22+":25 } },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"two bundles of human hair included.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"three bundles of human hair included.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"premium", name:"Premium bundles", inc:"three bundles of Triippy hair included.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"raw", name:"Raw hair package", inc:"three bundles of raw hair included, plus the Luxury Care Kit.", price:610, lengths:true, addBundle:{ "16-20":0, "22+":0 }, note:"starting price, varies by length. final quote after your request." },
   ]},
   si: { label:"Sew-In", tiers:[
-    { key:"service", name:"Installation only", inc:"Bring your own hair. Three bundles recommended.", price:175 },
-    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"Three bundles of synthetic hair.", price:200 },
-    { key:"human", name:"Human hair package — 2 bundles", inc:"Two bundles of human hair.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
-    { key:"human3", name:"Human hair package — 3 bundles", inc:"Three bundles of human hair.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
-    { key:"premium", name:"Premium bundles", inc:"Three bundles of Triippy hair.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"Starting price. Varies by length. Final quote after your request." },
-    { key:"raw", name:"Raw hair package", inc:"Three bundles of raw hair, plus the Luxury Care Kit.", price:650, note:"Starting price. Varies by length. Final quote after your request." },
+    { key:"service", name:"Installation only", inc:"bring your own hair, three bundles recommended.", price:175 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"three bundles of synthetic hair included.", price:200, lengths:true, addBundle:{ "16-20":25, "22+":25 } },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"two bundles of human hair included.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"three bundles of human hair included.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"premium", name:"Premium bundles", inc:"three bundles of Triippy hair included.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"raw", name:"Raw hair package", inc:"three bundles of raw hair included, plus the Luxury Care Kit.", price:650, lengths:true, addBundle:{ "16-20":0, "22+":0 }, note:"starting price, varies by length. final quote after your request." },
   ]}
 };
 
@@ -608,10 +608,8 @@ const FULANI_SURCHARGE = { qw: 80, si: 80 };
 const VERSATILE_SURCHARGE = { si: 15, qw: 15 };
 
 const INSTALL_ADDONS = [
-  { key:"curls", name:"Curls / wand styling", price:15 },
   { key:"closure", name:"Closure install", price:30 },
   { key:"extraBundleSynthetic", name:"Extra bundle (synthetic)", price:25 },
-  { key:"extraBundleHuman", name:"Extra bundle (human)", price:50 },
 ];
 
 // the add-ons shown for the service being booked (versatile styling is for sew-ins only)
@@ -1621,12 +1619,12 @@ const SERVICE_INFO = {
   si: {
     desc: "A protective, long-wear install, braided, sewn and styled entirely by hand.",
     inc: "A full braid-down, bundles sewn with needle and thread, and styling of your choice.",
-    time: "approx. 3–3.5 hours", wear: "6 weeks to 3 months",
+    time: "approx. 3–3.5 hours", wear: "approx. 6 weeks to 3 months",
     note: "Please arrive with your hair freshly washed and fully dry." },
   qw: {
     desc: "A seamless, low-commitment install for a fresh look in less time.",
     inc: "A protective shield over your natural hair, tracks precisely placed, and styling of your choice.",
-    time: null, wear: null,
+    time: "approx. 2 hours, approx. 3 hours with styling", wear: "approx. 2 weeks to a month",
     note: "Please arrive with your hair freshly washed and fully dry." },
   box: {
     desc: "Lightweight, natural-looking braids, parted cleanly and finished with care.",
@@ -2243,9 +2241,9 @@ function renderBook(){
             ${(state.tierKey===t.key && t.lengths) ? `
               <div style="padding:0 2px;">
                 <div class="opt-sub" style="margin-top:8px;">Need longer? Add extra bundles in the length you want:</div>
-                <div class="opt-sub" style="margin:8px 0 4px;">16–20" · +${money(t.addBundle["16-20"])} per bundle</div>
+                <div class="opt-sub" style="margin:8px 0 4px;">16–20"${t.addBundle["16-20"] ? ' · +' + money(t.addBundle["16-20"]) + ' per bundle' : ''}</div>
                 <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='16-20').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
-                <div class="opt-sub" style="margin:10px 0 4px;">22"+ · +${money(t.addBundle["22+"])} per bundle</div>
+                <div class="opt-sub" style="margin:10px 0 4px;">22"+${t.addBundle["22+"] ? ' · +' + money(t.addBundle["22+"]) + ' per bundle' : ''}</div>
                 <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='22+').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
                 ${state.length ? `
                 <div class="bundle-row">
@@ -2388,7 +2386,7 @@ function renderBook(){
       <div class="squeeze-row ${state.squeezeIn?'on':''}">
         <input type="checkbox" id="squeeze-in" ${state.squeezeIn?'checked':''} data-action="toggle-squeeze"/>
         <label for="squeeze-in"><b>I need a squeeze-in appointment</b> <span class="squeeze-fee">+${money(SQUEEZE_IN_FEE)}</span>
-          <span class="squeeze-sub">Want a day that's already booked, or need me last minute (even today or tomorrow)? Check this and booked days open up on the calendar below — pick one and I'll see if I can fit you in. Squeeze-ins are only confirmed once I approve.</span></label>
+          <span class="squeeze-sub">Want a day that's already booked, or need me last minute? Check this and booked days open up on the calendar below. Pick one and I'll see if I can fit you in. Only confirmed once I approve.</span></label>
       </div>` : ''}
       <div class="field">
         <label>Preferred date <span style="color:var(--pink);">*required</span></label>
@@ -2544,7 +2542,7 @@ function renderBook(){
       <div class="deposit-note">
         ${state.category==='consult'
           ? `Your consultation isn't confirmed until a <b>${money(CONFIG.depositAmount)} fee</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. If you end up booking a service, this goes toward your deposit — no separate deposit needed.`
-          : `Your appointment isn't confirmed until a <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. Deposit comes off your total at your appointment. A deposit is always required — unless you've already paid for a consultation, which counts toward it.`}
+          : `Your appointment isn't confirmed until your <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time.<span style="display:block; margin-top:10px;">Your deposit comes off your total at your appointment. A paid consultation counts toward it.</span>`}
       </div>
 
       <div class="agree-row">
