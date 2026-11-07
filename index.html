@@ -2213,7 +2213,7 @@ function renderBook(){
       <p class="aftercare-text" style="margin:0;">Not sure a style will work for your hair, or just have questions before committing? A consultation is time set aside just to talk through it — whether it's a specific concern about your hair, making sure a service is possible, or anything else you'd like to ask. I'll confirm the consultation once it's booked.</p>
       ` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
-      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:2px 0 12px;">Not sure yet? Book a consultation ›</div>
+      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 12px;">Not sure yet? Book a consultation ›</div>
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
       </div>`}
