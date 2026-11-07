@@ -113,7 +113,7 @@
   .hr-stars{ color:#B85C82; font-size:13px; letter-spacing:.08em; margin-bottom:4px; }
   .hr-card blockquote{ margin:0; font-size:14px; line-height:1.5; color:#211A1B; }
   .hr-card figcaption{ margin-top:6px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C7B7E; }
-  .svc-block { margin:16px 0 16px; padding:14px 14px 13px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,0.025); }
+  .svc-block { margin:16px 0 16px; padding:0; }
   .svc-block > :last-child { margin-bottom:0; }
   .svc-desc  { color:#e9dfe2; font-size:14.5px; line-height:1.5; margin:0 0 12px; }
   .svc-inc   { color:#b9aab0; font-size:13.5px; line-height:1.5; margin:0 0 12px; }
@@ -1625,7 +1625,7 @@ const SERVICE_INFO = {
     note: "Please arrive with your hair freshly washed and fully dry." },
   qw: {
     desc: "A seamless, low-commitment install for a fresh look in less time.",
-    inc: "A protective shield over your natural hair, tracks precisely placed, and styling of your choice.",
+    inc: "A protective shield over your natural hair, tracks precisely placed, oiling, and styling of your choice.",
     time: "approx. 2 hours, approx. 3 hours with styling", wear: "approx. 2 weeks to a month",
     note: "Please arrive with your hair freshly washed and fully dry." },
   box: {
@@ -2213,10 +2213,10 @@ function renderBook(){
       <p class="aftercare-text" style="margin:0;">Not sure a style will work for your hair, or just have questions before committing? A consultation is time set aside just to talk through it — whether it's a specific concern about your hair, making sure a service is possible, or anything else you'd like to ask. I'll confirm the consultation once it's booked.</p>
       ` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
+      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:2px 0 12px;">Not sure yet? Book a consultation ›</div>
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
-      </div>
-      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:12px 0 0;">Not sure yet? Book a consultation ›</div>`}
+      </div>`}
 
 
       ${(state.category==='qw'||state.category==='si') ? `
