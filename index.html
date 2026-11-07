@@ -1619,8 +1619,8 @@ function serviceLabelText(){
 // Any line left as null is simply not shown, so nothing is made up. Fill in the null ones as you decide them.
 const SERVICE_INFO = {
   si: {
-    desc: "A protective, long-wear install, braided, sewn and styled entirely by hand.",
-    inc: "A full braid-down, bundles sewn with needle and thread, and styling of your choice.",
+    desc: null,
+    inc: "A full braid-down, bundles sewn with needle and thread, oiling, and styling of your choice.",
     time: "approx. 3–3.5 hours", wear: "approx. 6 weeks to 3 months",
     note: "Please arrive with your hair freshly washed and fully dry." },
   qw: {
@@ -1665,7 +1665,7 @@ function serviceBlock(key){
   const i = SERVICE_INFO[key];
   if(!i) return '';
   const meta = [i.time ? `<span><span class="svc-label">Time in chair</span>${i.time}</span>` : '', i.wear ? `<span><span class="svc-label">Wear</span>${i.wear}</span>` : ''].join('');
-  return `<div class="svc-block"><p class="svc-desc">${i.desc}</p>` +
+  return `<div class="svc-block">` + (i.desc ? `<p class="svc-desc">${i.desc}</p>` : '') +
     (i.inc ? `<p class="svc-inc"><span class="svc-label">Your appointment includes</span>${i.inc}</p>` : '') +
     (meta ? `<div class="svc-meta">${meta}</div>` : '') +
     (i.note ? `<p class="svc-note">${i.note}</p>` : '') + `</div>`;
