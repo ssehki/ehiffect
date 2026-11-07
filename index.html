@@ -121,6 +121,10 @@
   .svc-meta  { display:flex; flex-wrap:wrap; gap:8px 24px; color:#b9aab0; font-size:13.5px; line-height:1.4; margin-bottom:12px; }
   .svc-note  { color:#8f8287; font-size:12.5px; line-height:1.45; font-style:italic; margin:0; }
   .opt.selected .opt-flag{ color:#241318; opacity:.65; }
+  .reg-panel{ margin:0 0 14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; }
+  .reg-ok{ margin:0 0 12px; padding:10px 12px; border:1px solid var(--pink); border-radius:4px; font-size:13px; line-height:1.5; }
+  .reg-undo{ margin-left:6px; text-decoration:underline; cursor:pointer; color:var(--pink); }
+  .reg-err{ color:#E7A0A0; font-size:12.5px; margin-top:4px; }
   .opt.tier{ display:block; }
   .tier-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
   .tier-lines{ margin-top:3px; }
@@ -1310,6 +1314,7 @@ let state = {
   showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
   manageToken: "", manage: null, mLoading: false, mErr: "", mTab: "", mForm: {}, mPhotos: [], mNotice: "", mErrText: "", mBusy: false,
   installTexture: "",
+  regular: null, regularOpen: false, regularName: "", regularCode: "", regularErr: "", regularBusy: false,   // regular-client price (see regularPanelHTML)
   customStyle: "", customStyleText: "",      // Sew-In "Custom styling": flipover | hybrid | own (+ their words)
   dealsSelected: [],
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
@@ -1413,7 +1418,7 @@ function computeBaseTotal(){
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier();
     if(tier){
-      total += tier.price;
+      total += tierPrice(tier);
       if(tier.addBundle && state.addBundleCount>0 && state.length) total += tier.addBundle[state.length] * state.addBundleCount;
       if(state.style === 'fulani') total += FULANI_SURCHARGE[state.category];
       else if(state.style === 'versatile' && VERSATILE_SURCHARGE[state.category]) total += VERSATILE_SURCHARGE[state.category];
@@ -1669,6 +1674,25 @@ function serviceBlock(key){
     (i.inc ? `<p class="svc-inc"><span class="svc-label">Your appointment includes</span>${i.inc}</p>` : '') +
     (meta ? `<div class="svc-meta">${meta}</div>` : '') +
     (i.note ? `<p class="svc-note">${i.note}</p>` : '') + `</div>`;
+}
+
+// ---- Regular clients: type your name + the code I gave you, and your regular installation-only price shows up ----
+// The code is checked by my Sheet (action=regularCheck), never in this page, so it can't be read from the site's code.
+function tierPrice(t){
+  return (state.regular && state.category === 'si' && t.key === 'service') ? state.regular.rate : t.price;
+}
+function regularPanelHTML(){
+  if(state.regular){
+    return `<div class="reg-ok">Welcome back, <b>${escapeHTML(state.regular.first)}</b>! Your regular Sew-In installation-only price (${money(state.regular.rate)}) is applied. <span class="reg-undo" data-action="regular-clear" role="button" tabindex="0">Not you?</span></div>`;
+  }
+  return `<div class="back-link" data-action="regular-toggle" role="button" tabindex="0" style="display:block; text-align:left; margin:0 0 12px;">Regular client? ${state.regularOpen ? '‹' : '›'}</div>` +
+    (state.regularOpen ? `<div class="reg-panel">
+      <div class="opt-sub" style="margin:0 0 8px;">Type the name you booked under and the code I gave you.</div>
+      <div class="field" style="margin-bottom:8px;"><label>Your name</label><input type="text" id="f-regular-name" value="${escapeHTML(state.regularName)}" placeholder="first and last name" autocomplete="name"/></div>
+      <div class="field" style="margin-bottom:8px;"><label>Regular client code</label><input type="text" id="f-regular-code" value="${escapeHTML(state.regularCode)}" placeholder="your code" autocapitalize="characters" autocomplete="off"/></div>
+      ${state.regularErr ? `<div class="reg-err">${escapeHTML(state.regularErr)}</div>` : ''}
+      <button class="cta-btn" data-action="regular-apply" ${state.regularBusy ? 'disabled' : ''} style="margin:8px 0 0;">${state.regularBusy ? 'Checking...' : 'Apply my regular price'}</button>
+    </div>` : '');
 }
 
 const CATEGORIES = [
@@ -2214,6 +2238,7 @@ function renderBook(){
       ` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
       <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 12px;">Not sure yet? Book a consultation ›</div>
+      ${regularPanelHTML()}
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
       </div>`}
@@ -2226,9 +2251,9 @@ function renderBook(){
             <div class="opt tier ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
               <div class="tier-head">
                 <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div></div>
-                <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
+                <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${tierPrice(t) !== t.price ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.price)}</s>` : ''}${money(tierPrice(t))}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
               </div>
-              <div class="tier-lines">${t.inc ? `<p class="svc-inc">${t.inc}</p>` : ''}${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
+              <div class="tier-lines">${t.inc ? `<p class="svc-inc">${t.inc}</p>` : ''}${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}${tierPrice(t) !== t.price ? `<div class="opt-sub">your regular client price</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
               <div style="padding:0 2px; margin-top:8px;">
@@ -3087,6 +3112,26 @@ function attachHandlers(){
         if(idx >= 0){ state.dealsSelected.splice(idx,1); }
         else if(state.dealsSelected.length < MAX_DEALS){ state.dealsSelected.push(key); }
       }
+      else if(action==='regular-toggle'){ state.regularOpen = !state.regularOpen; state.regularErr = ''; }
+      else if(action==='regular-clear'){ state.regular = null; state.regularCode = ''; state.regularErr = ''; }
+      else if(action==='regular-apply'){
+        if(state.regularBusy) return;
+        const nm = (state.regularName || '').trim(), cd = (state.regularCode || '').trim();
+        if(!nm || !cd){ state.regularErr = "Please type your name and your code."; }
+        else{
+          state.regularErr = ''; state.regularBusy = true; render();
+          try{
+            const res = await fetch(CONFIG.apiUrl + "?action=regularCheck&payload=" + encodeURIComponent(JSON.stringify({ name: nm, code: cd })));
+            const j = await res.json();
+            if(j && j.ok){
+              state.regular = { name: j.name, first: j.first, rate: Number(j.rate) };
+              state.regularOpen = false;
+              if(!state.name) state.name = j.name;
+            }else state.regularErr = (j && j.error) || "I couldn't check that right now. Please try again in a bit.";
+          }catch(err){ state.regularErr = "I couldn't check that right now. Please try again in a bit."; }
+          state.regularBusy = false;
+        }
+      }
       else if(action==='pick-style'){ state.style = key; if(key !== 'custom'){ state.customStyle = ''; state.customStyleText = ''; } }
       else if(action==='pick-custom-style'){ state.customStyle = key; if(key !== 'own') state.customStyleText = ''; }
       else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.lengthIn=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
@@ -3223,7 +3268,8 @@ function attachHandlers(){
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
           giftKit: kitLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)') : '',
           total: (rawTotal===null ? "Quote pending" : rawTotal),
-          contentOk: contentQuestionApplies() ? state.contentOk : ''
+          contentOk: contentQuestionApplies() ? state.contentOk : '',
+          regular: state.regular ? { name: state.regularName, code: state.regularCode } : null
         };
         const originalBtnText = el.textContent;
         el.disabled = true; el.textContent = "Sending...";
@@ -3315,7 +3361,7 @@ function attachHandlers(){
   // keep text/textarea fields synced live so a re-render triggered by another
   // control (checkbox, select, date/time) never wipes what's already been typed
   const liveFieldMap = {
-    'f-custom-style':'customStyleText', 'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-email':'email', 'f-notes':'notes', 'f-reference-link':'referenceLink',
+    'f-custom-style':'customStyleText', 'f-regular-name':'regularName', 'f-regular-code':'regularCode', 'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-email':'email', 'f-notes':'notes', 'f-reference-link':'referenceLink',
     'f-bundle-details':'bundleDetails', 'f-crochet-details':'crochetDetails',
     'f-group-names':'treatmentGroupNames',
     'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',

@@ -97,6 +97,8 @@
   .field textarea{ min-height:90px; resize:vertical; line-height:1.5; }
   .in:focus, .field input:focus, .field textarea:focus, .field select:focus{ outline:2px solid var(--pink); outline-offset:1px; }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .rg-row{ display:grid; grid-template-columns:1.4fr .8fr 1fr auto; gap:6px; margin-bottom:6px; align-items:center; }
+  .rg-row input{ min-width:0; padding:9px 8px; font-size:14px; }
   .cal{ margin:10px 0 4px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); }
   .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
   .cal-head b{ font-family:'Cormorant Garamond', serif; font-size:19px; font-weight:600; }
@@ -432,6 +434,7 @@ function bookingRow(b, opts){
     <div class="row-main">
       <div class="row-title">${esc(b.name || "No name")} ${opts.noPill ? '' : pill(b.status)}</div>
       <div class="row-sub">${esc(opts.sub !== undefined ? opts.sub : (when(b) + " · " + svc(b)))}</div>
+      ${regularTag(b) ? `<div>${regularTag(b)}</div>` : ''}
       ${opts.note ? `<div class="row-note">${opts.note}</div>` : ''}
     </div>
     ${opts.actions ? `<div class="row-actions">${opts.actions}</div>` : '<span class="chev" aria-hidden="true">›</span>'}
@@ -451,7 +454,7 @@ function inbox(){
         <div class="row-title">${esc(b.name)} ${todo(b) ? '<span class="tag warn">to prep</span>' : ''}${b.status === 'pending' ? ' <span class="tag bad">not approved yet</span>' : ''}${b.isSqueeze ? ' <span class="tag warn">⚡ squeeze-in</span>' : ''}</div>
         <div class="row-sub">${esc((b.time || "no time") + " · " + svcName(b))}</div>
         ${b.needsHair ? `<div class="row-note">✂ ${esc(b.hairDetails)}</div>` : ''}
-        <div>${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/^No|face/i.test(b.contentOk || '') ? contentTag(b) : ''}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
+        <div>${regularTag(b)} ${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/^No|face/i.test(b.contentOk || '') ? contentTag(b) : ''}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
         ${clashNote(b)}
       </div>
       <div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">
@@ -649,6 +652,7 @@ function more(){
     <div class="list">${Object.keys(T).filter(k => k !== "custom").map(k => `<div class="row" data-a="tpl" data-k="${k}">
       <div class="row-main"><div class="row-title">${esc(T[k].label)} ${T[k].edited ? '<span class="tag good">edited</span>' : ''}</div><div class="row-sub">${esc(T[k].when)}</div></div>
       <span class="chev" aria-hidden="true">›</span></div>`).join("")}</div>
+    ${regularsSection()}
     ${calendarSection()}
     <h2 class="sec">Deals &amp; hours</h2>
     ${dealsSection()}
@@ -659,6 +663,44 @@ function more(){
     <div class="list">
       <a class="row" href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;"><div class="row-main"><div class="row-title">Open booking site</div></div><span class="chev">↗</span></a>
       <div class="row" data-a="logout"><div class="row-main"><div class="row-title">Log out of this phone</div></div></div>
+    </div>`;
+}
+
+// Tags on a booking: regular (name + code matched your list) or someone who said they're regular but didn't match,
+// plus how many past visits they have on file, so you can double check a regular is really returning.
+function regularTag(b){
+  const r = String(b.regular || ""), visits = Number(b.priorVisits || 0);
+  const out = [];
+  if(r.indexOf("verified:") === 0){
+    out.push(`<span class="tag good">regular client ✓ install-only ${money(Number(r.split(":")[1]))}</span>`);
+    out.push(visits > 0 ? `<span class="tag">${visits} past visit${visits === 1 ? '' : 's'} on file</span>` : `<span class="tag warn">no past visits on file, double check</span>`);
+  }else if(r === "unverified"){
+    out.push(`<span class="tag bad">⚠ said regular, name/code didn't match: treat as new</span>`);
+  }else if(visits > 0){
+    out.push(`<span class="tag">returning · ${visits} past visit${visits === 1 ? '' : 's'}</span>`);
+  }
+  return out.join(" ");
+}
+
+// Settings: the regular-client code, the default regular price, and each regular's own installation-only price.
+function regularsSection(){
+  const R = S.data && S.data.regulars; if(!R) return '';
+  const d = S.regDraft || (S.regDraft = { code: R.code || "", rate: String(R.rate), clients: (R.clients || []).map(c => ({ name: c.name, rate: c.rate === null || c.rate === undefined ? "" : String(c.rate), note: c.note || "" })) });
+  return `<h2 class="sec">Regular clients</h2>
+    <div class="box">
+      <p class="hint" style="margin-top:0;">Regulars open "Regular client?" on your booking page and type their name and your code. If both match this list, their Sew-In installation-only price changes to the one below. Nothing else changes. The code is checked in your Sheet, never on the public website.</p>
+      <div class="grid2">
+        <div class="field"><label>Regular client code</label><input type="text" id="rg-code" value="${esc(d.code)}" placeholder="letters and numbers" autocapitalize="characters" autocomplete="off"/></div>
+        <div class="field"><label>Default installation-only price</label><input type="text" inputmode="decimal" id="rg-rate" value="${esc(d.rate)}"/></div>
+      </div>
+      <div class="hint" style="margin:4px 0 8px;">Your regulars. Type each name the way they'll type it. Leave a price blank to use the default, or type their own price (what they paid before).</div>
+      ${d.clients.length ? d.clients.map((c, i) => `<div class="rg-row">
+        <input class="in" type="text" data-rg="name" data-i="${i}" value="${esc(c.name)}" placeholder="Name"/>
+        <input class="in" type="text" inputmode="decimal" data-rg="rate" data-i="${i}" value="${esc(c.rate)}" placeholder="default"/>
+        <input class="in" type="text" data-rg="note" data-i="${i}" value="${esc(c.note)}" placeholder="Note (optional)"/>
+        <button type="button" class="btn no" data-a="rg-del" data-k="${i}" aria-label="Remove">✕</button></div>`).join("") : `<div class="empty" style="padding:6px 0;">No regulars yet. Tap "Add a regular".</div>`}
+      <div class="btn-row" style="margin-top:8px;"><button type="button" class="btn" data-a="rg-add">+ Add a regular</button><button type="button" class="btn primary" data-a="rg-save">Save regular clients</button></div>
+      <p class="hint" style="margin:8px 0 0;">Their email is separate: edit "Request received (regular client)" under Emails below.</p>
     </div>`;
 }
 
@@ -758,6 +800,7 @@ function detailSheet(b){
         ${b.notes ? `<dt>Notes</dt><dd>${esc(b.notes)}</dd>` : ''}
         ${b.contentOk ? `<dt>Content</dt><dd>${contentTag(b)} ${esc(b.contentOk)}</dd>` : ''}
         ${b.cancelInfo ? `<dt>Cancel</dt><dd>${esc(b.cancelInfo)}</dd>` : ''}
+        ${regularTag(b) ? `<dt>Client</dt><dd>${regularTag(b)}</dd>` : ''}
         <dt>Booked</dt><dd>${esc(b.submittedAt || '—')}</dd>
         ${b.lastEmail ? `<dt>Last email</dt><dd class="hint">${esc(b.lastEmail)}</dd>` : ''}
       </dl>
@@ -1088,6 +1131,19 @@ document.addEventListener("click", async e => {
     }catch(err){ S.busy = ""; renderLayer(); failToast(err); }
     return;
   }
+  if(a === "rg-add" || a === "rg-del" || a === "rg-save"){
+    const d = S.regDraft; if(!d) return;
+    if(a === "rg-add"){ d.clients.push({ name:"", rate:"", note:"" }); const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+    if(a === "rg-del"){ d.clients.splice(Number(k), 1); const y = window.scrollY; render(); window.scrollTo(0, y); return; }
+    S.busy = "Saving…"; renderLayer();
+    try{
+      const r = await api("regularsSave", { code:d.code, rate:d.rate, clients:d.clients });
+      S.busy = "";
+      if(r && r.ok){ S.data.regulars = r.regulars; S.regDraft = null; render(); toast("Regular clients saved"); }
+      else{ renderLayer(); toast((r && r.error) || "Didn't save, try again."); }
+    }catch(err){ S.busy = ""; renderLayer(); failToast(err); }
+    return;
+  }
   if(a === "cal-sync" || a === "cal-setup"){
     if(S.calBusy) return; S.calBusy = true; render();
     try{
@@ -1242,6 +1298,11 @@ document.addEventListener("input", e => {
   if(e.target.id === "search"){ S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = document.getElementById("search"); if(s){ s.focus(); s.setSelectionRange(pos, pos); } }
   if(e.target.id === "reply") S.replyDraft = e.target.value;
   if(["do-start","do-end","do-note"].includes(e.target.id)) S.dayOffDraft[e.target.id.slice(3)] = e.target.value;
+  if(S.regDraft){
+    if(e.target.id === "rg-code") S.regDraft.code = e.target.value;
+    if(e.target.id === "rg-rate") S.regDraft.rate = e.target.value;
+    if(e.target.dataset && e.target.dataset.rg && S.regDraft.clients[Number(e.target.dataset.i)]) S.regDraft.clients[Number(e.target.dataset.i)][e.target.dataset.rg] = e.target.value;
+  }
   if(e.target.id === "do-squeeze") S.dayOffDraft.squeeze = e.target.checked;
 });
 document.addEventListener("toggle", e => { if(e.target.dataset && e.target.dataset.keep) S[e.target.dataset.keep] = e.target.open; }, true);

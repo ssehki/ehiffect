@@ -402,7 +402,7 @@ function saveSetting(key, value){
 const REORDER_COLUMNS = true;
 const DISPLAY_ORDER = [
   "id", "name", "phone", "ig", "email", "date", "time", "status", "depositPaid", "depositRefunded", "serviceLabel", "total", "amountPaid", "grandTotal", "dealsUsed",
-  "giftKit", "careKitCost", "kitComp", "kitPacked", "shipped", "serviced", "servicedOn", "dealAlert", "checks", "notes", "contentOk", "submittedAt", "photoUrls",
+  "giftKit", "careKitCost", "kitComp", "kitPacked", "shipped", "serviced", "servicedOn", "dealAlert", "checks", "notes", "contentOk", "regular", "submittedAt", "photoUrls",
   "bookingType", "partnerName", "partnerContact", "visitCount", "loyaltyFlag", "dealKeys", "approvalEmailed"
 ];
 
@@ -425,7 +425,7 @@ const HEADERS = [
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
   "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "rebookEmailed", "calendarEvent", "hairOrdered", "hairOrderedOn",
   "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
-  "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source", "contentOk"
+  "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source", "contentOk", "regular"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -810,6 +810,66 @@ function isRecentDuplicate(all, phone){
   });
 }
 
+/* ---------- REGULAR CLIENTS ----------
+   A returning client can open "Regular client?" on the booking page, type their name and your code, and get their
+   regular price. The code and the list of regulars (with each person's own installation-only price) live in your
+   Sheet's private settings, so nothing secret is in the public website. The code is checked here, not on the website. */
+const REGULAR_DEFAULT_RATE = 150;                                // installation-only price for regulars with no personal price
+function normName_(s){ return String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
+function sameText_(a, b){                                        // compares without stopping at the first difference
+  a = String(a); b = String(b);
+  let d = a.length ^ b.length; const n = Math.max(a.length, b.length);
+  for(let i = 0; i < n; i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return d === 0;
+}
+function regularCode_(){ try{ return String(PropertiesService.getScriptProperties().getProperty("regularCode") || "").trim(); }catch(e){ return ""; } }
+function regularsConfig_(){
+  const c = cfgGet_("cfg_regulars", {}) || {};
+  const rate = cfgMoney_(c.rate);
+  return {
+    rate: rate === null ? REGULAR_DEFAULT_RATE : rate,
+    clients: (Array.isArray(c.clients) ? c.clients : []).slice(0, 500)
+      .map(x => ({ name: clip(x && x.name, 80).trim(), phone: clip(x && x.phone, 30).trim(), rate: cfgMoney_(x && x.rate), note: clip(x && x.note, 80).trim() }))
+      .filter(x => x.name)
+  };
+}
+// { ok:true, name, first, rate } when the code is right AND the name is on your regulars list; otherwise { ok:false, error }.
+// The same message is used for a wrong code and an unknown name, so nobody can use it to find out who your regulars are.
+function regularLookup_(name, code){
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get("regFails") || 0);
+  if(fails >= 15) return { ok: false, error: "Too many tries. Please wait a few minutes, or DM me." };
+  const want = regularCode_().toUpperCase().replace(/\s+/g, ""), got = String(code || "").toUpperCase().replace(/\s+/g, "");
+  const cfg = regularsConfig_(), key = normName_(name);
+  const hit = key ? cfg.clients.find(c => normName_(c.name) === key) : null;
+  if(!want || !got || !sameText_(want, got) || !hit){
+    try{ cache.put("regFails", String(fails + 1), 900); }catch(e){}
+    return { ok: false, error: "I couldn't match that name and code. Check the spelling, or DM me." };
+  }
+  return { ok: true, name: hit.name, first: hit.name.split(/\s+/)[0], rate: hit.rate !== null ? hit.rate : cfg.rate };
+}
+function isRegularVerified_(b){ return String(b && b.regular || "").indexOf("verified:") === 0; }
+function regularRateOf_(b){ return isRegularVerified_(b) ? Number(String(b.regular).split(":")[1]) : null; }
+
+// What your admin Settings show and edit.
+function regularsAdmin_(){ const c = regularsConfig_(); return { code: regularCode_(), rate: c.rate, defaultRate: REGULAR_DEFAULT_RATE, clients: c.clients }; }
+function handleRegularsSave(body){
+  const code = String(body.code === undefined ? regularCode_() : body.code).trim();
+  if(code && !/^[A-Za-z0-9]{4,20}$/.test(code)) return { ok: false, error: "The code can use letters and numbers only, 4 to 20 characters (or leave it blank to turn regular pricing off)." };
+  const rate = cfgMoney_(body.rate);
+  if(rate === null) return { ok: false, error: "Type the regular installation-only price as a number, like 150." };
+  const seen = {}, clients = [];
+  (Array.isArray(body.clients) ? body.clients : []).slice(0, 500).forEach(x => {
+    const name = clip(x && x.name, 80).trim(), k = normName_(name);
+    if(!name || seen[k]) return;
+    seen[k] = true;
+    clients.push({ name: name, phone: clip(x.phone, 30).trim(), rate: (x.rate === "" || x.rate === null || x.rate === undefined) ? null : cfgMoney_(x.rate), note: clip(x.note, 80).trim() });
+  });
+  PropertiesService.getScriptProperties().setProperty("regularCode", code);
+  cfgSet_("cfg_regulars", { rate: rate, clients: clients });
+  return { ok: true, regulars: regularsAdmin_() };
+}
+
 function handleCreate(body){
   return withLock(() => {
     const sheet = getSheet();
@@ -827,6 +887,8 @@ function handleCreate(body){
     if(sentRefs && photoUrls.length < sentRefs)
       body.notes = (body.notes ? body.notes + " " : "") + "(" + (sentRefs - photoUrls.length) + " reference photo(s) failed to save — ask the client to DM them on IG)";
     const id = "b_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+    let regularMark = "";                                  // "" = new client, "verified:150" = regular (name + code matched), "unverified" = said regular but didn't match
+    if(body.regular){ const rg = regularLookup_(body.regular.name, body.regular.code); regularMark = rg.ok ? "verified:" + rg.rate : "unverified"; }
 
     const values = {
       id: id, name: body.name || "", phone: fmtPhone(body.phone), ig: body.ig || "", email: String(body.email || "").trim(),
@@ -839,7 +901,8 @@ function handleCreate(body){
       visitCount: visitCount, loyaltyFlag: loyaltyFlag, dealKeys: dealKeys.join(", "), dealAlert: dealAlert,
       depositPaid: false, depositRefunded: false, checks: "", approvalEmailed: false,
       shipped: false, serviced: false, servicedOn: "", manageToken: newToken_(),
-      contentOk: CONTENT_ANSWERS.indexOf(body.contentOk) !== -1 ? body.contentOk : ""
+      contentOk: CONTENT_ANSWERS.indexOf(body.contentOk) !== -1 ? body.contentOk : "",
+      regular: regularMark
     };
     const row = new Array(cols.width).fill("");           // each value goes under its own header
     Object.keys(values).forEach(f => { row[cols.map[f]] = values[f]; });
@@ -871,6 +934,7 @@ function sendBookingEmail(body, v, photoUrls){
         (v.checks ? "CHECKS: " + v.checks + "\n" : "") +
         (v.dealAlert || v.checks ? "\n" : "") +
         "New booking request!\n\n" +
+        (v.regular ? "REGULAR CLIENT: " + (String(v.regular).indexOf("verified:") === 0 ? "name and code matched your regulars list. Installation-only rate: $" + String(v.regular).split(":")[1] : "they used the regular option but the name or code did NOT match. Treat as a new client.") + "\n\n" : "") +
         "Name: " + v.name + "\nPhone: " + v.phone + "\nIG: " + v.ig + "\n" +
         "Service: " + v.serviceLabel + "\n" +
         (v.dealsUsed ? "Deals: " + v.dealsUsed + "\n" : "") +
@@ -1002,6 +1066,13 @@ function doGet(e){
     if(auth !== "ok") return json({ error: auth });
     const settings = getSettings();
     return json({ bookings: readBookings().map(b => toWebsiteShape(b, settings)) });
+  }
+
+  // Regular-client price check: name + code in, installation-only rate out (or one generic "couldn't match" answer).
+  if(action === "regularCheck"){
+    let rb = {}; try{ rb = JSON.parse(e.parameter.payload || "{}"); }catch(err){}
+    const r = regularLookup_(rb.name, rb.code);
+    return json(r.ok ? { ok: true, name: r.name, first: r.first, rate: r.rate } : { ok: false, error: r.error });
   }
 
   // Privacy-friendly: answers yes/no for ONE phone number, never exposes the client list.
@@ -1252,6 +1323,9 @@ const EMAIL_DEFAULTS = {
   received: { label: "Request received", when: "Sent right after someone books",
     subject: "We got your request, please fill out your hair check-in", button: "Fill out my hair check-in",
     body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\n{squeezeLine}\n\nTo help me approve it, please fill out your hair check-in now: a few photos of your natural hair and some quick questions. It takes a couple of minutes, and I look it over before I confirm your appointment. Use the button below.\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Open the same link and use the buttons on that page." },
+  receivedRegular: { label: "Request received (regular client)", when: "Sent right after a regular client books (name and code matched your list)",
+    subject: "Welcome back, {first}! We got your request", button: "Fill out my hair check-in",
+    body: "Welcome back to The Ehiffect! I'm so happy to have you in my chair again. I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nYour regular client total: {total}\n\n{squeezeLine}\n\nYour regular client price is already included. To help me approve it, please fill out your hair check-in: a few fresh photos of your natural hair and some quick questions. It only takes a couple of minutes. Use the button below.\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Open the same link and use the buttons on that page." },
   approved: { label: "Approved", when: "When you approve a booking",
     subject: "Your Ehiffect appointment is approved! 💗", button: "Hair check-in & manage appointment",
     body: "Good news, your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
@@ -1356,7 +1430,7 @@ function sendTemplate(b, kind, extra, override){
   const button = override && override.button !== undefined ? override.button : r.button;
   const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
   if(!paras.length || !String(subject).trim()) return false;
-  const tab = (kind === "received" || kind === "approved" || kind === "checkin") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
+  const tab = (kind === "received" || kind === "receivedRegular" || kind === "approved" || kind === "checkin") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
   if(kind === "rebook"){                                                                       // aftercare guide button + rebooking button
     const t = getTemplates().rebook || {};
     return sendClientEmail(b, subject, paras, { buttons: [
@@ -1376,7 +1450,7 @@ function emailRequestReceived(b){
   if(isBundle(b)) return sendClientEmail(b, "We got your bundle request", [
     "Thanks for your bundle request! I'm confirming pricing and shipping timing, and I'll email you your final price and pickup date shortly.",
     "Your order: " + b.serviceLabel], { link: false });
-  return sendTemplate(b, "received");
+  return sendTemplate(b, isRegularVerified_(b) ? "receivedRegular" : "received");
 }
 
 function emailApproved(b, override){
@@ -1699,7 +1773,8 @@ function adminBooking(b, settings){
     needsHair: needsHairFromMe(b), hairDetails: hairDetails(b), isConsult: isConsult(b), dateIso: isoOf(b), timeMin: parseMinutes(b),
     approvalEmailed: isTrue(b.approvalEmailed), depositEmailed: isTrue(b.depositEmailed),
     tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || ""),
-    isSqueeze: isSqueeze(b), service: cleanService(b), contentOk: String(b.contentOk || "")
+    isSqueeze: isSqueeze(b), service: cleanService(b), contentOk: String(b.contentOk || ""),
+    regular: String(b.regular || "")
   });
 }
 
@@ -1743,7 +1818,8 @@ function adminData(){
   const all = readBookings();
   if(ensureTokens(all)) all.splice(0, all.length, ...readBookings());
   const settings = getSettings();
-  return { ok: true, bookings: all.map(b => adminBooking(b, settings)), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, mailErrors: mailErrors_(), calendar: calendarInfo_(), builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
+  const visits = {}; all.forEach(b => { if(b.status === "approved"){ const k = phoneKey(b.phone); if(k) visits[k] = (visits[k] || 0) + 1; } });
+  return { ok: true, regulars: regularsAdmin_(), bookings: all.map(b => Object.assign(adminBooking(b, settings), { priorVisits: Math.max(0, (visits[phoneKey(b.phone)] || 0) - (b.status === "approved" ? 1 : 0)) })), templates: getTemplates(), daysOff: getDaysOff(), version: API_VERSION, mailErrors: mailErrors_(), calendar: calendarInfo_(), builtinDeals: BUILTIN_DEALS, defaultHours: DEFAULT_HOURS, defaultLatest: "19:00", guides: AFTERCARE_GUIDES,
            config: getSiteConfig_(), catalog: PRICE_CATALOG.map(r => ({ id: r[0], group: r[1], label: r[2], price: r[3], was: r[4] || 0 })),
            inquiries: readInquiries_().filter(q => q.status !== "done").reverse().slice(0, 40),
            feedback: readFeedback_().reverse().slice(0, 200), feedbackUrl: feedbackUrl_(),
@@ -2090,6 +2166,7 @@ function adminApi(action, body){
   if(action === "saveConfig") return handleSaveConfig(body);
   if(action === "inquiryDone") return handleInquiryDone(body);
   if(action === "calendarSync") return adminCalendar_(body);
+  if(action === "regularsSave") return handleRegularsSave(body);
   if(action === "feedbackShow") return handleFeedbackShow(body);
   if(action === "emailDraft") return emailDraft(body);
   if(action === "adminAct") return handleAdminAct(body);
