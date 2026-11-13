@@ -248,7 +248,8 @@ function cfgDate_(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? Strin
 function getSiteConfig_(){
   return {
     prices: cfgGet_("cfg_prices", {}), saleEnds: cfgGet_("cfg_sale", ""), deals: cfgGet_("cfg_deals", []),
-    hours: cfgGet_("cfg_hours", {}), latest: cfgGet_("cfg_latest", ""), rebookEmails: cfgGet_("cfg_rebook", true)
+    hours: cfgGet_("cfg_hours", {}), latest: cfgGet_("cfg_latest", ""), rebookEmails: cfgGet_("cfg_rebook", true),
+    regulars: cfgGet_("cfg_regulars", true), regularsPasswordSet: !!regularsKey_()
   };
 }
 
@@ -259,6 +260,8 @@ function publicConfig_(){
   if(hit){ try{ return JSON.parse(hit); }catch(e){} }
   const c = getSiteConfig_();
   const out = { ok: true, v: API_VERSION, prices: c.prices, saleEnds: c.saleEnds, hours: c.hours, latest: c.latest,
+    regularsOn: c.regulars !== false && c.regularsPasswordSet,   // the homepage "Regulars" link: on in admin AND a password set
+    cardPay: !!square_(), cardFee: { percent: CARD_FEE_PERCENT, min: CARD_FEE_MIN },   // Square card checkout on/off, and its fee
     deals: c.deals.map(d => { const o = Object.assign({}, d); delete o.cost; delete o.oneTime; return o; }), reviews: publicReviews_() };
   try{ cache.put("pubcfg", JSON.stringify(out), 60); }catch(e){}
   return out;
@@ -320,6 +323,7 @@ function handleSaveConfig(body){
   if(c.hours && typeof c.hours === "object") cfgSet_("cfg_hours", normHours_(c.hours));
   if(c.latest !== undefined) cfgSet_("cfg_latest", /^\d{2}:\d{2}$/.test(String(c.latest)) ? String(c.latest) : "");
   if(c.rebookEmails !== undefined) cfgSet_("cfg_rebook", c.rebookEmails !== false);
+  if(c.regulars !== undefined) cfgSet_("cfg_regulars", c.regulars !== false);
   try{ CacheService.getScriptCache().remove("pubcfg"); }catch(e){}
   return { ok: true, config: getSiteConfig_() };
 }
@@ -367,6 +371,252 @@ function setAdminPasscode(){
   PropertiesService.getScriptProperties().setProperty("ADMIN_KEY", val);
   CacheService.getScriptCache().remove("admin_fails");
   ui.alert("Saved. Use this passcode to log in to your dashboard.");
+}
+
+// ============== Regulars' rates ==============
+// Returning clients tap "Regulars" on the website and type a shared password to see and book at their previous
+// (pre–Nov 5, 2026) prices. The password lives only in Script Properties and these prices are only sent to the
+// site after a correct password, so neither is in the website's code. Set it from the Ehiffect menu →
+// "Set regulars password". Services only: add-ons, kits and fees use today's prices, and any service not
+// listed here (like the premium bundles, which didn't exist before) is today's price too.
+// Keys are the same price IDs the website and admin use.
+const REGULAR_PRICES = {
+  "si.service": 150, "si.synthetic": 180, "si.human": 220, "si.human3": 275, "si.raw": 400,
+  "qw.service": 90,  "qw.synthetic": 130, "qw.human": 220, "qw.human3": 240, "qw.raw": 400,
+  "braid.twostrand.standard": 50,
+  "crochet.own": 50, "crochet.stylist": 80
+};
+const REGULARS_MAX_FAILS = 20;       // wrong tries allowed...
+const REGULARS_LOCK_SECONDS = 900;   // ...within 15 minutes before the Regulars page locks for 15 minutes
+function regularsKey_(){ return PropertiesService.getScriptProperties().getProperty("REGULARS_KEY") || ""; }
+// Returns "ok", "unauthorized", or "locked". No password set = locked shut (fails closed).
+function checkRegulars_(given){
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get("regulars_fails") || 0);
+  if(fails >= REGULARS_MAX_FAILS) return "locked";
+  const real = regularsKey_();
+  if(real && String(given || "").trim().toLowerCase() === real.toLowerCase()) return "ok";
+  cache.put("regulars_fails", String(fails + 1), REGULARS_LOCK_SECONDS);
+  return "unauthorized";
+}
+// Menu item: set or change the password you give your regulars (not case-sensitive).
+function setRegularsPassword(){
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt("Set regulars password", "Type the password your regulars will use on the website (at least 6 characters, not case-sensitive). Changing it signs everyone out.", ui.ButtonSet.OK_CANCEL);
+  if(res.getSelectedButton() !== ui.Button.OK) return;
+  const val = res.getResponseText().trim();
+  if(val.length < 6){ ui.alert("Password not saved — it needs at least 6 characters."); return; }
+  PropertiesService.getScriptProperties().setProperty("REGULARS_KEY", val);
+  CacheService.getScriptCache().remove("regulars_fails");
+  ui.alert("Saved. Share this password with your regulars.");
+}
+
+// ============== Online payments (Square) ==============
+// Once you approve a booking, clients can pay their deposit and the rest of their service online (never before,
+// so there's nothing to refund if you can't take someone).
+// Card payments go through Square and are confirmed automatically; Cash App straight to your $cashtag stays free
+// and you still mark those received yourself. Turn it on from the Ehiffect menu → "Set up Square payments"
+// (paste your Square access token). Nothing here does anything until you've done that.
+// A card fee is added to card payments only: CARD_FEE_PERCENT of the amount, at least CARD_FEE_MIN dollars ($20 → $21).
+const CARD_FEE_PERCENT = 3;
+const CARD_FEE_MIN = 1;
+const SQUARE_VERSION = "2026-09-16";
+function cardFee_(amount){ return Math.max(CARD_FEE_MIN, Math.ceil(amount * CARD_FEE_PERCENT) / 100); }
+// Square settings, or null when payments aren't set up.
+function square_(){
+  const p = PropertiesService.getScriptProperties();
+  const token = p.getProperty("SQUARE_TOKEN") || "", loc = p.getProperty("SQUARE_LOCATION") || "";
+  if(!token || !loc) return null;
+  return { token: token, loc: loc, base: p.getProperty("SQUARE_SANDBOX") === "1" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com" };
+}
+function squareApi_(sq, method, path, payload){
+  const opts = { method: method, contentType: "application/json", muteHttpExceptions: true,
+    headers: { Authorization: "Bearer " + sq.token, "Square-Version": SQUARE_VERSION } };
+  if(payload) opts.payload = JSON.stringify(payload);
+  const res = UrlFetchApp.fetch(sq.base + path, opts);
+  let j = {}; try{ j = JSON.parse(res.getContentText() || "{}"); }catch(e){}
+  if(res.getResponseCode() >= 300){
+    const er = (j.errors || [])[0] || {};
+    throw new Error("Square: " + (er.detail || er.code || ("error " + res.getResponseCode())));
+  }
+  return j;
+}
+// What's left to pay for the service: your grand total if you set one, otherwise the booking total, minus a deposit
+// that's already in. 0 for bundle orders and consultations (those are handled separately).
+function balanceDue_(b){
+  if(isBundle(b) || isConsult(b)) return 0;
+  const total = hasGrandOverride(b) ? Number(b.grandTotal) : Number(b.total);
+  if(!(total > 0)) return 0;
+  return Math.max(0, Math.round((total - (isPaid(b) ? getSettings().depositAmount : 0)) * 100) / 100);
+}
+// Makes (or reuses) the Square checkout link for this booking's deposit or remaining balance. Saves it on the booking.
+// kind: "deposit" or "balance". Call inside withLock.
+function payLink_(b, kind){
+  const sq = square_(); if(!sq) return "";
+  const amount = kind === "deposit" ? getSettings().depositAmount : balanceDue_(b);
+  if(!(amount > 0)) return "";
+  const fee = cardFee_(amount), cents = Math.round((amount + fee) * 100);
+  const col = kind === "deposit" ? "squareDeposit" : "squareBalance";
+  const stored = String(b[col] || "").split("|");          // orderId|url|cents
+  if(stored[1] && Number(stored[2]) === cents) return stored[1];
+  const name = (kind === "deposit" ? (isConsult(b) ? "Consultation fee" : "Deposit") : "Rest of your service") + " · " + cleanService(b);
+  const req = {
+    idempotency_key: String(b.id) + "-" + kind + "-" + cents,
+    order: { location_id: sq.loc, reference_id: String(b.id).slice(0, 40), line_items: [
+      { name: clip(name, 200), quantity: "1", base_price_money: { amount: Math.round(amount * 100), currency: "USD" } },
+      { name: "Card processing fee", quantity: "1", base_price_money: { amount: Math.round(fee * 100), currency: "USD" } } ] },
+    checkout_options: { redirect_url: manageUrl(b) || SITE_URL,
+      accepted_payment_methods: { apple_pay: true, google_pay: true, cash_app_pay: true, afterpay_clearpay: kind === "balance" } },
+    payment_note: clip((b.name || "Client") + " · " + name, 500)
+  };
+  if(b.email) req.pre_populated_data = { buyer_email: String(b.email).trim() };
+  const link = (squareApi_(sq, "post", "/v2/online-checkout/payment-links", req).payment_link) || {};
+  if(!link.url) throw new Error("Square didn't return a checkout link.");
+  const sheet = getSheet(), cm = getColumns(sheet).map;
+  setCell(sheet, cm, col, b.row, [link.order_id || "", link.url, cents].join("|")); b[col] = [link.order_id || "", link.url, cents].join("|");
+  ensurePayCheckTrigger_();
+  return link.url;
+}
+// Has this Square order been paid? Asks Square about the payment itself, never trusts the "thanks" page.
+function squareOrderPaid_(sq, orderId){
+  if(!orderId) return false;
+  const order = squareApi_(sq, "get", "/v2/orders/" + encodeURIComponent(orderId)).order || {};
+  return (order.tenders || []).some(t => {
+    if(!t.payment_id) return false;
+    const p = squareApi_(sq, "get", "/v2/payments/" + encodeURIComponent(t.payment_id)).payment || {};
+    return p.status === "COMPLETED";
+  });
+}
+// Checks one booking's Square links and records anything newly paid. Returns true if something changed. Call inside withLock.
+function syncSquarePaid_(b, sheet, cm){
+  const sq = square_(); if(!sq) return false;
+  let changed = false;
+  const log = line => { b.paidOnline = (b.paidOnline ? b.paidOnline + "\n" : "") + line + " · " + nowStamp(); setCell(sheet, cm, "paidOnline", b.row, b.paidOnline); };
+  const dep = String(b.squareDeposit || "").split("|");
+  if(dep[0] && !isPaid(b) && squareOrderPaid_(sq, dep[0])){
+    setCell(sheet, cm, "depositPaid", b.row, true); b.depositPaid = true;
+    log((isConsult(b) ? "Consultation fee" : "Deposit") + " $" + (Number(dep[2]) / 100).toFixed(2) + " by card (Square)");
+    if(!isTrue(b.depositEmailed) && emailDepositReceived(b)) setCell(sheet, cm, "depositEmailed", b.row, true);
+    notifyMe("💳 Deposit paid by card: " + b.name, b.name + " (" + whenText(b) + ") paid $" + (Number(dep[2]) / 100).toFixed(2) + " by card through Square. It's marked as received.");
+    changed = true;
+  }
+  const bal = String(b.squareBalance || "").split("|");
+  if(bal[0] && !isTrue(b.balancePaid) && squareOrderPaid_(sq, bal[0])){
+    setCell(sheet, cm, "balancePaid", b.row, true); b.balancePaid = true;
+    log("Rest of service $" + (Number(bal[2]) / 100).toFixed(2) + " by card (Square)");
+    notifyMe("💳 Paid in full online: " + b.name, b.name + " (" + whenText(b) + ") paid the rest of her service ($" + (Number(bal[2]) / 100).toFixed(2) + " incl. card fee) through Square.");
+    changed = true;
+  }
+  return changed;
+}
+// Runs every 10 minutes once the first checkout link exists: picks up card payments for any booking still waiting.
+function checkSquarePayments(){
+  if(!square_()) return;
+  let changed = false;
+  withLock(() => {
+    const sheet = getSheet(), cm = getColumns(sheet).map;
+    readBookings().filter(b => isActive(b) && ((b.squareDeposit && !isPaid(b)) || (b.squareBalance && !isTrue(b.balancePaid))))
+      .forEach(b => { try{ if(syncSquarePaid_(b, sheet, cm)) changed = true; }catch(err){ console.error("square check row " + b.row + ": " + err); } });
+  });
+  if(changed) refreshSoon();
+}
+function ensurePayCheckTrigger_(){
+  try{
+    if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "checkSquarePayments"))
+      ScriptApp.newTrigger("checkSquarePayments").timeBased().everyMinutes(10).create();
+  }catch(e){}
+}
+// Menu item: connect your Square account (paste an access token from developer.squareup.com → your app → Credentials).
+function setupSquarePayments(){
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.prompt("Set up Square payments", "Paste your Square access token. Use the Sandbox token first if you want to test with fake cards, then come back and paste the Production one.", ui.ButtonSet.OK_CANCEL);
+  if(res.getSelectedButton() !== ui.Button.OK) return;
+  const token = res.getResponseText().trim();
+  if(!token){ ui.alert("Nothing saved."); return; }
+  const sandbox = ui.alert("Is this a Sandbox (test) token?", "Yes = test mode with fake cards. No = real payments.", ui.ButtonSet.YES_NO) === ui.Button.YES;
+  const sq = { token: token, base: sandbox ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com" };
+  let loc = null;
+  try{ loc = (squareApi_(sq, "get", "/v2/locations").locations || []).filter(l => l.status === "ACTIVE")[0]; }
+  catch(err){ ui.alert("Square didn't accept that token", String(err.message || err) + "\n\nNothing was saved.", ui.ButtonSet.OK); return; }
+  if(!loc){ ui.alert("No active location found in that Square account. Nothing was saved."); return; }
+  const p = PropertiesService.getScriptProperties();
+  p.setProperty("SQUARE_TOKEN", token); p.setProperty("SQUARE_LOCATION", loc.id); p.setProperty("SQUARE_SANDBOX", sandbox ? "1" : "");
+  try{ CacheService.getScriptCache().remove("pubcfg"); }catch(e){}
+  ui.alert("Square payments are on ✓", "Connected to \"" + (loc.name || loc.id) + "\"" + (sandbox ? " in TEST mode (fake cards only)." : ".") +
+    "\n\nClients now see \"Pay by card\" next to Cash App for deposits and the rest of their service. Card payments mark themselves received.", ui.ButtonSet.OK);
+}
+// Menu item: switch online payments back off.
+function turnOffSquarePayments(){
+  const p = PropertiesService.getScriptProperties();
+  ["SQUARE_TOKEN", "SQUARE_LOCATION", "SQUARE_SANDBOX"].forEach(k => p.deleteProperty(k));
+  try{ CacheService.getScriptCache().remove("pubcfg"); }catch(e){}
+  SpreadsheetApp.getUi().alert("Square payments are off. Clients only see the Cash App option now.");
+}
+
+// ============== Your address, shown only on the day ==============
+// Saved privately in Script Properties (Ehiffect menu → "Set studio address"), never in the website's code.
+// A client's appointment page shows it from ADDRESS_FROM_HOUR on their appointment day until that day ends, and only
+// once the booking is approved and (for services) the deposit is in. After that day it's gone for good.
+// Phone consultations never show it. The morning of, approved clients get a short email pointing them to it.
+const ADDRESS_FROM_HOUR = 7;          // 7 AM on the appointment day
+const DAYOF_EMAIL_HOUR = 7;           // the "see you today" email goes out around this hour
+function studioAddress_(){
+  const p = PropertiesService.getScriptProperties();
+  const text = String(p.getProperty("STUDIO_ADDRESS") || "").trim();
+  return text ? { text: text, notes: String(p.getProperty("STUDIO_ADDRESS_NOTES") || "").trim() } : null;
+}
+// Where this booking stands for seeing the address:
+// "show" (today, all set), "soon" (before the day / before 7 AM), "deposit" (today but deposit not in), "past", or "" (never shown).
+function addressState_(b, now){
+  if(isConsult(b) || b.status !== "approved" || !studioAddress_()) return "";
+  const day = parseDay(b); if(!day) return "";
+  now = now || new Date();
+  const opens = new Date(day.getTime() + ADDRESS_FROM_HOUR * 3600000), ends = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+  if(now >= ends) return "past";
+  if(now < opens) return "soon";
+  if(!isBundle(b) && !isPaid(b)) return "deposit";
+  return "show";
+}
+// The address block the appointment page gets: the address itself only while it's "show".
+function addressShape_(b){
+  const st = addressState_(b); if(!st) return null;
+  const out = { state: st, opensAt: ADDRESS_FROM_HOUR };
+  if(st === "show"){ const a = studioAddress_(); out.text = a.text; out.notes = a.notes; }
+  return out;
+}
+// Morning of: a short "see you today" email to each approved client with their deposit in (no address in the email itself).
+function sendDayOfEmails(){
+  if(!studioAddress_()) return;
+  withLock(() => {
+    const sheet = getSheet(), cm = getColumns(sheet).map;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    readBookings().forEach(b => {
+      const day = parseDay(b);
+      if(!day || day.getTime() !== today.getTime() || b.status !== "approved" || isConsult(b) || !b.email) return;
+      if((!isBundle(b) && !isPaid(b)) || isTrue(b.dayOfEmailed)) return;
+      try{ if(sendTemplate(b, "dayOf")) setCell(sheet, cm, "dayOfEmailed", b.row, true); }catch(err){ console.error("day-of email row " + b.row + ": " + err); }
+    });
+  });
+}
+function ensureDayOfTrigger_(){
+  try{
+    if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "sendDayOfEmails"))
+      ScriptApp.newTrigger("sendDayOfEmails").timeBased().everyDays(1).atHour(DAYOF_EMAIL_HOUR).create();
+  }catch(e){}
+}
+// Menu item: save (or change) your address and any notes for finding you.
+function setStudioAddress(){
+  const ui = SpreadsheetApp.getUi(), p = PropertiesService.getScriptProperties();
+  const cur = studioAddress_();
+  const r1 = ui.prompt("Set studio address", "Your full address, the way clients should type it into Maps." + (cur ? "\n\nNow: " + cur.text : "") + "\n\nLeave it empty and press OK to remove it.", ui.ButtonSet.OK_CANCEL);
+  if(r1.getSelectedButton() !== ui.Button.OK) return;
+  const text = r1.getResponseText().trim();
+  if(!text){ p.deleteProperty("STUDIO_ADDRESS"); p.deleteProperty("STUDIO_ADDRESS_NOTES"); ui.alert("Address removed. Clients won't see one."); return; }
+  const r2 = ui.prompt("Anything else they should know? (optional)", "For example: which door, parking, the buzzer code, or \"text me when you're outside\".", ui.ButtonSet.OK_CANCEL);
+  p.setProperty("STUDIO_ADDRESS", text.slice(0, 300));
+  p.setProperty("STUDIO_ADDRESS_NOTES", r2.getSelectedButton() === ui.Button.OK ? r2.getResponseText().trim().slice(0, 500) : (cur ? cur.notes : ""));
+  ensureDayOfTrigger_();
+  ui.alert("Saved ✓", "Approved clients see it on their appointment page from " + ADDRESS_FROM_HOUR + " AM on their appointment day (once their deposit is in), and it disappears after that day. They also get a short \"see you today\" email that morning.", ui.ButtonSet.OK);
 }
 
 // These three are just the starting defaults — once the sheet exists, edit them from the
@@ -419,7 +669,8 @@ const HEADERS = [
   "giftKit", "careKitCost", "kitComp", "kitPacked", "visitCount", "loyaltyFlag", "dealKeys", "dealAlert",
   "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "rebookEmailed", "calendarEvent", "hairOrdered", "hairOrderedOn",
   "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
-  "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source", "contentOk"
+  "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source", "contentOk", "regularRate",
+  "squareDeposit", "squareBalance", "balancePaid", "paidOnline", "dayOfEmailed"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -812,6 +1063,23 @@ function handleCreate(body){
 
     if(isRecentDuplicate(all, body.phone)) return { ok: true, key: "" };
 
+    // Returning client: copy their most recent hair check-in onto this booking, so they're only asked to update it
+    // if their hair has changed. (Matched by phone number, like visit counts. Not for bundle orders or consultations.)
+    const carried = (/bundle|consult/i.test(String(body.serviceLabel || ""))) ? null : lastCheckIn_(all, body.phone);
+    if(carried){
+      body.notes = "↺ Returning client: hair check-in carried over from " + carried.when + ". She'll update it only if her hair has changed."
+        + (body.notes ? " " + body.notes : "");
+    }
+
+    // Booked from the Regulars page: note it for you either way, so the price is easy to check before approving.
+    let regularRate = "";                                  // "checked" = booked with the right regulars password, "unverified" = it didn't match
+    if(body.regularKey){
+      const ok = checkRegulars_(body.regularKey) === "ok";
+      regularRate = ok ? "checked" : "unverified";
+      body.notes = (ok ? "★ Regulars' rate (password checked)." : "⚠ Booked at the regulars' rate but the password didn't check out — confirm the price before approving.")
+        + (body.notes ? " " + body.notes : "");
+    }
+
     const dealKeys = String(body.dealKeys || "").split(",").map(s => s.trim()).filter(Boolean);
     const dealAlert = dealAlertFor(all, body.phone, dealKeys, -1);
     const visitCount = approvedCount(all, body.phone, -1) + 1;        // their Nth visit IF approved
@@ -833,8 +1101,14 @@ function handleCreate(body){
       visitCount: visitCount, loyaltyFlag: loyaltyFlag, dealKeys: dealKeys.join(", "), dealAlert: dealAlert,
       depositPaid: false, depositRefunded: false, checks: "", approvalEmailed: false,
       shipped: false, serviced: false, servicedOn: "", manageToken: newToken_(),
-      contentOk: CONTENT_ANSWERS.indexOf(body.contentOk) !== -1 ? body.contentOk : ""
+      contentOk: CONTENT_ANSWERS.indexOf(body.contentOk) !== -1 ? body.contentOk : "",
+      regularRate: regularRate
     };
+    if(carried){
+      const answers = Object.assign({}, carried.answers);
+      answers[CARRIED_KEY] = carried.when;
+      values.checkIn = JSON.stringify(answers); values.checkInAt = carried.at; values.checkInPhotos = carried.photos;
+    }
     const row = new Array(cols.width).fill("");           // each value goes under its own header
     Object.keys(values).forEach(f => { row[cols.map[f]] = values[f]; });
     // Not sheet.appendRow(): formatBookingsSheet formats 1000 rows ahead, which makes Sheets
@@ -1048,6 +1322,15 @@ function doGet(e){
     }catch(err){ return json({ ok: false, error: String(err && err.message || err) }); }
   }
 
+  // The website's Regulars page: a correct password unlocks the regulars' prices.
+  if(action === "regulars"){
+    let body;
+    try{ body = JSON.parse(e.parameter.payload); }catch(err){ return json({ ok: false, error: "bad payload" }); }
+    const auth = checkRegulars_(body.password);
+    if(auth === "ok") return json({ ok: true, prices: REGULAR_PRICES });
+    return json({ ok: false, error: auth });
+  }
+
   // Live prices / deals / weekly hours for the website (public: nothing private in here).
   if(action === "config"){ try{ return json(publicConfig_()); }catch(err){ return json({ ok: false }); } }
 
@@ -1140,6 +1423,25 @@ function apptStart(b){
 function hoursUntil(b){ const s = apptStart(b); return s ? (s.getTime() - Date.now()) / 3600000 : null; }
 function readThread(b){ try{ const t = JSON.parse(b.thread || "[]"); return Array.isArray(t) ? t : []; }catch(e){ return []; } }
 function readCheckIn(b){ try{ return JSON.parse(b.checkIn || "null"); }catch(e){ return null; } }
+// A check-in copied over from a returning client's earlier booking carries this extra line, saying when it's from.
+// It disappears the moment they send an updated check-in.
+const CARRIED_KEY = "Carried over from";
+function isCarriedCheckIn_(b){ const ci = readCheckIn(b); return !!(ci && ci[CARRIED_KEY]); }
+// The newest hair check-in this phone number has sent on any earlier booking, or null.
+function lastCheckIn_(all, phone){
+  const key = phoneKey(phone || "");
+  if(key.length < 10) return null;
+  let best = null, bestTime = -1;
+  all.forEach(b => {
+    if(phoneKey(b.phone || "") !== key) return;
+    const ci = readCheckIn(b); if(!ci) return;
+    const day = parseDay(b), t = day ? day.getTime() : 0;
+    if(t >= bestTime){ bestTime = t; best = b; }
+  });
+  if(!best) return null;
+  const answers = Object.assign({}, readCheckIn(best)); delete answers[CARRIED_KEY];
+  return { answers: answers, at: asText(best.checkInAt), photos: String(best.checkInPhotos || ""), when: "your " + (whenText(best) || "last") + " visit" };
+}
 function hasRequest(b){ return !!String(b.reqDate || "").trim(); }
 
 function notifyMe(subject, body){ try{ sendMail_({ to: OWNER_EMAIL, subject: subject, body: body }); }catch(e){} }
@@ -1239,7 +1541,7 @@ function logEmail_(b, subject){
 /* ---------- EMAIL TEMPLATES (editable from the admin site → More → Emails) ----------
    Words in {curly braces} are filled in for each client:
    {first} {name} {service} {when} {oldWhen} {newWhen} {total} {deposit} {cashtag} {site}
-   {estimate} {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine} {guideTitle} {rebookTiming}
+   {estimate} {depositLine} {depositNote} {checkinLine} {within24Line} {nextSteps} {squeezeLine} {guideTitle} {rebookTiming} {payLine} {totalLines}
    A blank line starts a new paragraph. A paragraph that ends up empty is left out.
    "button" is the pink button's text (leave blank for no button).                              */
 const EMAIL_DEFAULTS = {
@@ -1248,10 +1550,19 @@ const EMAIL_DEFAULTS = {
     body: "Thank you for booking with The Ehiffect! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\n{squeezeLine}\n\nTo help me approve it, please fill out your hair check-in now: a few photos of your natural hair and some quick questions. It takes a couple of minutes, and I look it over before I confirm your appointment. Use the button below.\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}.\n\nNeed to change your date or cancel your request? Open the same link and use the buttons on that page." },
   approved: { label: "Approved", when: "When you approve a booking",
     subject: "Your Ehiffect appointment is approved! 💗", button: "Hair check-in & manage appointment",
-    body: "Good news, your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
+    body: "Good news, your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\n{payLine}\n\nBefore your appointment, please fill out your hair check-in: a few photos of your natural hair and some quick questions. It helps me prep everything for you.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
+  receivedReturning: { label: "Request received (returning client)", when: "Sent right after a returning client books. Their last hair check-in is already on file",
+    subject: "We got your request! 💗", button: "Manage my appointment",
+    body: "Thank you for booking with The Ehiffect again, {first}! I've received your request and I'll get back to you within 24 hours.\n\nService: {service}\nRequested: {when}\nEstimated total: {total}\n\n{squeezeLine}\n\nI still have your hair check-in from last time, so there's nothing to fill out. If anything has changed with your hair since then (length, color, a relaxer or treatment, thinning, a new sensitivity), tap the button below and update it so I can prep for you.\n\nYour appointment isn't confirmed yet. Once it's approved you'll get another email with {nextSteps}." },
+  approvedReturning: { label: "Approved (returning client)", when: "When you approve a returning client. Their last hair check-in is already on file",
+    subject: "Your Ehiffect appointment is approved! 💗", button: "Manage my appointment",
+    body: "Good news, your appointment is approved!\n\nService: {service}\nWhen: {when}\n\n{squeezeLine}\n\n{depositLine}\n\n{payLine}\n\nYour hair check-in from last time is on file. Only update it if something has changed with your hair.\n\nPlease come with your hair already washed and fully dried.\n\nFrom the same page you can also reschedule, cancel, message me, or let me know if you're running late." },
   deposit: { label: "Deposit received", when: "When you mark a deposit as received",
     subject: "Deposit received, you're all set! 💗", button: "Manage my appointment",
-    body: "I received your {deposit} deposit. Your spot on {when} is locked in!\n\nIt comes off your total at your appointment.\n\n{checkinLine}" },
+    body: "I received your {deposit} deposit. Your spot on {when} is locked in!\n\n{totalLines}\n\n{payLine}\n\n{checkinLine}" },
+  dayOf: { label: "See you today (address)", when: "The morning of an approved appointment once the deposit is in, if you've set your studio address",
+    subject: "See you today! 💗", button: "Get my address",
+    body: "Today's the day, {first}! See you {when}.\n\nTap the button below for my address. It's on your appointment page today only, with buttons to copy it or open it in Maps.\n\nPlease come with your hair already washed and fully dried." },
   timeChanged: { label: "Time updated", when: "When you change an approved appointment's date or time",
     subject: "Your Ehiffect appointment time was updated", button: "Manage my appointment",
     body: "Heads up: your appointment has been updated.\n\nService: {service}\nNew time: {when}\n\nIf this time doesn't work for you, use the button below to request a different one or send me a message." },
@@ -1320,9 +1631,12 @@ function squeezeFee_(){
 }
 function templateVars(b, extra){
   const dep = getSettings().depositAmount, owed = isPaid(b) && !isRefunded(b);
+  // the confirmed total: your final total if you set one, otherwise the booking total (null when unknown)
+  const fin = hasGrandOverride(b) ? Number(b.grandTotal) : ((b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? Number(b.total) : null);
+  const usd = n => "$" + (Math.round(n * 100) % 100 ? n.toFixed(2) : Math.round(n));
   return Object.assign({
     first: firstName(b), name: b.name || "", service: plainService_(b), when: whenText(b), oldWhen: whenText(b), newWhen: whenText(b),
-    squeezeLine: isSqueeze(b) ? "This is a squeeze-in appointment, so a $" + squeezeFee_() + " squeeze-in fee is included in your total." : "",
+    squeezeLine: isSqueeze(b) ? "This is a priority appointment, so a $" + squeezeFee_() + " priority fee is included in your total." : "",
     total: (b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed",
     estimate: hasGrandOverride(b) ? "$" + Number(b.grandTotal) : ((b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed"),
     deposit: "$" + dep, cashtag: CASHTAG, site: SITE_URL,
@@ -1330,6 +1644,12 @@ function templateVars(b, extra){
     depositNote: owed ? "Your $" + dep + " deposit will be sent back to you." : "",
     checkinLine: readCheckIn(b) ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
     within24Line: "I'll confirm within 24 hours.",
+    // the breakdown in the deposit email: total, minus the deposit, what's left (blank if the total isn't known yet)
+    totalLines: (fin === null || isBundle(b) || isConsult(b)) ? "" :
+      "Your total: " + usd(fin) + "\nDeposit received: −$" + dep + "\nLeft to pay: " + usd(Math.max(0, fin - dep)),
+    // paying for the appointment itself (shown in the approval email; blank for bundle orders and consultations)
+    payLine: (isBundle(b) || isConsult(b)) ? "" : "You can pay for your appointment before or after it from your appointment page: " +
+      (square_() ? "card, Apple Pay, Google Pay or Afterpay, " : "") + "Cash App, Zelle, or cash in person.",
     nextSteps: isConsult(b) ? "your consultation details" : "your $" + dep + " deposit details",
     guideTitle: AFTERCARE_GUIDES[guideKey_(b)].title, rebookTiming: rebookTiming_(b)
   }, extra || {});
@@ -1337,7 +1657,10 @@ function templateVars(b, extra){
 function fillTemplate(text, vars){ return String(text || "").replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m); }
 
 // What an email would say, for previewing/editing before it's sent.
+// Returning clients whose check-in was carried over get the "(returning client)" version of these two emails.
+function kindFor_(kind, b){ return (kind === "received" || kind === "approved") && isCarriedCheckIn_(b) ? kind + "Returning" : kind; }
 function renderTemplate(kind, b, extra){
+  kind = kindFor_(kind, b);
   const t = getTemplates()[kind] || getTemplates().custom, v = templateVars(b, extra);
   return { kind: kind, to: String(b.email || ""), subject: fillTemplate(t.subject, v), body: fillTemplate(t.body, v).replace(/\n[ \t]*(\n[ \t]*)+\n/g, "\n\n").trim(), button: t.button || "" };
 }
@@ -1350,7 +1673,7 @@ function sendTemplate(b, kind, extra, override){
   const button = override && override.button !== undefined ? override.button : r.button;
   const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
   if(!paras.length || !String(subject).trim()) return false;
-  const tab = (kind === "received" || kind === "approved" || kind === "checkin") && !readCheckIn(b) ? "checkin" : "";   // open straight on the form
+  const tab = kind === "checkin" || ((kind === "received" || kind === "approved") && !readCheckIn(b)) ? "checkin" : "";   // open straight on the form
   if(kind === "rebook"){                                                                       // aftercare guide button + rebooking button
     const t = getTemplates().rebook || {};
     return sendClientEmail(b, subject, paras, { buttons: [
@@ -1364,7 +1687,9 @@ function sendTemplate(b, kind, extra, override){
 
 /* ---------- the emails ---------- */
 
-function depositLine(dep){ return "To lock in your spot, send your $" + dep + " deposit to " + CASHTAG + " on Cash App. It comes off your total at your appointment, and you'll get an email as soon as I receive it."; }
+function depositLine(dep){
+  if(square_()) return "To lock in your spot, pay your $" + dep + " deposit from your appointment page (button below): by card, or free with Cash App to " + CASHTAG + ". It comes off your total at your appointment.";
+  return "To lock in your spot, send your $" + dep + " deposit to " + CASHTAG + " on Cash App. It comes off your total at your appointment, and you'll get an email as soon as I receive it."; }
 
 function emailRequestReceived(b){
   if(isBundle(b)) return sendClientEmail(b, "We got your bundle request", [
@@ -1380,7 +1705,7 @@ function emailApproved(b, override){
     "I'll email you shortly to confirm your final price and pickup date."], { link: false });
   if(!override && isConsult(b)) return sendClientEmail(b, "Your Ehiffect consultation is confirmed!", [
     "Good news, your consultation is confirmed for " + whenText(b) + ". I'll call you then.",
-    "Your $" + dep + " consultation fee goes to " + CASHTAG + " on Cash App, and it counts toward your deposit if you book a service after."]);
+    "Please pay your $" + dep + " consultation fee from your appointment page (button below): " + (square_() ? "by card, " : "") + "Cash App to " + CASHTAG + ", or Zelle. It counts toward your deposit if you book a service after."]);
   return sendTemplate(b, "approved", null, override);
 }
 
@@ -1405,12 +1730,16 @@ function emailStatusChange(b, status, override){
 function manageShape(b, extra){
   const h = hoursUntil(b), ci = readCheckIn(b);
   return Object.assign({
-    ok: true, name: firstName(b), service: cleanService(b) + (isSqueeze(b) ? " (squeeze-in)" : ""), date: asDate(b.date), time: asTime(b.time), status: b.status,
+    ok: true, name: firstName(b), service: cleanService(b) + (isSqueeze(b) ? " (priority appointment)" : ""), date: asDate(b.date), time: asTime(b.time), status: b.status,
     total: b.total, depositPaid: isPaid(b), deposit: getSettings().depositAmount, cashtag: CASHTAG,
     isBundle: isBundle(b), isConsult: isConsult(b), hoursUntil: h === null ? null : Math.round(h * 10) / 10,
     request: hasRequest(b) ? { date: asDate(b.reqDate), time: asTime(b.reqTime), reason: String(b.reqReason || ""), at: asText(b.reqAt) } : null,
     lateNote: String(b.lateNote || ""), checkIn: ci, checkInAt: asText(b.checkInAt),
-    checkInPhotos: b.checkInPhotos ? String(b.checkInPhotos).split("|") : [], thread: readThread(b)
+    checkInPhotos: b.checkInPhotos ? String(b.checkInPhotos).split("|") : [], thread: readThread(b),
+    address: addressShape_(b),   // your address only on the appointment day (see "Your address, shown only on the day")
+    pay: (() => { const dep = getSettings().depositAmount, bal = balanceDue_(b);
+      return { card: !!square_(), deposit: dep, depositCard: dep + cardFee_(dep), balance: bal, balanceCard: bal > 0 ? Math.round((bal + cardFee_(bal)) * 100) / 100 : 0,
+               balancePaid: isTrue(b.balancePaid) }; })()
   }, extra || {});
 }
 
@@ -1423,11 +1752,27 @@ function handleManage(body){
     const sheet = getSheet(), cm = getColumns(sheet).map;
     const set = (f, v) => { setCell(sheet, cm, f, b.row, v); b[f] = v; };
     const type = String(body.type || "");
-    if(type === "get") return manageShape(b);
+    if(type === "get"){
+      // just back from a Square checkout (or checking in later): record a card payment straight away
+      if((b.squareDeposit && !isPaid(b)) || (b.squareBalance && !isTrue(b.balancePaid))){
+        try{ if(syncSquarePaid_(b, sheet, cm)) refreshSoon(); }catch(err){ console.error("square check: " + err); }
+      }
+      return manageShape(b);
+    }
 
     const closed = ["denied", "cancelled", "no-show", "rescheduled"].indexOf(b.status) !== -1;
     if(closed && type !== "message") return manageShape(b, { ok: false, error: "This appointment is " + b.status + ", so it can't be changed here. Send me a message instead." });
     const h = hoursUntil(b), within = h !== null && h < 24;
+    if(type === "pay"){
+      const kind = body.kind === "balance" ? "balance" : "deposit";
+      if(b.status !== "approved") return manageShape(b, { ok: false, error: "You can pay once your appointment is approved. You'll get an email." });
+      if(kind === "deposit" && (isPaid(b) || isBundle(b))) return manageShape(b, { ok: false, error: "Your deposit is already in." });
+      if(kind === "balance" && (isTrue(b.balancePaid) || !(balanceDue_(b) > 0))) return manageShape(b, { ok: false, error: "There's nothing left to pay online." });
+      try{
+        const url = payLink_(b, kind);
+        return url ? manageShape(b, { payUrl: url }) : manageShape(b, { ok: false, error: "Paying by card isn't available right now. You can use Cash App instead." });
+      }catch(err){ return manageShape(b, { ok: false, error: "Couldn't open the card checkout just now. Please try again, or use Cash App." }); }
+    }
     const clearReq = () => { ["reqDate", "reqTime", "reqReason", "reqAt"].forEach(f => set(f, "")); set("reqWithin24", false); };
 
     if(type === "reschedule"){
@@ -1693,7 +2038,9 @@ function adminBooking(b, settings){
     needsHair: needsHairFromMe(b), hairDetails: hairDetails(b), isConsult: isConsult(b), dateIso: isoOf(b), timeMin: parseMinutes(b),
     approvalEmailed: isTrue(b.approvalEmailed), depositEmailed: isTrue(b.depositEmailed),
     tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || ""),
-    isSqueeze: isSqueeze(b), service: cleanService(b), contentOk: String(b.contentOk || "")
+    isSqueeze: isSqueeze(b), service: cleanService(b), contentOk: String(b.contentOk || ""),
+    regularRate: String(b.regularRate || ""),
+    balancePaid: isTrue(b.balancePaid), paidOnline: String(b.paidOnline || "")
   });
 }
 
@@ -1982,10 +2329,17 @@ function handleAdminCreate(body){
 /* ---------- daily prep reminder (hair to order, kits to pack, appointments to wrap up) ---------- */
 const PREP_DAYS = 5;          // remind this many days ahead
 
+// Already finished, by any sign you left: ticked done, a done date, what they paid, or the thank-you email sent/skipped.
+function wrappedUp_(b){
+  return isServiced(b) || String(b.servicedOn || "").trim() !== "" || hasReceived(b) || String(b.rebookEmailed || "").trim() !== "";
+}
 function prepItems(all){
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const limit = new Date(today.getTime() + PREP_DAYS * 864e5);
   const prep = [], wrap = [];
+  // the same client's appointment on the same day counts as wrapped up if you finished any copy of it (duplicates / reschedules)
+  const doneDays = {};
+  all.forEach(b => { const d = parseDay(b); if(d && wrappedUp_(b)) doneDays[phoneKey(b.phone || "") + "|" + d.getTime()] = true; });
   all.forEach(b => {
     const d = parseDay(b);
     if(!d) return;
@@ -1993,7 +2347,7 @@ function prepItems(all){
       const hair = needsHairFromMe(b) && !isHairOrdered(b), kit = kitTier(b) !== "—" && !isPacked(b);
       if(hair || kit) prep.push({ b: b, hair: hair, kit: kit, days: Math.round((d - today) / 864e5) });
     }
-    if(b.status === "approved" && d < today && !isServiced(b) && (today - d) < 30 * 864e5) wrap.push(b);
+    if(b.status === "approved" && d < today && !wrappedUp_(b) && !doneDays[phoneKey(b.phone || "") + "|" + d.getTime()] && (today - d) < 30 * 864e5) wrap.push(b);
   });
   prep.sort((a, c) => a.days - c.days);
   return { prep: prep, wrap: wrap };
@@ -2063,6 +2417,7 @@ function ensureTriggersOnce_(){
   if(cache.get("triggersOk")) return;
   try{ ensurePrepTrigger(); }catch(e){}
   try{ ensureReportTrigger(); }catch(e){}
+  try{ if(studioAddress_()) ensureDayOfTrigger_(); }catch(e){}
   try{
     if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "keepWarm"))
       ScriptApp.newTrigger("keepWarm").timeBased().everyMinutes(5).create();
@@ -2173,6 +2528,10 @@ function sendWeeklyReportNow(){
 function onOpen(){
   SpreadsheetApp.getUi().createMenu("Ehiffect")
     .addItem("Set dashboard passcode", "setAdminPasscode")
+    .addItem("Set regulars password", "setRegularsPassword")
+    .addItem("Set studio address", "setStudioAddress")
+    .addItem("Set up Square payments", "setupSquarePayments")
+    .addItem("Turn off Square payments", "turnOffSquarePayments")
     .addItem("Create Ehiffect appointments calendar", "createEhiffectCalendar")
     .addItem("Refresh dashboard & clients", "refreshViews")
     .addItem("Open Hair Orders", "openHairOrders")

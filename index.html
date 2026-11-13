@@ -3,14 +3,20 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ehiffect — book your appointment</title>
+<title>The Ehiffect · Hair Studio, Bloomington</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Work+Sans:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=Work+Sans:wght@300;400;500;600&display=swap');
 
-  :root{
+  /* Dark pages (booking, Shop Hair, questions, confirmation) with brand pink and a soft champagne gold for hairlines.
+     --pink is for fills and borders; --pink-text is for pink words (darker rose on the light pages so it stays readable).
+     (--cream is the main text color: cream on dark pages, espresso on light ones.) */
+  :root, .theme-dark{
     --pink:#E38AAE;
     --pink-deep:#C97A9B;
+    --pink-text:#E38AAE;
     --pink-soft: rgba(227,138,174,0.12);
+    --gold:#C9AD84;
+    --gold-line: rgba(201,173,132,0.45);
     --cream:#F4EAE5;
     --muted:#A6969A;
     --line: rgba(227,138,174,0.30);
@@ -19,11 +25,15 @@
     --panel-2:#251C1F;
   }
 
+  /* light pages: homepage, aftercare, Services & Prices, Regulars */
   .theme-light{
-    --pink-soft: rgba(227,138,174,0.10);
+    --pink-text:#A95C80;
+    --pink-soft: rgba(227,138,174,0.12);
+    --gold:#A88A5E;
+    --gold-line: rgba(168,138,94,0.40);
     --cream:#211A1B;
-    --muted:#8C7B7E;
-    --line: rgba(184,92,130,0.30);
+    --muted:#77686B;
+    --line: rgba(184,92,130,0.22);
     --bg:#F8F3EF;
     --panel:#FFFFFF;
     --panel-2:#FFFFFF;
@@ -47,22 +57,24 @@
     position:relative;
   }
   .hero .logo-img{ width:150px; position:relative; z-index:1; }
-  .hero-divider{ display:none; }
+  .hero-divider{ display:block; width:44px; height:1px; margin:22px auto; background:var(--gold-line); border:none; }
 
-  h1.title{ text-align:center; font-family:'Cormorant Garamond', serif; font-weight:600; font-size:30px; line-height:1.2; margin: 18px 0 14px; color:var(--cream); position:relative; z-index:1; letter-spacing:0.01em; }
+  h1.title{ text-align:center; font-family:'Cormorant Garamond', serif; font-weight:500; font-size:clamp(28px, 7.5vw, 34px); line-height:1.15; margin: 18px 0 14px; color:var(--cream); position:relative; z-index:1; letter-spacing:0.01em; }
   .tagline{ text-align:center; color:var(--muted); font-size:14.5px; line-height:1.7; font-family:'Work Sans', sans-serif; margin: 0 auto; max-width:340px; position:relative; z-index:1; }
-  .eyebrow{ text-align:center; text-transform:uppercase; letter-spacing:0.28em; font-size:11px; color:var(--pink); font-weight:600; margin:0 0 14px; position:relative; z-index:1; }
+  /* the "uncomplicated & at your service" line under a logo or page title reads as a quiet serif signature */
+  .hero .logo-img + .tagline, .hero h1.title + .tagline:not([style]){ font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:400; font-size:19px; line-height:1.5; letter-spacing:0.01em; }
+  .eyebrow{ text-align:center; text-transform:uppercase; letter-spacing:0.32em; font-size:10.5px; color:var(--gold); font-weight:500; margin:0 0 14px; position:relative; z-index:1; }
 
   .cta-btn{
     display:block; width:100%; text-align:center;
     background:var(--pink); color:#241318; border:none; border-radius:2px;
-    padding:16px 20px; margin-bottom:14px; cursor:pointer;
-    font-family:'Work Sans', sans-serif; font-size:13px; font-weight:600;
-    text-transform:uppercase; letter-spacing:0.14em;
-    transition: background .15s, transform .15s;
+    padding:17px 20px; margin-bottom:14px; cursor:pointer;
+    font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.22em;
+    transition: background .35s ease, color .35s ease, border-color .35s ease;
   }
-  .cta-btn:hover{ background:var(--cream); }
-  .cta-btn.secondary{ background:transparent; color:var(--cream); border:1px solid var(--line); }
+  .cta-btn:hover{ background:var(--cream); color:var(--bg); }
+  .cta-btn.secondary{ background:transparent; color:var(--cream); border:1px solid var(--line); font-weight:500; }
   .cta-btn.secondary:hover{ border-color:var(--pink); background:var(--pink-soft); }
 
   .landing-choice{
@@ -72,16 +84,18 @@
   }
   .landing-choice:hover{ border-color:var(--pink); background:var(--panel-2); }
   .landing-choice-title{ font-family:'Cormorant Garamond', serif; font-size:23px; font-weight:600; color:var(--cream); margin-bottom:5px; }
-  .landing-choice-title::after{ content:' →'; color:var(--pink); }
+  .landing-choice-title::after{ content:' →'; color:var(--pink-text); }
   .landing-choice-sub{ font-size:12.5px; color:var(--muted); }
-  .back-link{ font-size:12px; color:var(--pink); cursor:pointer; margin-bottom:14px; display:inline-block; letter-spacing:0.03em; }
+  .back-link{ font-size:12px; color:var(--pink-text); cursor:pointer; margin-bottom:14px; display:inline-block; letter-spacing:0.04em; transition:color .3s ease; }
+  .back-link:hover{ color:var(--cream); }
 
-  .card{ background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:22px 20px; }
-  .card + .card{ margin-top:16px; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:26px 22px; }
+  .theme-light .card{ border:none; }
+  .card + .card{ margin-top:18px; }
 
-  .step-label{ display:flex; align-items:baseline; gap:8px; margin-bottom:14px; }
-  .step-num{ font-family:'Cormorant Garamond', serif; font-variant-numeric: lining-nums; font-size:26px; color:var(--pink); font-weight:600; line-height:1; }
-  .step-title{ font-family:'Cormorant Garamond', serif; font-size:20px; font-weight:600; color:var(--cream); }
+  .step-label{ display:flex; align-items:baseline; gap:10px; margin-bottom:16px; }
+  .step-num{ font-family:'Cormorant Garamond', serif; font-variant-numeric: lining-nums; font-style:italic; font-size:26px; color:var(--gold); font-weight:400; line-height:1; }
+  .step-title{ font-family:'Cormorant Garamond', serif; font-size:21px; font-weight:500; color:var(--cream); letter-spacing:0.01em; }
 
   .cat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .cat{ border:1px solid var(--line); border-radius:2px; padding:14px 10px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; color:var(--cream); }
@@ -112,7 +126,7 @@
   .hr-card figcaption{ margin-top:6px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C7B7E; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
-  .opt-price{ font-size:14px; color:var(--pink); font-weight:600; white-space:nowrap; margin-left:10px;}
+  .opt-price{ font-size:14px; color:var(--pink-text); font-weight:600; white-space:nowrap; margin-left:10px;}
 
   .length-row{ display:flex; gap:8px; margin-top:10px; padding-left:2px; flex-wrap:wrap; }
   .length-btn{ flex:1; min-width:120px; text-align:center; font-size:12.5px; padding:8px 4px; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--cream); cursor:pointer; }
@@ -120,7 +134,7 @@
 
   .bundle-row{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-left:2px; }
   .stepper{ display:flex; align-items:center; gap:10px; }
-  .stepper button{ width:28px; height:28px; border:1px solid var(--pink); background:transparent; color:var(--pink); font-size:16px; cursor:pointer; line-height:1; }
+  .stepper button{ width:28px; height:28px; border:1px solid var(--pink); background:transparent; color:var(--pink-text); font-size:16px; cursor:pointer; line-height:1; }
   .stepper button:disabled{ opacity:0.35; cursor:not-allowed; }
   .stepper span{ min-width:16px; text-align:center; font-weight:600; color:var(--cream); }
 
@@ -136,7 +150,7 @@
   .field input::placeholder, .field textarea::placeholder{ color:#6B5C60; }
   .field input:focus, .field textarea:focus, .field select:focus{ outline:2px solid var(--pink); outline-offset:1px; }
   .field textarea{ resize:vertical; min-height:64px; }
-  .avail-note{ font-size:12px; color:var(--pink); margin-top:6px; background:var(--pink-soft); padding:8px 10px; }
+  .avail-note{ font-size:12px; color:var(--pink-text); margin-top:6px; background:var(--pink-soft); padding:8px 10px; }
 
   .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .cal-nav{ background:transparent; border:1px solid var(--line); color:var(--cream); border-radius:2px; width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1; }
@@ -145,16 +159,16 @@
   .cal-dow{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px; }
   .cal-dow span{ text-align:center; font-size:9.5px; color:var(--muted); letter-spacing:0.05em; text-transform:uppercase; }
   .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:38px; gap:4px; }
-  .cal-day{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:13px; border:1px solid var(--pink); border-radius:3px; cursor:pointer; background:var(--pink); color:#fff; font-weight:600; }
+  .cal-day{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:13px; border:1px solid var(--pink); border-radius:3px; cursor:pointer; background:var(--pink); color:#241318; font-weight:600; }
   .cal-day.empty{ border-color:transparent; background:transparent; cursor:default; }
   .cal-day.past{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.4; cursor:default; font-weight:400; }
   .cal-day.blocked{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.6; cursor:not-allowed; font-weight:400; text-decoration:line-through; }
-  .cal-day.squeeze{ background:transparent; border:1px dashed var(--pink); color:var(--pink); }
+  .cal-day.squeeze{ background:transparent; border:1px dashed var(--pink); color:var(--pink-text); }
   .squeeze-row{ display:flex; gap:10px; align-items:flex-start; margin:0 0 14px; padding:12px; border:1px solid var(--line); border-radius:2px; }
   .squeeze-row.on{ border-color:var(--pink); background:var(--pink-soft); }
   .squeeze-row input{ margin-top:3px; accent-color:var(--pink); width:16px; height:16px; flex-shrink:0; }
   .squeeze-row label{ font-size:13px; color:var(--cream); line-height:1.45; cursor:pointer; }
-  .squeeze-fee{ color:var(--pink); font-weight:600; margin-left:4px; }
+  .squeeze-fee{ color:var(--pink-text); font-weight:600; margin-left:4px; }
   .squeeze-sub{ display:block; font-size:11.5px; color:var(--muted); margin-top:3px; }
   .squeeze-note{ display:block; font-size:10.5px; color:var(--muted); text-transform:none; letter-spacing:0; margin-top:2px; }
   .cal-day.selected{ background:var(--cream); border-color:var(--cream); color:var(--bg); font-weight:700; }
@@ -165,17 +179,17 @@
 
   .total-bar{ display:flex; justify-content:space-between; align-items:baseline; padding:16px 2px 2px; border-top:1px solid var(--line); margin-top:16px; }
   .total-bar .label{ font-size:13px; color:var(--muted); }
-  .total-bar .amount{ font-family:'Cormorant Garamond', serif; font-variant-numeric: lining-nums; font-size:28px; color:var(--pink); font-weight:600; }
+  .total-bar .amount{ font-family:'Cormorant Garamond', serif; font-variant-numeric: lining-nums; font-size:30px; color:var(--cream); font-weight:500; }
 
   .deposit-note{ background:var(--pink-soft); border-left:3px solid var(--pink); padding:12px 14px; font-size:13px; line-height:1.5; margin-top:18px; color:var(--cream); }
-  .deposit-note b{ color:var(--pink); }
+  .deposit-note b{ color:var(--pink-text); }
 
   .psa{ background:#0F0C0D; color:var(--cream); padding:14px 16px; font-size:13px; line-height:1.6; margin-top:18px; border-left:3px solid var(--pink); }
-  .psa b{ color:var(--pink); }
+  .psa b{ color:var(--pink-text); }
 
   .policy-box{ border:1px solid var(--line); padding:12px 14px; margin-top:14px; font-size:12.5px; color:var(--muted); line-height:1.6; }
   .policy-box b{ color:var(--cream); }
-  .policy-box summary{ cursor:pointer; color:var(--pink); font-weight:600; font-size:13px; list-style:none; }
+  .policy-box summary{ cursor:pointer; color:var(--pink-text); font-weight:600; font-size:13px; list-style:none; }
   .policy-box summary::-webkit-details-marker{ display:none; }
   .policy-box summary::after{ content:' ▾'; }
   .policy-box[open] summary::after{ content:' ▴'; }
@@ -183,9 +197,9 @@
 
   .drop summary{ cursor:pointer; list-style:none; display:flex; align-items:baseline; gap:8px; font-family:'Cormorant Garamond', serif; font-size:20px; font-weight:600; color:var(--cream); }
   .drop summary::-webkit-details-marker{ display:none; }
-  .drop summary::after{ content:'▾'; margin-left:auto; color:var(--pink); font-size:14px; }
+  .drop summary::after{ content:'▾'; margin-left:auto; color:var(--pink-text); font-size:14px; }
   .drop[open] summary::after{ content:'▴'; }
-  .drop .drop-count{ font-family:'Work Sans', sans-serif; font-size:12px; font-weight:500; color:var(--pink); }
+  .drop .drop-count{ font-family:'Work Sans', sans-serif; font-size:12px; font-weight:500; color:var(--pink-text); }
   .drop .drop-body{ margin-top:14px; }
 
   .aftercare-title{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:18px; line-height:1.25; letter-spacing:0.06em; text-transform:uppercase; color:var(--cream); margin:0 0 8px; }
@@ -194,17 +208,17 @@
   .kit-row > div:first-child{ flex:1; min-width:0; }
   .kit-name{ font-size:13.5px; font-weight:500; color:var(--cream); }
   .kit-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.45; }
-  .kit-badge{ font-size:10px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; white-space:nowrap; padding:3px 8px; border:1px solid var(--pink); color:var(--pink); border-radius:2px; margin-top:2px; }
+  .kit-badge{ font-size:10px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; white-space:nowrap; padding:3px 8px; border:1px solid var(--pink); color:var(--pink-text); border-radius:2px; margin-top:2px; }
   .kit-badge.solid{ background:var(--pink); color:#241318; }
   .kit-badge.clickable{ cursor:pointer; font-size:11px; padding:5px 10px; border-radius:3px; border-width:1px; }
   .kit-badge.clickable:hover{ background:var(--pink-soft); }
   .kit-badge.two-line{ display:flex; flex-direction:column; align-items:flex-end; text-align:right; gap:1px; line-height:1.2; }
   .kit-badge.two-line small{ font-size:9.5px; font-weight:500; opacity:0.75; text-transform:none; letter-spacing:0.02em; }
   .kit-row.active{ background:var(--pink-soft); margin:0 -8px; padding:9px 8px; border-top-color:transparent; border-radius:3px; }
-  .kit-row.active .kit-name{ color:var(--pink); }
+  .kit-row.active .kit-name{ color:var(--pink-text); }
   .kit-row.active .kit-badge{ background:var(--pink); color:#241318; }
   .kit-more{ margin-top:6px; }
-  .kit-more summary{ cursor:pointer; color:var(--pink); font-size:12px; letter-spacing:0.04em; list-style:none; }
+  .kit-more summary{ cursor:pointer; color:var(--pink-text); font-size:12px; letter-spacing:0.04em; list-style:none; }
   .kit-more summary::-webkit-details-marker{ display:none; }
   .kit-more summary::after{ content:' ▾'; }
   .kit-more[open] summary::after{ content:' ▴'; }
@@ -219,27 +233,27 @@
   .photo-thumb{ position:relative; width:64px; height:64px; }
   .photo-thumb img{ width:100%; height:100%; object-fit:cover; border:1px solid var(--line); }
   .photo-thumb .rm{ position:absolute; top:-6px; right:-6px; background:var(--pink); color:#241318; width:18px; height:18px; border-radius:50%; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-  .photo-add{ width:64px; height:64px; border:1px dashed var(--line); display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--pink); cursor:pointer; }
+  .photo-add{ width:64px; height:64px; border:1px dashed var(--line); display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--pink-text); cursor:pointer; }
 
   .submit-btn{ width:100%; background:var(--pink); color:#241318; border:none; border-radius:2px; padding:16px; font-family:'Work Sans', sans-serif; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; cursor:pointer; margin-top:18px; }
   .submit-btn:hover{ background:var(--cream); }
   .submit-btn:disabled{ opacity:0.5; cursor:not-allowed; }
 
-  .error-text{ color:var(--pink); font-size:12.5px; margin-top:8px; }
+  .error-text{ color:var(--pink-text); font-size:12.5px; margin-top:8px; }
   .footer-note{ text-align:center; color:var(--muted); font-size:11.5px; margin-top:26px; line-height:1.6; }
 
   .confirm{ text-align:center; padding:50px 10px; }
   .confirm svg{ width:52px; height:52px; margin-bottom:16px; }
   .confirm h2{ font-family:'Cormorant Garamond', serif; font-size:28px; margin:0 0 10px; color:var(--cream); }
   .confirm p{ color:var(--muted); font-size:14px; line-height:1.6; max-width:340px; margin:0 auto 8px; }
-  .confirm .cashtag{ color:var(--pink); font-weight:600; }
-  .confirm button{ margin-top:20px; background:none; border:1px solid var(--pink); color:var(--pink); padding:10px 20px; font-size:13px; cursor:pointer; }
+  .confirm .cashtag{ color:var(--pink-text); font-weight:600; }
+  .confirm button{ margin-top:20px; background:none; border:1px solid var(--pink); color:var(--pink-text); padding:10px 20px; font-size:13px; cursor:pointer; }
 
   .admin-wrap{ max-width:640px; }
   .gate{ max-width:340px; margin:80px auto; text-align:center; }
   .gate input{ width:100%; padding:12px; border:1px solid var(--line); background:var(--panel-2); color:var(--cream); text-align:center; letter-spacing:0.2em; font-size:16px; margin-top:16px; }
   .gate button{ margin-top:14px; width:100%; padding:12px; background:var(--pink); color:#241318; border:none; cursor:pointer; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; font-size:13px; }
-  .gate .err{ color:var(--pink); font-size:12.5px; margin-top:10px; }
+  .gate .err{ color:var(--pink-text); font-size:12.5px; margin-top:10px; }
 
   .booking-card{ background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:16px 18px; margin-bottom:12px; }
   .booking-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -269,7 +283,7 @@
 
   .admin-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:14px; }
   .admin-stat{ background:var(--panel); border:1px solid var(--line); padding:10px 4px; text-align:center; }
-  .admin-stat b{ display:block; font-family:'Cormorant Garamond', serif; font-size:26px; line-height:1.1; color:var(--pink); font-weight:600; }
+  .admin-stat b{ display:block; font-family:'Cormorant Garamond', serif; font-size:26px; line-height:1.1; color:var(--pink-text); font-weight:600; }
   .admin-stat span{ font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); }
   .admin-stat.alert{ background:#3a1f22; border-color:#c9716f; }
   .admin-stat.alert b{ color:#e39997; }
@@ -287,7 +301,7 @@
   /* style quiz: landing prompt + question flow */
   /* floating style-quiz button (bottom corner, like a chat assistant) */
   .quiz-fab-wrap{ position:fixed; right:16px; bottom:calc(32px + env(safe-area-inset-bottom)); z-index:40; display:flex; align-items:flex-end; gap:10px; }
-  .quiz-fab{ width:56px; height:56px; border-radius:50%; border:none; background:var(--pink); color:#241318; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 22px rgba(36,19,24,0.28); flex-shrink:0; }
+  .quiz-fab{ width:56px; height:56px; border-radius:50%; border:none; background:var(--pink); color:#241318; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(36,19,24,0.14); flex-shrink:0; }
   .quiz-fab:hover{ background:var(--pink-deep); }
   .quiz-fab svg{ width:26px; height:26px; }
   .quiz-bubble{ position:relative; background:#FFFFFF; color:#211A1B; border:1px solid rgba(184,92,130,0.30); border-radius:14px 14px 4px 14px; padding:12px 34px 12px 14px; max-width:220px; font-size:13.5px; line-height:1.45; box-shadow:0 8px 22px rgba(36,19,24,0.18); cursor:pointer; margin-bottom:8px; }
@@ -295,9 +309,9 @@
   .quiz-bubble span{ color:#8C7B7E; font-size:12.5px; }
   .quiz-bubble-x{ position:absolute; top:6px; right:6px; width:24px; height:24px; border:none; background:transparent; color:#8C7B7E; font-size:16px; line-height:1; cursor:pointer; border-radius:50%; }
   .quiz-bubble-x:hover{ background:rgba(227,138,174,0.15); }
-  .quiz-fab-wrap.enter .quiz-fab{ animation:fabIn .4s cubic-bezier(.2,.9,.3,1.25) .35s both; }
-  .quiz-fab-wrap.enter .quiz-bubble{ animation:fabIn .35s ease-out .8s both; }
-  @keyframes fabIn{ from{ opacity:0; transform:translateY(60px) scale(.6); } to{ opacity:1; transform:none; } }
+  .quiz-fab-wrap.enter .quiz-fab{ animation:fabIn .9s ease-out .6s both; }
+  .quiz-fab-wrap.enter .quiz-bubble{ animation:fabIn .9s ease-out 1.2s both; }
+  @keyframes fabIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
   @media (prefers-reduced-motion: reduce){ .quiz-fab-wrap.enter .quiz-fab, .quiz-fab-wrap.enter .quiz-bubble{ animation:none; } }
   .quiz-fab:focus-visible, .quiz-bubble-x:focus-visible, .landing-choice:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
 
@@ -333,7 +347,7 @@
   .quiz-for{ font-size:13.5px; color:var(--muted); margin:0; }
   .quiz-wrap .card + .card, .quiz-wrap .card + .cta-btn + .card{ margin-top:16px; }
   .quiz-wrap .cta-btn.secondary + .card{ margin-top:16px; }
-  .quiz-rank{ font-size:11px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--pink); }
+  .quiz-rank{ font-size:11px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--pink-text); }
   .quiz-desc{ font-size:13.5px; line-height:1.6; color:var(--muted); margin:0 0 10px; }
   .quiz-why{ font-size:13.5px; line-height:1.6; color:var(--cream); margin:0 0 12px; }
   .quiz-price{ font-size:13px; line-height:1.55; color:var(--muted); border-top:1px solid var(--line); padding-top:12px; }
@@ -351,16 +365,16 @@
   .ac-wrap .back-link{ margin-bottom:6px; }
   .ac-lead{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:26px; line-height:1.25; color:var(--cream); margin:0 0 8px; text-align:center; }
   .ac-tabs{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
-  .ac-tab{ flex:1; padding:12px 8px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; border-radius:2px; }
+  .ac-tab{ flex:1 1 auto; white-space:nowrap; padding:11px 12px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; cursor:pointer; border-radius:2px; }
   .ac-tab.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
-  .ac-card{ background:var(--panel); border:1px solid var(--line); border-radius:2px; padding:4px 22px 24px; }
+  .ac-card{ background:var(--panel); border:none; border-radius:2px; padding:4px 22px 24px; }
   .ac-sec{ padding:20px 0; border-bottom:1px solid var(--line); }
-  .ac-h{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:24px; line-height:1.15; color:var(--pink-deep); margin:0 0 10px; }
+  .ac-h{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:24px; line-height:1.15; color:var(--pink-text); margin:0 0 10px; }
   .ac-h3{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:19px; color:var(--cream); margin:12px 0 2px; }
   .ac-note{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:16px; color:var(--muted); margin:0 0 8px; }
   .ac-list{ list-style:none; margin:0; padding:0; }
   .ac-list li{ position:relative; padding-left:18px; font-size:13.5px; line-height:1.65; color:var(--cream); margin-bottom:6px; }
-  .ac-list li::before{ content:"\2661"; position:absolute; left:0; top:1px; color:var(--pink-deep); font-size:11px; }
+  .ac-list li::before{ content:"\2661"; position:absolute; left:0; top:1px; color:var(--pink-text); font-size:11px; }
   .ac-body{ font-size:13.5px; line-height:1.65; color:var(--cream); margin:0; }
   .ac-toggle{ display:flex; gap:8px; margin:6px 0 6px; }
   .ac-toggle button{ flex:1; padding:11px 8px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:13px; cursor:pointer; border-radius:999px; }
@@ -368,10 +382,10 @@
   .ac-test{ font-size:12.5px; line-height:1.6; color:var(--muted); margin:4px 0 6px; }
   .ac-foot{ text-align:center; padding-top:22px; }
   .ac-foot p{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:21px; color:var(--cream); margin:0; }
-  .ac-foot span{ color:var(--pink-deep); font-style:normal; font-size:16px; }
+  .ac-foot span{ color:var(--pink-text); font-style:normal; font-size:16px; }
   .ac-tab:focus-visible, .ac-toggle button:focus-visible{ outline:2px solid var(--pink-deep); outline-offset:2px; }
   /* floating "♡ Find My Style" pill */
-  .quiz-fab{ width:auto; height:auto; border-radius:999px; padding:13px 18px; gap:6px; font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; white-space:nowrap; }
+  .quiz-fab{ width:auto; height:auto; min-height:40px; border-radius:999px; padding:9px 14px; gap:5px; font-family:'Work Sans', sans-serif; font-size:10.5px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; white-space:nowrap; }
   .quiz-fab span{ font-size:14px; letter-spacing:0; }
   .opt-base{ color:var(--cream); opacity:.8; }
   /* room under every page so the last prices, buttons, and fields can scroll clear of the floating button */
@@ -379,20 +393,29 @@
   /* homepage doesn't scroll, so balance top and bottom space to keep the logo and buttons centered */
   .home-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .home-pair .cta-btn{ padding-left:8px; padding-right:8px; }
-  .landing-wrap, body.has-fab .landing-wrap{ padding-top:80px; padding-bottom:calc(80px + env(safe-area-inset-bottom)); }
+  .landing-wrap, body.has-fab .landing-wrap{ padding-top:56px; padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
+  /* homepage recent-work strip: one large photo, then smaller ones; hides itself when no photos are in the folder */
+  .home-work{ margin-top:34px; }
+  .home-work:not(:has(.home-tile.ok)){ display:none; }
+  .home-work-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .home-tile{ aspect-ratio:3/4; overflow:hidden; border-radius:2px; }
+  .home-tile:not(.ok){ position:absolute; width:1px; height:1px; opacity:0; }   /* stays out of sight until its photo has loaded */
+  .home-tile.lead{ grid-column:1 / -1; aspect-ratio:4/5; }
+  .home-tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .signature-img{ display:block; width:100%; max-width:260px; aspect-ratio:4/3; object-fit:cover; margin:0 auto 14px; border-radius:2px; }
   .landing-wrap .hero{ margin-bottom:0; }
   #fab-root .quiz-fab-wrap{ transition:transform .25s ease, opacity .25s ease; }
   /* once they scroll, the button shrinks to just the heart so it doesn't sit on top of the page */
   .quiz-fab{ transition:width .2s ease, padding .2s ease, background .15s; }
-  #fab-root.compact .quiz-fab{ width:50px; height:50px; padding:0; gap:0; justify-content:center; }
+  #fab-root.compact .quiz-fab{ width:44px; height:44px; min-height:0; padding:0; gap:0; justify-content:center; }
   #fab-root.compact .fab-label{ display:none; }
   #fab-root.compact .fab-heart{ font-size:20px; }
   #fab-root.compact .quiz-bubble{ display:none; }
   #fab-root.fab-away .quiz-fab-wrap{ transform:translateY(140%); opacity:0; pointer-events:none; }
   @media (max-width:480px){
-    .quiz-fab-wrap{ right:12px; bottom:calc(88px + env(safe-area-inset-bottom)); gap:8px; }   /* well above the phone's bottom bar so it's easy to tap */
-    .quiz-fab{ padding:10px 14px; font-size:11px; letter-spacing:0.1em; }
-    .quiz-fab span{ font-size:13px; }
+    .quiz-fab-wrap{ right:12px; bottom:calc(76px + env(safe-area-inset-bottom)); gap:8px; }   /* well above the phone's bottom bar so it's easy to tap */
+    .quiz-fab{ padding:8px 12px; font-size:10px; letter-spacing:0.12em; }
+    .quiz-fab span{ font-size:12px; }
     .quiz-bubble{ max-width:180px; font-size:12.5px; padding:10px 30px 10px 12px; }
   }
   /* small "Not sure what to book?" tag that sits above the Find My Style button */
@@ -404,7 +427,7 @@
   /* Narrow desktop windows (about 560–860px): the page column is 480px wide and centered, so the full-size button
      would sit on top of it. Shrink it to just the heart and drop the tag so it fits in the empty side margin. */
   @media (min-width:561px) and (max-width:860px){
-    .quiz-fab{ width:50px; height:50px; padding:0; gap:0; justify-content:center; }
+    .quiz-fab{ width:44px; height:44px; min-height:0; padding:0; gap:0; justify-content:center; }
     .quiz-fab .fab-label{ display:none; }
     .quiz-fab .fab-heart{ font-size:20px; }
     .quiz-bubble{ display:none; }
@@ -415,12 +438,12 @@
   .qm-overlay{ position:fixed; inset:0; z-index:70; background:rgba(12,8,10,0.62); display:flex; align-items:center; justify-content:center; padding:24px; }
   .qm{ position:relative; width:100%; max-width:560px; max-height:min(88vh, 860px); display:flex; flex-direction:column; background:var(--bg); border:1px solid var(--line); border-radius:6px; box-shadow:0 24px 60px rgba(0,0,0,0.45); overflow:hidden; }
   .qm-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:22px 24px 6px; }
-  .qm-eyebrow{ font-size:11px; font-weight:600; letter-spacing:0.24em; text-transform:uppercase; color:var(--pink); margin:0 0 4px; }
+  .qm-eyebrow{ font-size:11px; font-weight:600; letter-spacing:0.24em; text-transform:uppercase; color:var(--pink-text); margin:0 0 4px; }
   .qm-sub{ font-size:13.5px; color:var(--muted); margin:0; }
   .qm-x{ flex-shrink:0; width:36px; height:36px; border:1px solid var(--line); border-radius:50%; background:transparent; color:var(--cream); font-size:20px; line-height:1; cursor:pointer; }
   .qm-x:hover{ background:#F4EAE5; color:#211A1B; border-color:#F4EAE5; }
   .qm-progress-row{ display:flex; justify-content:space-between; align-items:center; padding:12px 24px 8px; }
-  .qm-link{ border:none; background:transparent; color:var(--pink); font-family:'Work Sans', sans-serif; font-size:12px; cursor:pointer; padding:4px 0; text-decoration:underline; text-underline-offset:3px; }
+  .qm-link{ border:none; background:transparent; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:12px; cursor:pointer; padding:4px 0; text-decoration:underline; text-underline-offset:3px; }
   .qm-bar{ height:3px; margin:0 24px; background:var(--line); border-radius:3px; overflow:hidden; }
   .qm-bar span{ display:block; height:100%; background:var(--pink); transition:width .25s ease; }
   .qm-body{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px 24px 24px; overscroll-behavior:contain; }
@@ -440,7 +463,7 @@
   }
   .qm .quiz-q{ margin-top:0; }
   /* homepage Find My Style (sits between the tagline and the question) */
-  .home-finder{ display:inline-flex; align-items:center; gap:5px; margin:24px auto 0; padding:6px 13px; border:1px solid var(--pink); border-radius:999px; background:transparent; color:var(--pink-deep); font-family:'Work Sans', sans-serif; font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; align-self:center; transition:background .15s, color .15s; }
+  .home-finder{ display:inline-flex; align-items:center; gap:5px; margin:24px auto 0; padding:6px 13px; border:1px solid var(--pink); border-radius:999px; background:transparent; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; align-self:center; transition:background .15s, color .15s; }
   .home-finder span{ font-size:11px; letter-spacing:0; }
   .home-finder:hover{ background:var(--pink); color:#241318; }
   .home-finder:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
@@ -465,19 +488,20 @@
   /* manage my appointment */
   .m-top{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
   .m-hi{ font-family:'Cormorant Garamond', serif; font-size:24px; font-weight:600; color:var(--cream); }
-  .m-pill{ font-size:10.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:20px; white-space:nowrap; background:var(--pink-soft); color:var(--pink); border:1px solid var(--line); }
+  .m-pill{ font-size:10.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:20px; white-space:nowrap; background:var(--pink-soft); color:var(--pink-text); border:1px solid var(--line); }
   .m-approved{ background:#2f5c2b; color:#c9e3c6; border-color:#2f5c2b; } .m-pending{ background:#5c4a14; color:#f5e3b3; border-color:#5c4a14; }
   .m-cancelled,.m-denied,.m-no-show{ background:#4a4244; color:#d9d0d2; border-color:#4a4244; }
   .m-row{ display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-top:1px solid var(--line); font-size:13.5px; }
   .m-row span{ color:var(--muted); } .m-row b{ font-weight:500; color:var(--cream); text-align:right; }
-  .m-good{ color:#8fd487 !important; } .m-bad{ color:var(--pink) !important; }
+  .m-good{ color:#8fd487 !important; } .m-bad{ color:var(--pink-text) !important; }
   .m-info{ background:var(--pink-soft); border-left:3px solid var(--pink); padding:11px 13px; font-size:13px; line-height:1.55; color:var(--cream); margin-bottom:12px; }
   .m-warn{ background:#3a1f22; border-left:3px solid #c9716f; padding:11px 13px; font-size:13px; line-height:1.55; color:#f0c4c2; margin-bottom:12px; }
   .m-warn b, .m-info b{ color:inherit; }
-  .m-link{ display:block; margin-top:8px; padding:0; border:none; background:none; color:var(--pink); font-family:'Work Sans', sans-serif; font-size:12.5px; text-decoration:underline; cursor:pointer; }
+  .m-link{ display:block; margin-top:8px; padding:0; border:none; background:none; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:12.5px; text-decoration:underline; cursor:pointer; }
   .m-notice{ background:#1f2e1e; border-left:3px solid #5fa858; color:#c9e3c6; padding:12px 14px; font-size:13.5px; line-height:1.5; margin-bottom:14px; }
   .m-checkin-cta{ display:block; width:100%; text-align:left; margin-top:14px; padding:16px 18px; background:var(--pink); color:#241318; border:none; border-radius:2px; cursor:pointer; font-family:'Work Sans', sans-serif; }
   .m-checkin-cta b{ display:block; font-size:14.5px; } .m-checkin-cta span{ font-size:12.5px; opacity:.85; }
+  .m-checkin-soft{ background:transparent; color:var(--cream); border:1px solid var(--pink); }   /* returning clients: optional, so not the solid pink "do this" button */
   .m-actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
   .m-act{ padding:13px 8px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:13px; cursor:pointer; border-radius:2px; }
   .m-act:hover{ border-color:var(--pink); background:var(--pink-soft); }
@@ -487,24 +511,25 @@
   .m-chips{ display:flex; flex-wrap:wrap; gap:6px; }
   .m-chip{ padding:9px 12px; border:1px solid var(--line); background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12.5px; cursor:pointer; border-radius:999px; }
   .m-chip.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
+  /* reviews: a quiet card with a gold hairline that fades in and out slowly, no slide */
   #review-root{ position:fixed; left:16px; bottom:calc(32px + env(safe-area-inset-bottom)); z-index:35; width:340px; max-width:calc(100% - 250px);
-    background:#FFFFFF; color:#211A1B; border:1px solid rgba(184,92,130,0.30); border-radius:10px; padding:10px 34px 11px 14px;
-    box-shadow:0 10px 26px rgba(36,19,24,0.16); opacity:0; transform:translateY(18px); pointer-events:none; transition:opacity .35s ease, transform .35s ease; }
-  #review-root.in{ opacity:1; transform:none; pointer-events:auto; }
-  .rv-head{ display:flex; align-items:center; gap:8px; margin-bottom:3px; }
-  .rv-stars{ color:#B85C82; font-size:13px; letter-spacing:.08em; }
-  .rv-svc{ font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C7B7E; }
-  .rv-text{ font-size:13px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+    background:rgba(255,253,251,0.94); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); color:#211A1B; border:none; border-top:1px solid rgba(168,138,94,0.55); border-radius:2px; padding:11px 34px 12px 16px;
+    box-shadow:0 6px 24px rgba(36,19,24,0.08); opacity:0; pointer-events:none; transition:opacity .9s ease; }
+  #review-root.in{ opacity:1; pointer-events:auto; }
+  .rv-head{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .rv-stars{ color:#A88A5E; font-size:11px; letter-spacing:.18em; }
+  .rv-svc{ font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:#8C7B7E; }
+  .rv-text{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:16.5px; line-height:1.35; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
   .rv-x{ position:absolute; top:4px; right:4px; width:28px; height:28px; border:none; background:none; color:#8C7B7E; font-size:18px; line-height:1; cursor:pointer; border-radius:50%; }
-  .rv-x:focus-visible{ outline:2px solid #B85C82; }
+  .rv-x:focus-visible{ outline:2px solid #A88A5E; }
   @media (max-width:480px){
     #review-root{ left:12px; right:12px; width:auto; max-width:none; bottom:calc(12px + env(safe-area-inset-bottom)); padding:8px 32px 9px 12px; }
-    .rv-text{ font-size:12.5px; line-height:1.35; -webkit-line-clamp:2; }
+    .rv-text{ font-size:15.5px; line-height:1.3; -webkit-line-clamp:2; }
   }
-  @media (prefers-reduced-motion: reduce){ #review-root{ transform:none; transition:opacity .2s linear; } }
+  @media (prefers-reduced-motion: reduce){ #review-root{ transition:opacity .2s linear; } }
   .fb-stars{ display:flex; gap:4px; }
   .fb-star{ background:none; border:none; padding:2px 4px; font-size:34px; line-height:1; color:var(--line); cursor:pointer; }
-  .fb-star.on{ color:var(--pink); }
+  .fb-star.on{ color:var(--pink-text); }
   .fb-star:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
   .m-danger{ background:#c9716f; } .m-danger:hover{ background:#e39997; }
   .m-thread{ display:flex; flex-direction:column; gap:8px; max-height:340px; overflow-y:auto; }
@@ -514,28 +539,105 @@
   .m-bubble.her{ align-self:flex-start; background:var(--panel-2); color:var(--cream); border:1px solid var(--line); border-bottom-left-radius:3px; }
   .m-foot{ text-align:center; font-size:11.5px; color:var(--muted); margin:18px 10px 0; line-height:1.5; }
   .m-act:focus-visible, .m-chip:focus-visible, .m-checkin-cta:focus-visible, .m-link:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
-  .quiz-over{ font-size:12.5px; color:var(--pink); margin-top:6px; }
+  .quiz-over{ font-size:12.5px; color:var(--pink-text); margin-top:6px; }
   .quiz-consult{ border-color:var(--pink); }
   .quiz-disclaimer{ font-size:11.5px; line-height:1.55; color:var(--muted); text-align:center; margin:20px 8px 10px; }
-  .quiz-wrap .quiz-match{ color:var(--pink); text-align:left; font-size:30px; margin:4px 0 8px; }
-  .quiz-wrap .quiz-progress{ text-transform:uppercase; letter-spacing:0.14em; font-size:11px; font-weight:600; color:var(--pink); }
+  .quiz-wrap .quiz-match{ color:var(--pink-text); text-align:left; font-size:30px; margin:4px 0 8px; }
+  .quiz-wrap .quiz-progress{ text-transform:uppercase; letter-spacing:0.14em; font-size:11px; font-weight:600; color:var(--pink-text); }
   .theme-light .opt.selected .opt-sub{ color:#3a2128; }
   .quiz-check{ width:22px; height:22px; flex-shrink:0; border:1px solid var(--line); border-radius:2px; display:flex; align-items:center; justify-content:center; color:#241318; font-size:13px; font-weight:700; }
   .opt.selected .quiz-check{ background:var(--pink); border-color:var(--pink); }
   .cta-btn:disabled{ opacity:0.45; cursor:not-allowed; }
-  .quiz-progress{ font-size:12px; color:var(--pink); margin-bottom:6px; }
+  .quiz-progress{ font-size:12px; color:var(--pink-text); margin-bottom:6px; }
   .quiz-q{ font-family:'Cormorant Garamond', serif; font-size:22px; font-weight:600; line-height:1.25; color:var(--cream); margin:0 0 4px; }
   .quiz-hint{ font-size:12.5px; color:var(--muted); margin:0 0 14px; }
-  .quiz-match{ font-family:'Cormorant Garamond', serif; font-size:34px; font-weight:600; line-height:1.1; color:var(--pink); margin:2px 0 10px; }
+  .quiz-match{ font-family:'Cormorant Garamond', serif; font-size:34px; font-weight:600; line-height:1.1; color:var(--pink-text); margin:2px 0 10px; }
   .quiz-from{ font-size:13px; color:var(--cream); margin:12px 0 16px; }
-  .quiz-from b{ color:var(--pink); }
+  .quiz-from b{ color:var(--pink-text); }
   .cta-btn:focus-visible, .opt:focus-visible, .back-link:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
   .takedown-note{ background:var(--pink-soft); border-left:3px solid var(--pink); padding:12px 14px; font-size:13px; line-height:1.55; color:var(--cream); margin-top:14px; }
-  .takedown-note b{ color:var(--pink); }
+  .takedown-note b{ color:var(--pink-text); }
   .takedown-note ul{ margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:12.5px; }
   .takedown-note li + li{ margin-top:4px; }
-  .signature-card{ border:1px solid var(--pink); padding:14px 16px; margin-top:14px; font-size:13px; line-height:1.55; color:var(--cream); text-align:center; }
-  .signature-eyebrow{ font-size:11px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--pink); margin-bottom:6px; }
+  /* pay boxes: deposit now/later and paying for the appointment */
+  .pay-box{ margin:18px 0 0; padding:18px; border:1px solid var(--line); background:var(--panel); text-align:left; border-radius:2px; }
+  .pay-title{ font-family:'Cormorant Garamond', serif; font-size:21px; font-weight:500; line-height:1.2; color:var(--cream); margin-bottom:4px; }
+  .pay-box .pay-sub{ font-size:12.5px; line-height:1.55; color:var(--muted); margin:0 0 12px; max-width:none; }
+  .pay-opts{ display:flex; flex-direction:column; gap:8px; }
+  .pay-box .pay-opt{ display:block; width:100%; margin:0; text-align:left; padding:12px 14px; border:1px solid var(--line); background:transparent; color:var(--cream); border-radius:2px; text-decoration:none; font-family:'Work Sans', sans-serif; font-size:13px; cursor:pointer; transition:border-color .3s ease; }
+  .pay-box .pay-opt:hover{ border-color:var(--pink); }
+  .pay-box .pay-opt:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .pay-opt b{ display:block; font-size:13.5px; font-weight:600; }
+  .pay-opt span{ display:block; font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .pay-box .pay-opt.pay-card{ background:var(--pink); border-color:var(--pink); color:#241318; }
+  .pay-box .pay-opt.pay-card span{ color:#3a2128; }
+  .pay-box .pay-opt.pay-static{ cursor:default; }
+  .pay-box .pay-note{ font-size:11px; line-height:1.5; color:var(--muted); margin:10px 0 0; max-width:none; }
+  .pay-box .error-text{ margin-top:10px; }
+  .m-pay-box{ margin:14px 0 0; }
+  .addr-text{ font-size:17px; line-height:1.45; color:var(--cream); margin:4px 0 10px; font-weight:500; }
+  .addr-btns{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .addr-btns .pay-opt{ text-align:center; }
+
+  /* step bar: home · booking · checkout */
+  .stepbar{ position:sticky; top:0; z-index:30; display:flex; justify-content:center; align-items:center; gap:10px; margin:-36px -20px 22px; padding:14px 20px 12px; background:var(--bg); border-bottom:1px solid var(--gold-line); }
+  .stepbar button{ border:none; background:none; padding:4px 2px; font-family:'Work Sans', sans-serif; font-size:11px; font-weight:500; letter-spacing:0.22em; text-transform:lowercase; color:var(--muted); cursor:pointer; }
+  .stepbar button:hover{ color:var(--cream); }
+  .stepbar .stepbar-mid, .stepbar.at-checkout .stepbar-end, .stepbar.is-done .stepbar-end{ color:var(--cream); font-weight:600; text-decoration:underline; text-decoration-color:var(--pink); text-underline-offset:6px; text-decoration-thickness:2px; }
+  .stepbar.at-checkout .stepbar-mid, .stepbar.is-done .stepbar-mid{ color:var(--muted); font-weight:500; text-decoration:none; }
+  .stepbar-sep{ color:var(--gold); }
+  .stepbar button:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  #checkout{ scroll-margin-top:64px; }
+  /* homepage Regulars link (top-right corner) */
+  .landing-wrap{ position:relative; }
+  .regulars-link{ position:absolute; top:18px; right:20px; border:none; background:none; padding:6px 2px; font-family:'Work Sans', sans-serif; font-size:10.5px; font-weight:600; letter-spacing:0.24em; text-transform:uppercase; color:var(--gold); cursor:pointer; border-bottom:1px solid var(--gold-line); }
+  .regulars-link:hover{ color:var(--cream); }
+  .regulars-link:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .regulars-banner{ margin:12px auto 0; font-size:11.5px; letter-spacing:0.06em; color:var(--gold); text-align:center; }
+  .regulars-banner button{ border:none; background:none; padding:0 0 0 6px; font:inherit; color:var(--pink-text); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+  /* search bar + Style Finder circle (homepage and Services & Prices) */
+  .search-row{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .search-field{ flex:1; min-width:0; }
+  .search-bar{ display:block; width:100%; text-align:left; border:1px solid var(--line); border-radius:999px; background:var(--panel); padding:13px 18px 13px 42px; font-family:'Work Sans', sans-serif; font-size:16px; color:var(--cream); cursor:text;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A88A5E' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:16px center; background-size:17px; }
+  .search-bar-btn{ color:var(--muted); font-size:14px; }
+  .search-bar:focus{ outline:2px solid var(--pink); outline-offset:1px; }
+  .quiz-circle{ flex-shrink:0; width:48px; height:48px; border-radius:50%; border:none; background:var(--pink); color:#241318; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 14px rgba(36,19,24,0.14); transition:background .3s ease; }
+  .quiz-circle:hover{ background:var(--pink-deep); }
+  .quiz-circle span{ font-size:21px; line-height:1; margin-top:1px; }
+  .quiz-circle:focus-visible{ outline:2px solid var(--pink); outline-offset:3px; }
+  /* homepage consultation box */
+  .home-consult{ display:block; width:100%; margin:0 0 12px; padding:14px 18px; text-align:center; font-family:'Work Sans', sans-serif; background:transparent; border:1px solid var(--line); border-radius:2px; cursor:pointer; transition:border-color .35s ease, background .35s ease; }
+  .home-consult:hover{ border-color:var(--pink); background:var(--pink-soft); }
+  .home-consult:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .home-consult-title{ display:block; font-size:12px; font-weight:500; letter-spacing:0.22em; text-transform:uppercase; color:var(--cream); }
+  .home-consult-sub{ display:block; margin-top:4px; font-size:11.5px; color:var(--muted); }
+  /* Services & Prices */
+  .svc-search-label{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  .svc-chips{ display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:16px; scrollbar-width:none; }
+  .svc-chips .m-chip{ white-space:nowrap; flex-shrink:0; }
+  .svc-finder{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0; margin-bottom:8px; border-top:1px solid var(--gold-line); border-bottom:1px solid var(--gold-line); font-size:13px; color:var(--muted); }
+  .svc-finder .cta-btn{ width:auto; padding:11px 16px; font-size:10.5px; }
+  .svc-group{ background:var(--panel); padding:20px 20px 10px; margin-top:14px; border-radius:2px; }
+  .svc-h{ font-family:'Cormorant Garamond', serif; font-weight:500; font-size:23px; color:var(--cream); margin:0 0 4px; }
+  .svc-desc{ font-size:12.5px; line-height:1.55; color:var(--muted); margin:0 0 8px; }
+  .svc-row{ display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--line); }
+  .svc-name{ font-size:13.5px; color:var(--cream); line-height:1.4; }
+  .svc-price{ font-family:'Cormorant Garamond', serif; font-size:18px; font-weight:500; color:var(--cream); font-variant-numeric:lining-nums; }
+  .svc-book{ border:1px solid var(--pink); background:transparent; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:10px; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; padding:8px 10px; border-radius:2px; cursor:pointer; }
+  .svc-book:hover{ background:var(--pink); color:#241318; }
+  .svc-book-gap{ width:0; }
+  .svc-quoted{ font-family:'Work Sans', sans-serif; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .svc-empty{ text-align:center; color:var(--muted); font-size:13.5px; padding:30px 10px; }
+  .svc-inline{ border:none; background:none; padding:0; font:inherit; color:var(--pink-text); text-decoration:underline; cursor:pointer; }
+
+  /* Shop Hair: the three-step "how ordering works" note */
+  .shop-steps{ margin:18px 4px; padding:16px 0; border-top:1px solid var(--gold-line); border-bottom:1px solid var(--gold-line); }
+  .shop-steps-title{ font-size:10.5px; font-weight:600; letter-spacing:0.24em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; text-align:center; }
+  .shop-steps ol{ margin:0; padding-left:20px; font-size:13px; line-height:1.6; color:var(--cream); }
+  .shop-steps li + li{ margin-top:4px; }
+  .signature-card{ border:none; border-top:1px solid var(--gold-line); border-bottom:1px solid var(--gold-line); padding:16px 8px; margin-top:14px; font-size:13px; line-height:1.55; color:var(--cream); text-align:center; }
+  .signature-eyebrow{ font-size:10.5px; font-weight:600; letter-spacing:0.24em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
 </style>
 </head>
 <body>
@@ -545,6 +647,8 @@
 /* ============== CONFIG ============== */
 const CONFIG = {
   cashtag: "$ehiixs",
+  zelle: "(260) 298-2022",   // your Zelle phone or email (shown to clients as a pay option); leave "" to hide Zelle
+  zelleName: "",             // the name Zelle shows for you, so clients know they've got the right person (optional)
   depositAmount: 20,
   lateFeeAmount: 10,
   lateFeeMinutes: 10,
@@ -560,6 +664,8 @@ const LOGO_LIGHT_B64 = "iVBORw0KGgoAAAANSUhEUgAAApEAAAJMCAYAAACii/06AAEAAElEQVR4
 // October Sew-In sale: any tier with a "was" price shows it slashed out next to the sale price, and the sale
 // price is what gets charged. After Oct 31, 2026 the regular ("was") price takes over automatically.
 const SALE_ENDS = new Date(2026, 9, 31, 23, 59, 59);
+let saleEndsAt = SALE_ENDS;   // the end date actually in use (admin can move it); shown next to sale prices
+const saleEndsLabel = () => 'sale ends ' + saleEndsAt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
     { key:"service", name:"Service only", price:120 },
@@ -822,9 +928,11 @@ function quizPicked(){
   });
   return picked;
 }
-// Floating Style Finder button — booking and bundle pages only (the homepage has its own button).
+// Floating Style Finder button — homepage and gallery.
 function quizFabHTML(){
-  if(state.quizOpen || !['landing','book','bundles','questions','aftercare','gallery'].includes(state.view) || state.galleryOpen != null) return '';
+  // Kept off the booking, hair-shop and question pages so it never sits over form fields, prices or the calendar
+  // (the booking page links to The Style Finder inline instead).
+  if(true) return '';   // retired: The Style Finder is linked from the homepage, Services & Prices and booking step 1 instead
   const sparkle = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" fill="currentColor"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" fill="currentColor"/></svg>`;
   // pops up from the bottom once each time they open Book a Service; the help bubble shows once per visit
   const animate = state.fabPop; if(animate){ state.fabPop = false; state.fabPopNow = true; }
@@ -973,6 +1081,10 @@ function minutesToTime(t){ return String(Math.floor(t/60)).padStart(2,'0') + ':'
 
 // Hard cutoff — nothing is bookable at or after this time, no matter what a day's windows say below.
 let LATEST_BOOKABLE_TIME = "19:00";
+// The earliest regular start time on any day (your admin hours included). Earlier than this is only a request:
+// on days you have morning hours, clients can ask for EARLY_REQUEST_FROM up to this time, and you approve it or not.
+const EARLIEST_BOOKABLE_TIME = "08:45";
+const EARLY_REQUEST_FROM = "07:00";
 
 // Days with no fixed windows above ("flexible all day") still need a bounded slot list —
 // this is the span used to generate slots for those days.
@@ -982,14 +1094,27 @@ const FLEXIBLE_DAY_RANGE = { start: "07:00", end: "21:00" };
 // entirely if it starts at or after the cutoff).
 function effectiveWindows(day){
   const raw = WEEKDAY_WINDOWS[day] || [FLEXIBLE_DAY_RANGE];
-  const cap = timeToMinutes(LATEST_BOOKABLE_TIME);
+  const cap = timeToMinutes(LATEST_BOOKABLE_TIME), floor = timeToMinutes(EARLIEST_BOOKABLE_TIME);
   return raw
-    .map(w => ({ start: w.start, end: minutesToTime(Math.min(timeToMinutes(w.end), cap)) }))
+    .map(w => ({ start: minutesToTime(Math.max(timeToMinutes(w.start), floor)), end: minutesToTime(Math.min(timeToMinutes(w.end), cap)) }))
     .filter(w => timeToMinutes(w.start) < timeToMinutes(w.end));
 }
 
+// Early-time requests are offered only on days whose hours start first thing (so never on a class morning).
+function earlyRequestOK(dateStr){
+  if(!dateStr) return false;
+  const w = effectiveWindows(new Date(dateStr + 'T12:00:00').getDay());
+  return !!w.length && w[0].start === EARLIEST_BOOKABLE_TIME;
+}
+function earlySlotsFor(dateStr){
+  if(!earlyRequestOK(dateStr)) return [];
+  const out = [];
+  for(let t = timeToMinutes(EARLY_REQUEST_FROM); t < timeToMinutes(EARLIEST_BOOKABLE_TIME); t += 15) out.push(minutesToTime(t));
+  return out;
+}
 function isTimeAllowed(dateStr, timeStr){
   if(!dateStr || !timeStr) return true; // nothing to check yet
+  if(state.earlyRequest && earlySlotsFor(dateStr).includes(timeStr)) return true;   // an early request you'll approve or not
   const day = new Date(dateStr + 'T12:00:00').getDay();
   const t = timeToMinutes(timeStr);
   return effectiveWindows(day).some(w => t >= timeToMinutes(w.start) && t <= timeToMinutes(w.end));
@@ -1200,7 +1325,7 @@ function fileToCompressedDataURL(file, maxW=900, quality=0.72){
   });
 }
 
-const checkSVG = `<svg viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="25" stroke="#B85C82" stroke-width="2"/><path d="M15 27l7 7 15-15" stroke="#B85C82" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const checkSVG = `<svg viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="25" stroke="#C9AD84" stroke-width="2"/><path d="M15 27l7 7 15-15" stroke="#C9AD84" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 // Shared aftercare intro: headline, supporting text, the three kit tiers, and "See what's included".
 function aftercareIntroHTML(){
@@ -1276,7 +1401,7 @@ function fullPolicyHTML(){
     <div style="margin-top:8px;"><b>Hair prep:</b> please arrive with your hair already washed and dried — I don't currently offer washing/drying services.</div>
     <div style="margin-top:8px;"><b>Cancellations/rescheduling:</b> must be done at least 24 hours beforehand (special exceptions considered — if you're sick, please reschedule!).</div>
     <div style="margin-top:8px;"><b>Add-ons:</b> please mention add-ons (bundles, color, closures) at booking so I can schedule enough time.</div>
-    <div style="margin-top:10px; color:var(--pink);">I'm a student too 💕 — I expect we'll respect each other's time. Thank you for understanding!</div>
+    <div style="margin-top:10px; color:var(--pink-text);">I'm a student too 💕 — I expect we'll respect each other's time. Thank you for understanding!</div>
   `;
 }
 
@@ -1333,7 +1458,7 @@ function resetSelection(){
 
 function render(){
   const app = document.getElementById("app");
-  const isLight = (state.view === "landing");
+  const isLight = ["landing", "aftercare", "services", "regulars"].includes(state.view);   // these pages are light; the booking flow is dark
   document.documentElement.style.background = isLight ? "#F8F3EF" : "#171214";
   document.body.style.background = isLight ? "#F8F3EF" : "#171214";
   if(state.view === "landing") app.innerHTML = renderLanding();
@@ -1347,6 +1472,8 @@ function render(){
   else if(state.view === "aftercare") app.innerHTML = renderAftercare();
   else if(state.view === "gallery") app.innerHTML = renderGallery();
   else if(state.view === "manage") app.innerHTML = renderManage();
+  else if(state.view === "services") app.innerHTML = renderServices();
+  else if(state.view === "regulars") app.innerHTML = renderRegulars();
   // Style Finder modal: keep the scroll position inside it unless they moved to a new step
   const prevQmScroll = (document.querySelector('.qm-body')||{}).scrollTop || 0;
   if(state.quizOpen) app.insertAdjacentHTML('beforeend', renderQuiz());
@@ -1362,12 +1489,14 @@ function render(){
   const fabSig = fabHTML.replace('quiz-fab-wrap enter','quiz-fab-wrap ');
   if(fabRoot.dataset.sig !== fabSig || state.fabPopNow){ fabRoot.innerHTML = fabHTML; fabRoot.dataset.sig = fabSig; }
   state.fabPopNow = false;
+  syncStepBar();   // re-light the right step after a redraw (booking / Shop Hair step bar)
+  if(state.svcFocus){ state.svcFocus = false; const box = document.getElementById('svc-search'); if(box) box.focus(); }
   document.body.classList.toggle('has-fab', !!fabHTML);
   fabRoot.classList.toggle('compact', window.scrollY > 40);
   if(!fabHTML) fabRoot.classList.remove('fab-away');
   // cream page edges on desktop for the light-theme pages (homepage + Style Finder)
   syncReviewPop();
-  const light = ['landing','aftercare'].includes(state.view) ? '#F8F3EF' : '';
+  const light = ['landing','aftercare','services','regulars'].includes(state.view) ? '#F8F3EF' : '';
   document.documentElement.style.background = light; document.body.style.background = light;
   attachHandlers();
   const nameInput = document.getElementById('quiz-name');
@@ -1483,7 +1612,7 @@ function kitsApply(){ return state.category && state.category!=='bundles' && sta
 function luxuryIncluded(){
   if(!(state.category==='qw' || state.category==='si')) return false;
   const tier = currentTier();
-  return !!(tier && tier.price >= LUXURY_INCLUDED_MIN);
+  return !!(tier && (tier.todayPrice || tier.price) >= LUXURY_INCLUDED_MIN);   // regulars' rates keep today's kit perks
 }
 
 // Reasons this booking earns a complimentary Mini Care Kit (empty = not eligible).
@@ -1612,27 +1741,206 @@ const CATEGORIES = [
   { key:'custom', name:'Custom' },
 ];
 
+// Homepage "recent work" photos. Real client photos only; put the files in the photos/ folder next to index.html.
+// The first one shows large. Any file that isn't there yet is simply left out.
+const HOME_PHOTOS = ["photos/work-1.jpg", "photos/work-2.jpg", "photos/work-3.jpg", "photos/work-4.jpg"];
+const MISSING_PHOTOS = new Set();   // photos that failed to load once aren't asked for again on every re-render
+/* ============== paying (deposit, and the rest of the service) ==============
+   Card / Apple Pay / Google Pay (and Afterpay for the rest of a service) go through Square and mark themselves paid;
+   that only shows once you've connected Square from your Sheet (Ehiffect menu → Set up Square payments).
+   Cash App and Zelle are free and you mark them received yourself, like now. */
+let CARD_PAY = false, CARD_FEE = { percent: 3, min: 1 };   // both come from your Apps Script
+const withCardFee = amt => Math.round((amt + Math.max(CARD_FEE.min, Math.ceil(amt * CARD_FEE.percent) / 100)) * 100) / 100;
+const payMoney = n => '$' + (Math.round(n * 100) % 100 ? Number(n).toFixed(2) : Math.round(n));
+const cashAppUrl = amt => 'https://cash.app/' + CONFIG.cashtag + '/' + amt;   // opens Cash App with the amount filled in
+// The pay choices on the appointment page. cardAction is the card button's data-action.
+function payOptionsHTML(amount, cardAction, cardKey, opts){
+  opts = opts || {};
+  const cardAmt = opts.cardAmount || withCardFee(amount);
+  return `<div class="pay-opts">
+    ${CARD_PAY ? `<button type="button" class="pay-opt pay-card" data-action="${cardAction}" data-key="${cardKey || ''}"><b>Card, Apple Pay or Google Pay · ${payMoney(cardAmt)}</b><span>includes a ${payMoney(cardAmt - amount)} card fee${opts.afterpay ? ' · Afterpay available' : ''} · confirmed right away</span></button>` : ''}
+    <a class="pay-opt" href="${cashAppUrl(amount)}" target="_blank" rel="noopener"><b>Cash App · ${payMoney(amount)}</b><span>no fee · opens Cash App to ${escapeHTML(CONFIG.cashtag)}</span></a>
+    ${CONFIG.zelle ? `<button type="button" class="pay-opt" data-action="copy-zelle"><b>Zelle · ${payMoney(amount)}</b><span>${state.zelleCopied ? 'Copied ✓ Paste it into Zelle in your bank app' : 'no fee · tap to copy ' + escapeHTML(CONFIG.zelle) + (CONFIG.zelleName ? ' (' + escapeHTML(CONFIG.zelleName) + ')' : '')}</span></button>` : ''}
+    ${opts.cash ? `<div class="pay-opt pay-static"><b>Cash</b><span>pay in person at your appointment</span></div>` : ''}
+  </div>
+  ${state.payErr ? `<div class="error-text" role="alert">${state.payErr}</div>` : ''}
+  <p class="pay-note">Cash App${CONFIG.zelle ? ' and Zelle' : ''} payments are marked received once I see them.</p>`;
+}
+
+/* ============== your address, on the appointment day only ==============
+   Your Apps Script only sends the address on the day (from 7 AM, once approved and the deposit is in), and never after. */
+function addressBoxHTML(m){
+  const a = m.address; if(!a) return '';
+  if(a.state === 'show'){
+    const maps = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a.text);
+    return `<div class="pay-box m-pay-box addr-box">
+      <div class="pay-title">Where to go</div>
+      <p class="addr-text">${escapeHTML(a.text)}</p>
+      ${a.notes ? `<p class="pay-sub" style="margin:0 0 12px;">${escapeHTML(a.notes)}</p>` : ''}
+      <div class="addr-btns">
+        <button type="button" class="pay-opt pay-card" data-action="copy-address"><b>${state.addrCopied ? 'Copied ✓' : 'Copy address'}</b></button>
+        <a class="pay-opt" href="${maps}" target="_blank" rel="noopener"><b>Open in Maps</b></a>
+      </div>
+      <p class="pay-note">Just for today. This disappears after your appointment day.</p>
+    </div>`;
+  }
+  const msg = a.state === 'soon' ? `📍 My address shows here on the day of your appointment, from ${a.opensAt} AM.`
+    : a.state === 'deposit' ? '📍 My address shows here once your deposit is in.'
+    : a.state === 'past' ? '📍 This appointment has passed, so the address is no longer available.' : '';
+  return msg ? `<div class="m-info" style="margin-top:14px;">${msg}</div>` : '';
+}
+
+/* ============== Regulars' rates ==============
+   Returning clients type a shared password (checked by your Apps Script) to see and book at their previous prices.
+   The prices come back from the server only after a correct password; they're kept for this browser tab only. */
+const REGULARS_SAVE_KEY = "ehiffectRegulars";
+let REGULARS = null;   // { key, prices:{ priceId: amount } } once unlocked
+let REGULARS_ON = false;   // whether the homepage shows the Regulars link (your admin switch + a password set)
+try{ REGULARS = JSON.parse(sessionStorage.getItem(REGULARS_SAVE_KEY) || 'null'); }catch(e){}
+// Puts the regulars' prices on top of today's (only where they're lower). Runs after every live-config refresh.
+function applyRegularRates(){
+  if(!REGULARS || !REGULARS.prices) return;
+  PRICE_REGISTRY.forEach(it => {
+    const p = REGULARS.prices[it.id];
+    if(typeof p === 'number' && p >= 0 && p < it.get()){
+      const m = it.id.match(/^(si|qw)\.([a-z0-9]+)$/);   // install packages remember today's price, so regulars keep the same kit perks
+      if(m){ const t = INSTALLS[m[1]].tiers.find(x => x.key === m[2]); if(t) t.todayPrice = it.get(); }
+      it.set(p); if(it.setWas) it.setWas(undefined);
+    }
+  });
+}
+async function unlockRegulars(password){
+  const res = await fetch(CONFIG.apiUrl + "?action=regulars&payload=" + encodeURIComponent(JSON.stringify({ password })));
+  return res.json();
+}
+function regularsBannerHTML(){
+  return REGULARS ? `<p class="regulars-banner">★ Regulars' rates applied <button type="button" data-action="reg-signout">sign out</button></p>` : '';
+}
+function renderRegulars(){
+  return `
+  <div class="wrap theme-light">
+    <span class="back-link" data-action="go-landing" role="button" tabindex="0">&lsaquo; home</span>
+    <div class="hero" style="padding-top:4px;">
+      <p class="eyebrow">for returning clients</p>
+      <h1 class="title" style="margin:6px 0 8px;">Regulars</h1>
+      <p class="tagline" style="font-family:'Cormorant Garamond', serif; font-style:italic; font-size:19px;">welcome back</p>
+    </div>
+    <div class="card">
+      <div class="opt-sub" style="font-size:13px; line-height:1.6; margin-bottom:14px;">Enter the regulars' password to see and book at your previous rates.</div>
+      <div class="field"><label for="reg-pass">Password</label><input type="password" id="reg-pass" autocomplete="current-password" value=""/></div>
+      ${state.regError ? `<div class="error-text" role="alert">${state.regError}</div>` : ''}
+      <button class="submit-btn" data-action="reg-unlock" style="margin-top:10px;">Unlock My Rates</button>
+    </div>
+    <div class="footer-note">Don't have the password? DM @ehiffect on Instagram.</div>
+  </div>`;
+}
+
+/* ============== Services & Prices (searchable menu) ============== */
+// Built from the same price list the booking form uses, so prices always match (and show the regulars' rates once unlocked).
+const SERVICE_GROUPS = [
+  { group:'Sew-In', cat:'si', desc:QUIZ_SERVICES.si.desc, plus:true },
+  { group:'Quick Weave', cat:'qw', desc:QUIZ_SERVICES.qw.desc, plus:true },
+  { group:'Braids & Twists', cat:'braids', desc:QUIZ_SERVICES.braids.desc },
+  { group:'Cornrows & Crochet', cat:'cornrows', desc:'Neat cornrows, custom designs, and crochet installed over a braid-down.' },
+  { group:'Treatments', cat:'treatments', desc:'' },
+  { group:'Takedowns', cat:'takedown', desc:'' },
+  { group:'Shop Hair', shop:true, desc:"Virgin and raw hair bundles to take home. Tell me what you'd like and I'll confirm your price; every order comes with a complimentary Mini Care Kit." },
+  { group:'Add-ons', cat:null, desc:'Added to a service when you book.' },
+];
+// Shop Hair is quoted per order, so these rows have no set price and open the Shop Hair page instead of booking.
+const SHOP_ROWS = [
+  { id:'shop.virgin', group:'Shop Hair', label:'Virgin hair bundles', get:() => null },
+  { id:'shop.raw', group:'Shop Hair', label:'Raw hair bundles', get:() => null },
+];
+function serviceRows(){
+  return PRICE_REGISTRY.filter(it => SERVICE_GROUPS.some(g => g.group === it.group) && !/\.add(1620|22)$/.test(it.id)).concat(SHOP_ROWS);
+}
+function serviceResultsHTML(){
+  const q = String(state.svcQuery || '').trim().toLowerCase();
+  const words = q.split(/\s+/).filter(Boolean);
+  const out = SERVICE_GROUPS.filter(g => !state.svcGroup || g.group === state.svcGroup).map(g => {
+    const rows = serviceRows().filter(it => it.group === g.group)
+      .filter(it => { const hay = (g.group + ' ' + it.label + ' ' + g.desc).toLowerCase(); return words.every(w => hay.includes(w)); });
+    if(!rows.length) return '';
+    const cat = id => g.group === 'Cornrows & Crochet' ? (id.startsWith('crochet') ? 'crochet' : 'cornrows') : g.cat;
+    return `<section class="svc-group">
+      <h2 class="svc-h">${g.group}</h2>
+      ${g.desc && !q ? `<p class="svc-desc">${g.desc}</p>` : ''}
+      ${rows.map(it => `<div class="svc-row">
+        <span class="svc-name">${escapeHTML(it.label.replace(/^\+ /, g.plus ? 'Install + ' : ''))}</span>
+        <span class="svc-price">${it.get() === null ? '<span class="svc-quoted">quoted</span>' : money(it.get()) + (g.plus ? '+' : '')}</span>
+        ${g.shop ? `<button type="button" class="svc-book" data-action="landing-pick" data-key="bundles" aria-label="Shop ${escapeHTML(it.label)}">Shop</button>`
+          : cat(it.id) ? `<button type="button" class="svc-book" data-action="svc-book" data-key="${cat(it.id)}" aria-label="Reserve ${escapeHTML(it.label)}">Reserve</button>` : '<span class="svc-book-gap"></span>'}
+      </div>`).join('')}
+    </section>`;
+  }).join('');
+  return out || `<p class="svc-empty">No services match “${escapeHTML(state.svcQuery)}”. Try another word, or <button type="button" class="svc-inline" data-action="start-quiz">find my style</button>.</p>`;
+}
+// The search bar with The Style Finder's round button beside it. On the homepage the bar is a button that opens
+// Services & Prices with the search box ready to type in; on that page it's the real search box.
+function searchRowHTML(live){
+  const bar = live
+    ? `<label for="svc-search" class="svc-search-label">Search services</label>
+       <input type="search" id="svc-search" class="search-bar" placeholder="search services &amp; prices" value="${escapeHTML(state.svcQuery || '')}" autocomplete="off"/>`
+    : `<button type="button" class="search-bar search-bar-btn" data-action="go-services-search">search services &amp; prices</button>`;
+  return `<div class="search-row">
+    <div class="search-field">${bar}</div>
+    <button type="button" class="quiz-circle" data-action="start-quiz" aria-label="Find My Style — open The Style Finder" title="Find My Style">
+      <span aria-hidden="true">♡</span>
+    </button>
+  </div>`;
+}
+
+function renderServices(){
+  return `
+  <div class="wrap theme-light">
+    <span class="back-link" data-action="go-landing" role="button" tabindex="0">&lsaquo; home</span>
+    <div class="hero" style="padding-top:4px; margin-bottom:18px;">
+      <p class="eyebrow">the menu</p>
+      <h1 class="title" style="margin:6px 0 8px;">Services &amp; Prices</h1>
+      ${regularsBannerHTML()}
+    </div>
+    ${searchRowHTML(true)}
+    <div class="svc-chips" role="group" aria-label="Filter by category">
+      <button type="button" class="m-chip ${!state.svcGroup ? 'on' : ''}" data-action="svc-group" data-key="">All</button>
+      ${SERVICE_GROUPS.map(g => `<button type="button" class="m-chip ${state.svcGroup === g.group ? 'on' : ''}" data-action="svc-group" data-key="${g.group}">${g.group}</button>`).join('')}
+    </div>
+    <div id="svc-results" aria-live="polite">${serviceResultsHTML()}</div>
+    <p class="footer-note">Prices are starting prices; your full total shows as you book.</p>
+  </div>`;
+}
+
 function renderLanding(){
   return `
   <div class="wrap theme-light landing-wrap" style="min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center;">
+    ${REGULARS_ON || REGULARS ? `<button type="button" class="regulars-link" data-action="go-regulars">${REGULARS ? '★ Regulars' : 'Regulars'}</button>` : ''}
     <div class="hero" style="padding-top:0; padding-bottom:8px;">
-      <p class="eyebrow">currently based in Bloomington</p>
-      <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:130px; margin:6px auto 22px;"/>
+      <p class="eyebrow">by appointment · bloomington</p>
+      <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:150px; margin:10px auto 26px;"/>
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
 
-    <div style="margin-top:44px;">
-      <button class="cta-btn" data-action="landing-pick" data-key="service">Book a Service</button>
+    <div style="margin-top:36px;">
+      ${searchRowHTML(false)}
+      <button class="cta-btn" data-action="landing-pick" data-key="service">Reserve Your Appointment</button>
       <div class="home-pair">
         <button class="cta-btn secondary" data-action="landing-pick" data-key="bundles">Shop Hair</button>
         <button class="cta-btn secondary" data-action="go-aftercare">Aftercare</button>
       </div>
     </div>
 
-    <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your appointment? ›</div>
-    <div class="back-link" data-action="landing-pick" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin-top:0;">Need a consultation first? ›</div>
+    <button type="button" class="home-consult" data-action="landing-pick" data-key="consult">
+      <span class="home-consult-title">Consultation</span>
+      <span class="home-consult-sub">Not sure yet? Begin with a quick call.</span>
+    </button>
+    <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your visit ›</div>
+
+    <section class="home-work" aria-label="Recent work">
+      <p class="eyebrow" style="margin-bottom:12px;">recent work</p>
+      <div class="home-work-grid">${HOME_PHOTOS.filter(src => !MISSING_PHOTOS.has(src)).map((src, i) => `<div class="home-tile${i===0?' lead':''}"><img src="${src}" alt="Hair styled by The Ehiffect" onload="this.parentNode.classList.add('ok')" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.parentNode.remove()"/></div>`).join('')}</div>
+    </section>
+
     ${homeReviewsHTML()}
-    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
 
@@ -1775,8 +2083,7 @@ function renderGallery(){
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
     <div class="gal-grid">${GALLERY.map(tile).join('')}</div>
-    <button class="cta-btn" data-action="landing-pick" data-key="service" style="margin-top:24px;">Book a Service</button>
-    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
+    <button class="cta-btn" data-action="landing-pick" data-key="service" style="margin-top:24px;">Reserve Your Appointment</button>
     ${cur ? `
     <div class="gal-box" data-action="gal-close" data-backdrop="1" role="dialog" aria-modal="true" aria-label="Photo viewer">
       <button class="gal-x" data-action="gal-close" aria-label="Close">×</button>
@@ -1793,6 +2100,8 @@ function renderGallery(){
 /* ============== "Manage my appointment" (the private link in their emails) ============== */
 // Hair check-in questions. Edit, add, or remove lines here — the page and your Sheet follow along.
 // type "choice" = tap one option; type "text" = they type an answer.
+// A returning client's check-in copied from their last booking carries this line (your Apps Script adds it).
+const CARRIED_KEY = "Carried over from";
 const CHECKIN_QUESTIONS = [
   { q:"How long is your hair at the nape (back of your neck)?", type:"choice", options:["Above the nape (short)", "At the nape", "Past the nape", "Not sure"] },
   { q:"What's your hair like right now?", type:"choice", options:["Natural", "Relaxed", "Texturized", "Color-treated", "Other"] },
@@ -1833,7 +2142,6 @@ function renderManage(){
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
     ${inner}
-    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
   if(state.mLoading) return shell(`<div class="loading">Loading your appointment…</div>`);
   if(!state.manage){
@@ -1845,6 +2153,20 @@ function renderManage(){
   const closed = ['denied','cancelled','no-show','rescheduled'].includes(m.status);
   const pillTxt = { pending:'Waiting for approval', approved:'Confirmed', cancelled:'Cancelled', denied:'Not approved', rescheduled:'Rescheduled', 'no-show':'Missed' }[m.status] || m.status;
   const showCheckin = !m.isBundle && !m.isConsult && !closed;
+  const carriedFrom = m.checkIn && m.checkIn[CARRIED_KEY] ? String(m.checkIn[CARRIED_KEY]) : '';   // returning client, nothing new sent yet
+  // Paying: the deposit first (now or once approved), then the rest of the service before or after the appointment.
+  const pay = m.pay || {};
+  const depLabel = m.isConsult ? 'consultation fee' : 'deposit';
+  const depDue = !m.isBundle && !m.depositPaid && m.status === 'approved';   // paying opens once you approve, so there's never a refund to send
+  const balDue = !m.isBundle && !m.isConsult && m.status === 'approved' && m.depositPaid && pay.balance > 0 && !pay.balancePaid;
+  const payBoxes = (depDue ? `<div class="pay-box m-pay-box">
+      <div class="pay-title">Pay your ${payMoney(m.deposit)} ${depLabel} to lock in your spot</div>
+      <p class="pay-sub">${m.isConsult ? 'It goes toward your deposit if you reserve a service afterward.' : 'It comes off your total at your appointment.'}</p>
+      ${payOptionsHTML(m.deposit, 'm-pay', 'deposit', { cardAmount: pay.depositCard })}</div>` : '')
+    + (balDue ? `<div class="pay-box m-pay-box">
+      <div class="pay-title">Pay for your appointment</div>
+      <p class="pay-sub">${payMoney(pay.balance)} left after your deposit. Pay before or after your appointment, whichever's easier.</p>
+      ${payOptionsHTML(pay.balance, 'm-pay', 'balance', { cardAmount: pay.balanceCard, afterpay: true, cash: true })}</div>` : '');
   const btn = (key, label, extra='') => `<button class="m-act ${tab===key?'on':''} ${extra}" data-action="m-tab" data-key="${key}">${label}</button>`;
 
   let panel = '';
@@ -1857,7 +2179,7 @@ function renderManage(){
       ${state.date ? `<div class="field"><label>New time</label>
         <select data-action="pick-time-slot"><option value="">choose a time</option>
         ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date).length ? `<option value="" disabled>no times left today — pick another day</option>` : ''}</select></div>` : ''}
-      <div class="field"><label>${within ? 'What happened? <span style="color:var(--pink);">*required</span>' : 'Anything I should know? (optional)'}</label>
+      <div class="field"><label>${within ? 'What happened? <span style="color:var(--pink-text);">*required</span>' : 'Anything I should know? (optional)'}</label>
         <textarea data-mfield="reason" placeholder="${within ? 'tell me what came up' : 'optional'}">${escapeHTML(f.reason||'')}</textarea></div>
       <button class="cta-btn" data-action="m-send-reschedule" ${state.mBusy?'disabled':''}>${state.mBusy?'Sending…':(m.status==='pending'?'Update my request':'Send reschedule request')}</button>`;
   }else if(tab === 'cancel'){
@@ -1883,7 +2205,7 @@ function renderManage(){
     const prev = m.checkIn || {};
     panel = `
       <div class="step-title" style="margin-bottom:6px;">Hair check-in</div>
-      <p class="opt-sub" style="margin:0 0 14px;">${m.checkIn ? `You sent this on ${m.checkInAt}. You can update it anytime.` : "A few photos and quick questions so I can prep everything for your appointment."}</p>
+      <p class="opt-sub" style="margin:0 0 14px;">${m.checkIn && m.checkIn[CARRIED_KEY] ? `This is your check-in from ${escapeHTML(m.checkIn[CARRIED_KEY])}. If your hair has changed (length, color, a relaxer or treatment, thinning, a new sensitivity), update what's different and send it. If nothing's changed, you're all set and don't need to send anything.` : m.checkIn ? `You sent this on ${m.checkInAt}. You can update it anytime.` : "A few photos and quick questions so I can prep everything for your appointment."}</p>
       <div class="field"><label>Photos of your natural hair: front, back (nape), and side if you can. Up to 3.</label>
         <div class="photo-row">
           ${state.mPhotos.map((p,i)=>`<div class="photo-thumb"><img src="${p}"/><div class="rm" data-action="m-remove-photo" data-key="${i}">×</div></div>`).join('')}
@@ -1917,15 +2239,19 @@ function renderManage(){
       <div class="m-row"><span>Service</span><b>${escapeHTML(m.service||'')}</b></div>
       <div class="m-row"><span>When</span><b>${mWhen(m.date, m.time)}</b></div>
       ${m.total!=='' && !isNaN(Number(m.total)) ? `<div class="m-row"><span>Estimated total</span><b>$${Number(m.total).toFixed(0)}</b></div>` : ''}
-      ${!m.isBundle && m.status==='approved' ? `<div class="m-row"><span>Deposit</span><b class="${m.depositPaid?'m-good':'m-bad'}">${m.depositPaid ? 'Received ✓' : `Send $${m.deposit} to ${escapeHTML(m.cashtag)} on Cash App`}</b></div>` : ''}
-      ${m.status==='pending' ? `<p class="opt-sub" style="margin:12px 0 0;">I'll get back to you within 24 hours. You'll get an email once it's approved.${!m.isBundle && !m.isConsult && !m.checkIn ? ' Filling out your hair check-in below helps me approve it faster.' : ''}</p>` : ''}
+      ${!m.isBundle && m.status==='approved' ? `<div class="m-row"><span>Deposit</span><b class="${m.depositPaid?'m-good':'m-bad'}">${m.depositPaid ? 'Received ✓' : 'Not yet, see below'}</b></div>` : ''}
+      ${m.pay && m.pay.balancePaid ? `<div class="m-row"><span>Balance</span><b class="m-good">Paid online ✓</b></div>` : ''}
+      ${m.status==='pending' ? `<p class="opt-sub" style="margin:12px 0 0;">I'll get back to you within 24 hours. You'll get an email once it's approved.${!m.isBundle && !m.isConsult && !m.checkIn ? ' Filling out your hair check-in below helps me approve it faster.' : ''}${!m.isBundle && !m.isConsult && carriedFrom ? ' Your hair check-in from last time is on file, so only update it if your hair has changed.' : ''}</p>` : ''}
       ${m.request ? `<div class="m-info" style="margin-top:14px;"><b>Reschedule requested:</b> ${mWhen(m.request.date, m.request.time)}. Waiting for approval — you'll get an email.
         <button class="m-link" data-action="m-withdraw">Never mind, keep my original time</button></div>` : ''}
       ${m.lateNote && !closed ? `<div class="m-info" style="margin-top:10px;"><b>Running late note sent:</b> ${escapeHTML(m.lateNote.split('\n')[0])}</div>` : ''}
     </div>
+    ${addressBoxHTML(m)}
+    ${payBoxes}
     ${showCheckin && !m.checkIn ? `<button class="m-checkin-cta" data-action="m-tab" data-key="checkin"><b>📋 Fill out your hair check-in</b><span>Photos + a few quick questions so I can prep for you</span></button>` : ''}
+    ${showCheckin && carriedFrom ? `<button class="m-checkin-cta m-checkin-soft" data-action="m-tab" data-key="checkin"><b>📋 Has your hair changed since last time?</b><span>Your hair check-in from ${escapeHTML(carriedFrom)} is on file. Only update it if something's different.</span></button>` : ''}
     <div class="m-actions">
-      ${showCheckin && m.checkIn ? btn('checkin','📋 Hair check-in ✓') : ''}
+      ${showCheckin && m.checkIn && !carriedFrom ? btn('checkin','📋 Hair check-in ✓') : ''}
       ${!closed && !m.isBundle ? btn('reschedule','📅 Reschedule') : ''}
       ${!closed && !m.isBundle && !m.isConsult ? btn('late','⏰ Running late') : ''}
       ${btn('message','💬 Message' + (m.thread.length ? ' (' + m.thread.length + ')' : ''))}
@@ -2060,10 +2386,9 @@ function renderAftercare(){
       </section>
       <div class="ac-foot">
         <p>thanks for trusting me <span>♡</span></p>
-        <button class="cta-btn" data-action="landing-pick" data-key="service" style="margin:14px 0 0;">Book your next appointment</button>
+        <button class="cta-btn" data-action="landing-pick" data-key="service" style="margin:14px 0 0;">Reserve Your Next Appointment</button>
       </div>
     </div>
-    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
 
@@ -2118,9 +2443,24 @@ function renderCalendar(){
         <span><i style="background:var(--pink);"></i>available</span>
         <span><i style="background:var(--cream);"></i>selected</span>
         <span><i style="background:var(--panel-2); border:1px solid var(--line);"></i>not available</span>
-        ${squeezeApplies() ? `<span><i style="background:transparent; border:1px dashed var(--pink);"></i>squeeze-in</span>` : ''}
+        ${squeezeApplies() ? `<span><i style="background:transparent; border:1px dashed var(--pink);"></i>priority</span>` : ''}
       </div>
     </div>`;
+}
+
+// The "home · booking · checkout" bar at the top of the booking and Shop Hair pages (sticks while scrolling).
+// The middle step is lit until "Your details" scrolls into view, then checkout is. On the confirmation, all done.
+function stepBarHTML(middle, done){
+  return `<nav class="stepbar ${done ? 'is-done' : ''}" aria-label="Steps">
+    <button type="button" data-action="go-landing">home</button><span class="stepbar-sep" aria-hidden="true">·</span>
+    <button type="button" class="stepbar-mid" data-action="steps-top">${middle}</button><span class="stepbar-sep" aria-hidden="true">·</span>
+    <button type="button" class="stepbar-end" data-action="steps-checkout">checkout</button>
+  </nav>`;
+}
+function syncStepBar(){
+  const bar = document.querySelector('.stepbar'); if(!bar || bar.classList.contains('is-done')) return;
+  const ck = document.getElementById('checkout');
+  bar.classList.toggle('at-checkout', !!ck && ck.getBoundingClientRect().top < window.innerHeight * 0.55);
 }
 
 function renderBook(){
@@ -2129,10 +2469,12 @@ function renderBook(){
 
   return `
   <div class="wrap">
+    ${stepBarHTML('booking')}
     <div class="hero">
-      <h1 class="title" style="margin-top:0;">Book Your Appointment</h1>
+      <h1 class="title" style="margin-top:0;">Reserve Your Appointment</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
-      <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-deep);">pick your service → I confirm within 24 hrs → deposit locks your spot</p>
+      <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your service · confirmed within 24 hours · your deposit secures your time</p>
+      ${regularsBannerHTML()}
     </div>
 
     <div class="card">
@@ -2142,11 +2484,11 @@ function renderBook(){
       <div class="back-link" data-action="pick-category" data-key="" role="button" tabindex="0" style="margin:-4px 0 10px;">See all services instead ›</div>
       <p class="aftercare-text" style="margin:0;">Not sure a style will work for your hair, or just have questions before committing? A consultation is time set aside just to talk through it — whether it's a specific concern about your hair, making sure a service is possible, or anything else you'd like to ask. I'll confirm the consultation once it's booked.</p>
       ` : `
-      <div class="step-label"><span class="step-num">1</span><span class="step-title">Choose your service</span></div>
+      <div class="step-label"><span class="step-num">1</span><span class="step-title">Select your service</span></div>
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
       </div>
-      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:12px 0 0;">Not sure yet? Book a consultation ›</div>`}
+      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:12px 0 0;">Unsure? Begin with a consultation ›</div>`}
 
       ${state.category && state.category!=='consult' ? `
       <div class="field" style="margin-top:14px; text-align:center;">
@@ -2171,6 +2513,7 @@ function renderBook(){
 
       ${state.category==='si' ? `
         <div class="signature-card">
+          ${MISSING_PHOTOS.has('photos/gift-box.jpg') ? '' : `<img class="signature-img" src="photos/gift-box.jpg" alt="The Ehiffect haircare gift box" style="display:none;" onload="this.style.display=''" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.remove()"/>`}
           <div class="signature-eyebrow">The Signature Client Experience</div>
           First-time clients booking qualifying sew-in packages receive a curated haircare gift, complete with personalized aftercare guidance to help maintain their style.
         </div>` : ''}
@@ -2180,12 +2523,12 @@ function renderBook(){
           ${INSTALLS[state.category].tiers.slice().reverse().map(t=>`
             <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
               <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
-              <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
+              <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">${saleEndsLabel()}</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
               <div style="padding:0 2px; margin-top:8px;">
                 <div class="field" style="margin-bottom:0;">
-                  <label>Texture <span style="color:var(--pink);">*required</span></label>
+                  <label>Texture <span style="color:var(--pink-text);">*required</span></label>
                   <select id="install-texture-${t.key}" data-action="pick-install-texture">
                     <option value="">choose a texture</option>
                     ${textureOptionsHTML(t.key==='synthetic' ? SYNTHETIC_TEXTURES : RAW_HUMAN_TEXTURES, state.installTexture)}
@@ -2262,7 +2605,7 @@ function renderBook(){
 
       ${state.category==='treatments' ? `<div class="opt-group" style="margin-top:14px;">${TREATMENTS.map(t=>`
         <div class="opt ${state.treatmentKeys[t.key]?'selected':''} ${t.unavailable?'disabled':''}" data-action="${t.unavailable?'treatment-unavailable':'toggle-treatment'}" data-key="${t.key}">
-          <div><div class="opt-name">${t.name}</div>${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}${(t.unavailable && state.unavailableNoteKey===t.key) ? `<div class="opt-sub" style="color:var(--pink);">Not currently offering this — check back soon!</div>` : ''}</div>
+          <div><div class="opt-name">${t.name}</div>${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}${(t.unavailable && state.unavailableNoteKey===t.key) ? `<div class="opt-sub" style="color:var(--pink-text);">Not currently offering this — check back soon!</div>` : ''}</div>
           <span class="opt-price">${t.unavailable ? 'Not offered' : money(t.price)}</span>
         </div>`).join('')}</div>` : ''}
 
@@ -2304,11 +2647,11 @@ function renderBook(){
     <div class="card">
       <div class="step-label"><span class="step-num">2</span><span class="step-title">Add-ons</span></div>
       ${installAddons().map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>${a.note ? `<div class="addon-note">${a.note}</div>` : ''}`).join('')}
-      <div class="total-bar"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div>
+      <div class="total-bar"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} priority fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
     ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' && state.category!=='consult' ? `
-    <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} squeeze-in fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
+    <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} priority fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
     ${showDetails && kitsApply() ? `
     <div class="card">
@@ -2318,35 +2661,43 @@ function renderBook(){
 
     ${showDetails && state.category!=='bundles' ? `
     <div class="card">
-      <div class="step-label"><span class="step-num">•</span><span class="step-title">When would you like your appointment?</span></div>
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Choose your date &amp; time</span></div>
       ${state.category!=='consult' ? `
       <div class="squeeze-row ${state.squeezeIn?'on':''}">
         <input type="checkbox" id="squeeze-in" ${state.squeezeIn?'checked':''} data-action="toggle-squeeze"/>
-        <label for="squeeze-in"><b>I need a squeeze-in appointment</b> <span class="squeeze-fee">+${money(SQUEEZE_IN_FEE)}</span>
-          <span class="squeeze-sub">Want a day that's already booked, or need me last minute (even today or tomorrow)? Check this and booked days open up on the calendar below — pick one and I'll see if I can fit you in. Squeeze-ins are only confirmed once I approve.</span></label>
+        <label for="squeeze-in"><b>I’d like a priority appointment</b> <span class="squeeze-fee">+${money(SQUEEZE_IN_FEE)}</span>
+          <span class="squeeze-sub">Hoping for a day that’s already reserved, or need me at short notice (even today or tomorrow)? Select this and reserved days open on the calendar below. Choose one and I’ll do my best to make room for you. Priority appointments are confirmed once I approve.</span></label>
       </div>` : ''}
       <div class="field">
-        <label>Preferred date <span style="color:var(--pink);">*required</span></label>
+        <label>Preferred date <span style="color:var(--pink-text);">*required</span></label>
         ${renderCalendar()}
         ${dayNote ? `<div class="avail-note" style="margin-top:10px;">${dayNote}</div>` : ''}
-        ${squeezeApplies() && state.date ? `<div class="avail-note" style="margin-top:8px;">${isSqueezeBooking() ? `⚡ Squeeze-in day — the ${money(SQUEEZE_IN_FEE)} fee is added and I'll confirm if I can fit you in.` : `Good news: that day is open, so it's a regular booking — no squeeze-in fee.`}</div>` : ''}
-        ${isSqueezeBooking() && isShortNotice(state.date, state.time) ? `<div class="avail-note" style="margin-top:8px;">⏰ That's less than 24 hours away — totally okay for a squeeze-in. Send your request, then DM me on Instagram so I see it fast.</div>` : ''}
+        ${squeezeApplies() && state.date ? `<div class="avail-note" style="margin-top:8px;">${isSqueezeBooking() ? `Priority day: the ${money(SQUEEZE_IN_FEE)} priority fee is included, and I’ll confirm whether I can make room for you.` : `Good news: that day is open, so no priority fee applies.`}</div>` : ''}
+        ${isSqueezeBooking() && isShortNotice(state.date, state.time) ? `<div class="avail-note" style="margin-top:8px;">That’s less than 24 hours away, which is perfectly fine for a priority appointment. Send your request, then DM me on Instagram so I see it right away.</div>` : ''}
       </div>
 
       ${state.date ? `
       <div class="field">
         <label>Preferred time</label>
+        ${state.earlyRequest && earlyRequestOK(state.date) ? `
+        <select data-action="pick-time-slot">
+          <option value="">choose an early time</option>
+          ${earlySlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}
+        </select>
+        <div class="avail-note" style="margin-top:8px;">Early times are a request: I'll let you know if I can do it when I confirm your booking.</div>
+        <div class="back-link" data-action="toggle-early" role="button" tabindex="0" style="display:block; margin:8px 0 0;">‹ Back to my regular times</div>` : `
         <select data-action="pick-time-slot">
           <option value="">choose a time</option>
           ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date).length ? `<option value="" disabled>no times left today — pick another day</option>` : ''}
         </select>
+        ${earlyRequestOK(state.date) && state.date !== todayStr() ? `<div class="back-link" data-action="toggle-early" role="button" tabindex="0" style="display:block; margin:8px 0 0;">Need a time before ${formatTimeLabel(EARLIEST_BOOKABLE_TIME)}? Request an earlier time ›</div>` : ''}`}
       </div>` : ''}
       ${state.bookingType!=='solo' ? `<div class="avail-note">${bookingTypeNoteText()}</div>` : ''}
     </div>` : ''}
 
     ${showDetails && state.category==='treatments' ? `
     <div class="card">
-      <div class="step-label"><span class="step-num">•</span><span class="step-title">Booking with besties today?</span></div>
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Booking together?</span></div>
       <div class="opt-sub" style="margin-bottom:10px;">Same service, same day — group rate applies to everyone together (max 3).</div>
       <div class="length-row">
         <div class="length-btn ${state.treatmentGroupSize===1?'selected':''}" data-action="pick-group-size" data-key="1">Just me</div>
@@ -2364,21 +2715,21 @@ function renderBook(){
 
 
     ${showDetails && state.category==='consult' ? `
-    <div class="card">
+    <div class="card" id="checkout">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
       <div class="opt-sub" style="margin-bottom:10px;">This will be a phone call — just need a way to reach you.</div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can call you"/></div>
-      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
+      <div class="field"><label>Email <span style="color:var(--pink-text);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="opt-sub" style="margin-top:-6px;">Add at least one — phone or Instagram.</div>
     </div>` : ''}
 
     ${showDetails && state.category!=='consult' ? `
-    <div class="card">
+    <div class="card" id="checkout">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
-      <div class="field"><label>Name <span style="color:var(--pink);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
-      <div class="field"><label>Phone number <span style="color:var(--pink);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
-      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
+      <div class="field"><label>Name <span style="color:var(--pink-text);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
+      <div class="field"><label>Phone number <span style="color:var(--pink-text);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
+      <div class="field"><label>Email <span style="color:var(--pink-text);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
 
       <div class="field">
@@ -2409,7 +2760,7 @@ function renderBook(){
         ${DEALS.filter(dealVisible).map(d=>{
           let extraNote = '';
           if(d.key==='campuscutie'){
-            extraNote = state.date ? (isCampusCutieDay(state.date) ? `<div class="opt-sub" style="color:var(--pink);">✓ valid for your selected date</div>` : `<div class="opt-sub" style="color:var(--pink);">date must be a Wed or Sun — pick your date above first</div>`) : `<div class="opt-sub">pick your date above to check eligibility</div>`;
+            extraNote = state.date ? (isCampusCutieDay(state.date) ? `<div class="opt-sub" style="color:var(--pink-text);">✓ valid for your selected date</div>` : `<div class="opt-sub" style="color:var(--pink-text);">date must be a Wed or Sun — pick your date above first</div>`) : `<div class="opt-sub">pick your date above to check eligibility</div>`;
           }
           return `
           <div class="opt ${state.dealsSelected.includes(d.key)?'selected':''}" data-action="toggle-deal" data-key="${d.key}">
@@ -2435,11 +2786,11 @@ function renderBook(){
               <input type="checkbox" id="hallohair-confirm" ${state.hallohairCostumeConfirmed?'checked':''} data-action="toggle-hallohair-confirm"/>
               <label for="hallohair-confirm">I'm bringing a costume hair inspo (photo or link) for this style, for the extra 20% off.</label>
             </div>
-            ${state.hallohairCostumeConfirmed && !isHalloweenWeek(state.date) ? `<div class="opt-sub" style="margin-top:5px; color:var(--pink-deep);">The costume 20% off only applies during Halloween week (Oct 25–31) — pick your date above to check.</div>` : ''}` : ''}
+            ${state.hallohairCostumeConfirmed && !isHalloweenWeek(state.date) ? `<div class="opt-sub" style="margin-top:5px; color:var(--pink-text);">The costume 20% off only applies during Halloween week (Oct 25–31) — pick your date above to check.</div>` : ''}` : ''}
           `;
         }).join('')}
       </div>
-      ${state.dealsSelected.length >= MAX_DEALS ? `<div class="opt-sub" style="margin-top:10px; color:var(--pink-deep);">maxed out at ${MAX_DEALS} deals.</div>` : ''}
+      ${state.dealsSelected.length >= MAX_DEALS ? `<div class="opt-sub" style="margin-top:10px; color:var(--pink-text);">maxed out at ${MAX_DEALS} deals.</div>` : ''}
       </div>
       </details>
       ${isThanksgivingWeek(state.date) ? `<div class="avail-note" style="margin-top:12px;">🦃 Thanksgiving week discount (15% off) is automatically applied to your total — no need to select it.</div>` : ''}
@@ -2465,10 +2816,10 @@ function renderBook(){
       </div>
 
       ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
-      <button class="submit-btn" data-action="submit">${state.category==='consult' ? 'Send Consultation Request' : 'Send Booking Request'}</button>
+      <button class="submit-btn" data-action="submit">${state.category==='consult' ? 'Request My Consultation' : 'Request My Appointment'}</button>
     </div>` : ''}
 
-    <div class="footer-note">up to 2 deals per booking, confirmed at approval<br/>bloomington · dm @ehiffect with any questions</div>
+    <div class="footer-note">up to two offers per booking, confirmed at approval</div>
   </div>`;
 }
 
@@ -2479,55 +2830,68 @@ function contentQuestionApplies(){ return !!state.category && state.category !==
 function renderBundles(){
   return `
   <div class="wrap">
+    ${stepBarHTML('bundles')}
     <div class="hero">
-      <h1 class="title" style="margin-top:0;">Order Bundles</h1>
+      <h1 class="title" style="margin-top:0;">The Hair Shop</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
-      <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-deep);">pick your hair → I confirm your price → you pick it up</p>
+      <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your hair · I confirm your price · collect when ready</p>
     </div>
 
     <div class="card">
       <span class="back-link" data-action="go-landing">&lsaquo; back</span>
-      <div class="opt-sub" style="margin-bottom:6px;">Virgin or raw hair?</div>
-      <div class="length-row">
-        <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
-        <div class="length-btn ${state.bundleHairSource==='raw'?'selected':''}" data-action="pick-bundle-source" data-key="raw">Raw hair</div>
+      <div class="step-label"><span class="step-num">1</span><span class="step-title">Your hair</span></div>
+      <div class="field"><label>Virgin or raw hair?</label>
+        <div class="length-row" style="margin-top:0;">
+          <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
+          <div class="length-btn ${state.bundleHairSource==='raw'?'selected':''}" data-action="pick-bundle-source" data-key="raw">Raw hair</div>
+        </div>
       </div>
-      <div class="field" style="margin-top:14px;">
-        <label>Hair type</label>
+      <div class="field">
+        <label for="f-bundle-texture">Hair type</label>
         <select id="f-bundle-texture" data-action="pick-bundle-texture">
           <option value="">choose a texture</option>
           ${textureOptionsHTML(Array.from(new Set([...RAW_HUMAN_TEXTURES, ...SYNTHETIC_TEXTURES])), state.bundleTexture)}
         </select>
       </div>
-      <div class="opt-sub" style="margin-bottom:6px;">How many bundles?</div>
-      <div class="bundle-row">
-        <span class="opt-sub">Quantity</span>
-        <div class="stepper"><button data-action="qty-minus" ${state.bundleQty<=1?'disabled':''}>−</button><span>${state.bundleQty}</span><button data-action="qty-plus">+</button></div>
-      </div>
-      <div class="field" style="margin-top:14px;">
-        <label>Any other details? (brand, length, color)</label>
-        <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
-      </div>
-
-      <div style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
-        ${aftercareIntroHTML()}
-        <div class="avail-note" style="margin-top:10px;">Every bundle order includes a complimentary Mini Care Kit.${state.bundleHairSource==='raw' ? ` Luxury Care Kit included with qualifying hair packages — I'll confirm when I quote your order.` : ''}</div>
-        <div class="addon-row" style="margin-top:8px;">
-          <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the Luxury Care Kit</label>
-          <span class="opt-price">+${money(LUXURY_KIT_PRICE)}</span>
+      <div class="field">
+        <div class="bundle-row" style="margin-top:0;">
+          <label style="margin:0;">How many bundles?</label>
+          <div class="stepper"><button data-action="qty-minus" aria-label="One less bundle" ${state.bundleQty<=1?'disabled':''}>−</button><span>${state.bundleQty}</span><button data-action="qty-plus" aria-label="One more bundle">+</button></div>
         </div>
       </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="f-bundle-details">Any other details? (brand, length, color)</label>
+        <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
+      </div>
     </div>
 
     <div class="card">
-      <div class="opt-sub">I'll confirm your final price with you after I see what you'd like from my catalog.</div>
+      <div class="step-label"><span class="step-num">2</span><span class="step-title">Care kit <span class="opt-sub" style="display:inline; font-family:'Work Sans', sans-serif;">optional</span></span></div>
+      <div class="opt-sub" style="font-size:13px; line-height:1.55;">Every bundle order includes a complimentary Mini Care Kit.${state.bundleHairSource==='raw' ? ` Luxury Care Kit included with qualifying hair packages — I'll confirm when I quote your order.` : ''}</div>
+      <div class="addon-row" style="margin-top:6px; border-bottom:none;">
+        <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the Luxury Care Kit</label>
+        <span class="opt-price">+${money(LUXURY_KIT_PRICE)}</span>
+      </div>
+      <details class="kit-more">
+        <summary>See what's in each kit</summary>
+        <div class="kit-more-body">${aftercareIntroHTML()}</div>
+      </details>
     </div>
 
-    <div class="card">
-      <div class="step-label"><span class="step-title">Your info</span></div>
+    <div class="shop-steps">
+      <div class="shop-steps-title">How ordering works</div>
+      <ol>
+        <li>Send your request below.</li>
+        <li>I'll confirm your final price with you after I see what you'd like from my catalog.</li>
+        <li>I place your order and confirm your pickup date with you.</li>
+      </ol>
+    </div>
+
+    <div class="card" id="checkout">
+      <div class="step-label"><span class="step-num">3</span><span class="step-title">Your details</span></div>
       <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
-      <div class="field"><label>Email <span style="color:var(--pink);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
+      <div class="field"><label>Email <span style="color:var(--pink-text);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="field">
         <label>Preferred pickup date</label>
@@ -2551,10 +2915,9 @@ function renderBundles(){
       </div>
 
       ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
-      <button class="submit-btn" data-action="submit">Send Bundle Request</button>
+      <button class="submit-btn" data-action="submit">Request My Hair</button>
     </div>
 
-    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
 
@@ -2565,36 +2928,36 @@ function renderConfirm(){
   const whenLine = state.category==='bundles'
     ? (state.date ? `Pickup: ${state.date}` : '')
     : [state.date, state.time].filter(Boolean).join(' at ');
-  return `<div class="wrap"><div class="confirm">${checkSVG}<h2>Request sent!</h2>
+  return `<div class="wrap">${stepBarHTML(state.category==='bundles' ? 'bundles' : 'booking', true)}<div class="confirm">${checkSVG}<h2>Your request has been received</h2>
   <div class="policy-box" style="text-align:left;">
     ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
-    ${state.wasSqueeze ? `<div style="margin-top:4px;"><b>Squeeze-in:</b> yes — includes the ${money(SQUEEZE_IN_FEE)} squeeze-in fee. Only confirmed once I approve.</div>` : ''}
+    ${state.wasSqueeze ? `<div style="margin-top:4px;"><b>Priority appointment:</b> yes, includes the ${money(SQUEEZE_IN_FEE)} priority fee. Confirmed once I approve.</div>` : ''}
     ${dealsLabel ? `<div style="margin-top:4px;"><b>Deals:</b> ${dealsLabel}</div>` : ''}
     ${giftLabel ? `<div style="margin-top:4px;"><b>Aftercare:</b> ${giftLabel}</div>` : ''}
     ${state.category==='bundles' ? `<div style="margin-top:4px;"><b>Care kit:</b> ${state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)'}</div>` : ''}
     <div style="margin-top:4px;"><b>${state.category==='consult'?'Fee':'Price'}:</b> ${displayTotal(calcTotal())}</div>
   </div>
   ${state.category==='bundles' ? `
-  <p style="margin-top:16px;">I'll review your bundle request and <b>text you to confirm your final price</b> — have it ready for pickup on ${state.date||'your selected date'}.</p>
+  <p style="margin-top:16px;">I’ll review your request and <b>text you to confirm your final price</b>, with everything ready for you to collect on ${state.date||'your selected date'}.</p>
   ` : state.category==='consult' ? `
-  <p style="margin-top:16px;">Your consultation request is <b>waiting for confirmation</b> — you'll get an email within <b>24 hours</b> confirming your time.</p>
-  <p>Send your <b>${money(CONFIG.depositAmount)}</b> fee to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to lock in your time — it'll go toward your deposit if you book a service after.</p>
+  <p style="margin-top:16px;">Your consultation request is <b>awaiting confirmation</b>. You’ll receive an email within <b>24 hours</b> confirming your time.</p>
+  <p>Once it's confirmed, your email will have a link to pay your <b>${money(CONFIG.depositAmount)}</b> consultation fee${CARD_PAY ? ' by card' : ''}, Cash App or Zelle. It goes toward your deposit if you reserve a service afterward.</p>
   ` : `
-  <p style="margin-top:16px;">Your booking is <b>waiting for approval</b> — you'll get an email within <b>24 hours</b> letting you know if it's approved or not.</p>
-  <p>Once approved, send your <b>${money(CONFIG.depositAmount)}</b> deposit to <span class="cashtag">${CONFIG.cashtag}</span> on Cash App to hold your spot.</p>
+  <p style="margin-top:16px;">Your request is <b>awaiting approval</b>. You’ll receive an email within <b>24 hours</b> letting you know whether it’s confirmed.</p>
+  <p>Once it's approved, your email will have a link to pay your <b>${money(CONFIG.depositAmount)}</b> deposit${CARD_PAY ? ' by card' : ''}, Cash App or Zelle to secure your time.</p>
   `}
-  <div class="m-info" style="text-align:left; margin-top:14px;">📧 Check your email${state.email ? ` (<b>${escapeHTML(state.email)}</b>)` : ''} — your confirmation is on its way, with a link to change or cancel your request. Don't see it? Check spam or promotions.</div>
-  <button data-action="book-again">${state.category==='bundles' ? 'Order More Bundles' : 'Book another'}</button>
-  <button data-action="go-landing" style="margin-top:10px;">Homepage</button>
-  <div class="back-link" data-action="go-questions" style="margin-top:16px;">Questions about your appointment? ›</div>
+  <div class="m-info" style="text-align:left; margin-top:14px;">Check your email${state.email ? ` (<b>${escapeHTML(state.email)}</b>)` : ''} for your confirmation, which includes a link to change or cancel your request. If you don’t see it, check spam or promotions.</div>
+  <button data-action="book-again">${state.category==='bundles' ? 'Shop More Hair' : 'Reserve Another Appointment'}</button>
+  <button data-action="go-landing" style="margin-top:10px;">Return Home</button>
+  <div class="back-link" data-action="go-questions" style="margin-top:16px;">Questions about your visit ›</div>
   </div></div>`;
 }
 
 function renderQuestions(){
   return `<div class="wrap">
     <div class="hero">
-      <h1 class="title" style="margin-top:0;">Questions About Your Appointment</h1>
+      <h1 class="title" style="margin-top:0;">How Can I Help?</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
     <div class="card">
@@ -2603,9 +2966,9 @@ function renderQuestions(){
       <p class="opt-sub">I confirm every request by email within 24 hours (check spam too). If it's been longer than that, DM me on Instagram and I'll take a look.</p>
     </div>
     <div class="card">
-      <div class="step-label"><span class="step-title">Ask me a question</span></div>
+      <div class="step-label"><span class="step-title">Send me a note</span></div>
       ${state.inqDone ? `
-        <div class="takedown-note"><b>Got it — thank you!</b> I'll reply as soon as I can, usually within 24 hours. For anything urgent, DM @ehiffect on Instagram.</div>
+        <div class="takedown-note"><b>Thank you, I’ve received your note.</b> I’ll reply personally, usually within 24 hours. For anything urgent, DM @ehiffect on Instagram.</div>
         <button class="cta-btn secondary" data-action="inq-another" style="margin:12px 0 0;">Ask another question</button>` : `
         <p class="opt-sub">Questions about an appointment, a price, or something you couldn't find? Send it here and I'll get back to you.</p>
         <div class="field"><label>Your name</label><input type="text" id="inq-name" value="${escapeHTML(state.inqName)}" placeholder="your name" autocomplete="name"/></div>
@@ -2614,7 +2977,7 @@ function renderQuestions(){
         <div class="field"><label>Which appointment is this about? <span class="opt-sub">(optional)</span></label><input type="text" id="inq-about" value="${escapeHTML(state.inqAbout)}" placeholder="e.g. my sew-in on Oct 22"/></div>
         <div class="field"><label>Your question</label><textarea id="inq-msg" maxlength="800" placeholder="what would you like to know?">${escapeHTML(state.inqMsg)}</textarea></div>
         <input type="text" id="inq-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;"/>
-        ${state.inqErr ? `<div class="opt-sub" style="color:var(--pink); margin:0 0 10px;">${escapeHTML(state.inqErr)}</div>` : ''}
+        ${state.inqErr ? `<div class="opt-sub" style="color:var(--pink-text); margin:0 0 10px;">${escapeHTML(state.inqErr)}</div>` : ''}
         <button class="cta-btn" data-action="inq-send" ${state.inqBusy ? 'disabled' : ''} style="margin:0;">${state.inqBusy ? 'Sending…' : 'Send my question'}</button>`}
     </div>
     <div class="card">
@@ -2633,7 +2996,6 @@ function renderQuestions(){
       <div class="step-label"><span class="step-title">Anything else?</span></div>
       <p class="opt-sub">DM @ehiffect on Instagram — that's the fastest way to reach me.</p>
     </div>
-    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
 
@@ -2645,14 +3007,14 @@ function renderFeedback(){
   const words = ["", "Not great", "Could be better", "It was okay", "Really good", "Loved it!"];
   return `<div class="wrap">
     <div class="hero">
-      <h1 class="title" style="margin-top:0;">How Was Your Appointment?</h1>
+      <h1 class="title" style="margin-top:0;">How Was Your Visit?</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
     <div class="card">
       ${state.fbDone ? `
-        <div class="step-label"><span class="step-title">Thank you so much! 💗</span></div>
+        <div class="step-label"><span class="step-title">Thank you, truly.</span></div>
         <p class="opt-sub">Your feedback was sent. It really helps me make every appointment better.</p>
-        <button class="cta-btn" data-action="go-landing" style="margin:12px 0 0;">Back to the booking site</button>` : `
+        <button class="cta-btn" data-action="go-landing" style="margin:12px 0 0;">Return Home</button>` : `
         <span class="back-link" data-action="go-landing">&lsaquo; back</span>
         <div class="takedown-note" style="margin:0 0 16px;"><b>This is anonymous.</b> Your name, email, and phone number aren't attached, so please be honest. Every answer is optional except the stars.</div>
         <div class="field"><label>How would you rate your appointment?</label>
@@ -2669,15 +3031,14 @@ function renderFeedback(){
         <div class="field"><label>Would you book with me again?</label>
           <div class="m-chips">${FEEDBACK_AGAIN.map(o=>`<button class="m-chip ${state.fbAgain===o?'on':''}" data-action="fb-again" data-key="${o}">${o}</button>`).join('')}</div></div>
         <input type="text" id="fb-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;"/>
-        ${state.fbErr ? `<div class="opt-sub" style="color:var(--pink); margin:0 0 10px;">${escapeHTML(state.fbErr)}</div>` : ''}
+        ${state.fbErr ? `<div class="opt-sub" style="color:var(--pink-text); margin:0 0 10px;">${escapeHTML(state.fbErr)}</div>` : ''}
         <button class="cta-btn" data-action="fb-send" ${state.fbBusy ? 'disabled' : ''} style="margin:0;">${state.fbBusy ? 'Sending…' : 'Send my feedback'}</button>`}
     </div>
-    <div class="footer-note">bloomington · dm @ehiffect with any questions</div>
   </div>`;
 }
 
 function renderGate(){
-  return `<div class="wrap admin-wrap"><div class="gate">
+  return `<div class="wrap admin-wrap theme-dark"><div class="gate">
   <div class="logo-block"><img class="logo-img small" src="data:image/png;base64,${LOGO_B64}" alt="The Ehiffect"/></div>
   <h1 class="title" style="font-size:22px;">Dashboard</h1>
   <input type="password" id="admin-pass" placeholder="passcode" value="${state.adminInput}"/>
@@ -2688,7 +3049,7 @@ function renderGate(){
 
 function renderAdmin(){
   if(state.loadingAdmin){
-    return `<div class="wrap admin-wrap"><div class="loading">Loading bookings…</div></div>`;
+    return `<div class="wrap admin-wrap theme-dark"><div class="loading">Loading bookings…</div></div>`;
   }
   const all = state.bookings;
   const q = (state.adminSearch||'').trim().toLowerCase();
@@ -2713,7 +3074,7 @@ function renderAdmin(){
   const awaitingDeposit = all.filter(b=>b.status==='approved' && !b.isBundle && !b.depositPaid).length;
   const luxToPack = all.filter(b=>b.status==='approved' && b.kit==='Luxury').length;
 
-  return `<div class="wrap admin-wrap">
+  return `<div class="wrap admin-wrap theme-dark">
     <div class="admin-header">
       <img class="logo-img small" src="data:image/png;base64,${LOGO_B64}" alt="The Ehiffect"/>
       <button class="refresh-btn" data-action="refresh">refresh</button>
@@ -2935,6 +3296,23 @@ function attachHandlers(){
           state.manage.status==='pending' ? "Your requested date was updated. Check your email for confirmation." : "Reschedule request sent! You'll get an email once I approve or deny it.");
       }
       else if(action==='m-send-cancel'){ await manageSubmit('cancel', { reason: state.mForm.cancelReason||'' }, "Your appointment has been cancelled. A confirmation is on its way to your email."); }
+      else if(action==='m-pay'){                           // card checkout from the appointment page
+        el.disabled = true; state.payErr = '';
+        const lbl = el.querySelector('b'); if(lbl) lbl.textContent = 'Opening checkout…';
+        try{
+          const d = await manageCall('pay', { kind: key });
+          if(d && d.payUrl){ window.location.href = d.payUrl; return; }
+          state.payErr = (d && d.error) || "Couldn't open the card checkout. Please try again, or use Cash App.";
+        }catch(err){ state.payErr = "Couldn't open the card checkout. Check your connection and try again."; }
+      }
+      else if(action==='copy-address'){
+        try{ await navigator.clipboard.writeText(state.manage && state.manage.address ? state.manage.address.text : ''); }catch(err){}
+        state.addrCopied = true;
+      }
+      else if(action==='copy-zelle'){
+        try{ await navigator.clipboard.writeText(CONFIG.zelle.replace(/[^\d@a-zA-Z._+-]/g, '')); }catch(err){}
+        state.zelleCopied = true;
+      }
       else if(action==='m-send-late'){
         if(!state.mForm.minutes){ state.mErrText = "Pick about how late you'll be."; }
         else await manageSubmit('late', { minutes: state.mForm.minutes, note: state.mForm.lateNote||'' }, "Thanks for the heads up — she's been notified. Drive safe! 💗");
@@ -2984,6 +3362,41 @@ function attachHandlers(){
       }
       else if(action==='gal-step'){ e.stopPropagation(); state.galleryOpen = (state.galleryOpen + Number(key) + GALLERY.length) % GALLERY.length; }
       else if(action==='go-aftercare'){ state.view = 'aftercare'; window.scrollTo(0,0); }
+      else if(action==='go-services' || action==='go-services-search'){ state.view = 'services'; state.svcFocus = action==='go-services-search'; window.scrollTo(0,0); }
+      else if(action==='go-regulars'){ state.view = REGULARS ? 'services' : 'regulars'; state.regError = ''; window.scrollTo(0,0); }
+      else if(action==='svc-group'){ state.svcGroup = key || ''; }
+      else if(action==='svc-book'){
+        refreshTakenDates(); resetSelection();
+        state.view = 'book'; state.category = key; window.scrollTo(0,0);
+      }
+      else if(action==='steps-top'){ window.scrollTo({ top:0, behavior:'smooth' }); return; }
+      else if(action==='steps-checkout'){
+        const ck = document.getElementById('checkout');
+        if(ck) ck.scrollIntoView({ behavior:'smooth', block:'start' });
+        else window.scrollTo({ top:0, behavior:'smooth' });   // no service picked yet, so there's no checkout to show
+        return;
+      }
+      else if(action==='reg-unlock'){
+        const input = document.getElementById('reg-pass'); const val = input ? input.value.trim() : '';
+        if(!val){ state.regError = 'Please enter the password.'; }
+        else{
+          el.disabled = true; el.textContent = 'Checking…';
+          try{
+            const res = await unlockRegulars(val);
+            if(res && res.ok && res.prices){
+              REGULARS = { key: val, prices: res.prices };
+              try{ sessionStorage.setItem(REGULARS_SAVE_KEY, JSON.stringify(REGULARS)); }catch(err){}
+              applyRegularRates(); state.regError = ''; state.view = 'services'; window.scrollTo(0,0);
+            }else{
+              state.regError = res && res.error === 'locked' ? 'Too many tries. Please wait 15 minutes and try again.' : "That password didn't work. Check with me on Instagram if you're unsure.";
+            }
+          }catch(err){ state.regError = "Couldn't check right now. Please try again in a moment."; }
+        }
+      }
+      else if(action==='reg-signout'){
+        try{ sessionStorage.removeItem(REGULARS_SAVE_KEY); }catch(err){}
+        window.location.hash = ''; window.location.reload(); return;   // a reload puts today's prices back cleanly
+      }
       else if(action==='ac-tab'){ state.aftercareTab = key; }
       else if(action==='ac-porosity'){ state.porosity = key; }
       else if(action==='ac-book-takedown'){
@@ -3028,6 +3441,7 @@ function attachHandlers(){
         state.calendarMonth = { y, m };
       }
       else if(action==='pick-time-slot'){ state.time = el.value; }
+      else if(action==='toggle-early'){ state.earlyRequest = !state.earlyRequest; state.time = ''; }
       else if(action==='toggle-btc-confirm'){ state.btcFirstConfirmed = !state.btcFirstConfirmed; }
       else if(action==='toggle-hallohair-confirm'){ state.hallohairCostumeConfirmed = !state.hallohairCostumeConfirmed; }
       else if(action==='pick-booking-type'){ state.bookingType = el.value; }
@@ -3123,7 +3537,9 @@ function attachHandlers(){
 
         state.wasSqueeze = isSqueezeBooking();
         const rawTotal = calcTotal();
-        const notesWithLink = state.referenceLink ? `${state.notes}${state.notes ? ' | ' : ''}Reference link: ${state.referenceLink}` : state.notes;
+        const earlyNote = state.earlyRequest && state.time && earlySlotsFor(state.date).includes(state.time) ? `⏰ EARLY TIME REQUEST (${formatTimeLabel(state.time)}, before my usual ${formatTimeLabel(EARLIEST_BOOKABLE_TIME)} start)` : '';
+        const baseNotes = earlyNote ? earlyNote + (state.notes ? ' | ' + state.notes : '') : state.notes;
+        const notesWithLink = state.referenceLink ? `${baseNotes}${baseNotes ? ' | ' : ''}Reference link: ${state.referenceLink}` : baseNotes;
         const booking = {
           name: state.name, phone: state.phone, ig: state.ig, email: state.email, date: state.date, time: state.time, notes: notesWithLink,
           photos: state.photos, serviceLabel: serviceLabelText() + (isSqueezeBooking() ? ` — ⚡ SQUEEZE-IN REQUEST (+${money(SQUEEZE_IN_FEE)})${isShortNotice(state.date, state.time) ? ' · LESS THAN 24 HRS' : ''}` : ''), dealsLabel: dealsLabelText(), dealKeys: state.dealsSelected.join(", "),
@@ -3131,6 +3547,7 @@ function attachHandlers(){
           partnerContact: state.bookingType!=='solo' ? state.partnerContact : '',
           giftKit: kitLabelText(), careKitCost: state.category==='bundles' ? (state.bundleKitUpgrade ? `Luxury Care Kit upgrade (+${money(LUXURY_KIT_PRICE)})` : 'Mini Care Kit (complimentary)') : '',
           total: (rawTotal===null ? "Quote pending" : rawTotal),
+          regularKey: (REGULARS && state.category !== 'bundles') ? REGULARS.key : '',
           contentOk: contentQuestionApplies() ? state.contentOk : ''
         };
         const originalBtnText = el.textContent;
@@ -3200,7 +3617,7 @@ function attachHandlers(){
         // feedback instead of a stuck, unresponsive button.
         console.error('Action failed:', action, err);
         state.error = "Something went wrong — please try again.";
-        if(action==='submit'){ el.disabled = false; el.textContent = (state.category==='bundles' ? 'Send Bundle Request' : state.category==='consult' ? 'Send Consultation Request' : 'Send Booking Request'); }
+        if(action==='submit'){ el.disabled = false; el.textContent = (state.category==='bundles' ? 'Request My Hair' : state.category==='consult' ? 'Request My Consultation' : 'Request My Appointment'); }
       }
       render();
     });
@@ -3281,7 +3698,17 @@ function attachHandlers(){
   }
 }
 
+document.addEventListener('input', (e)=>{
+  if(e.target.id === 'svc-search'){
+    state.svcQuery = e.target.value;
+    const box = document.getElementById('svc-results');
+    if(box){ box.innerHTML = serviceResultsHTML(); attachHandlers(); }
+  }
+});
+window.addEventListener('scroll', syncStepBar, { passive:true });
+
 document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && e.target.id === 'reg-pass'){ e.preventDefault(); const b = document.querySelector('[data-action=reg-unlock]'); if(b) b.click(); return; }
   if(state.view==='gallery' && state.galleryOpen != null){
     if(e.key === 'Escape'){ state.galleryOpen = null; render(); return; }
     if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ state.galleryOpen = (state.galleryOpen + (e.key==='ArrowRight'?1:-1) + GALLERY.length) % GALLERY.length; render(); return; }
@@ -3369,6 +3796,7 @@ function applyLiveConfig(cfg){
   cfg = cfg || {};
   const P = cfg.prices || {};
   const ends = cfg.saleEnds ? new Date(cfg.saleEnds + 'T23:59:59') : SALE_ENDS;
+  saleEndsAt = ends;
   const saleOver = new Date() > ends;
   PRICE_REGISTRY.forEach(it => {
     const o = P[it.id] || {};
@@ -3403,13 +3831,17 @@ function applyLiveConfig(cfg){
   });
   LATEST_BOOKABLE_TIME = /^\d{2}:\d{2}$/.test(cfg.latest || '') ? cfg.latest : LATEST_BOOKABLE_DEFAULT;
   REVIEWS = (Array.isArray(cfg.reviews) ? cfg.reviews : []).filter(r => r && r.t && r.r >= 1 && r.r <= 5);
+  REGULARS_ON = cfg.regularsOn === true;
+  CARD_PAY = cfg.cardPay === true;
+  if(cfg.cardFee && cfg.cardFee.percent >= 0) CARD_FEE = { percent: Number(cfg.cardFee.percent) || 0, min: Number(cfg.cardFee.min) || 0 };
+  applyRegularRates();
 }
 
 /* ============== review pop-ups (homepage) ==============
    Reviews you switched on in admin (Feedback tab) slide up at the bottom one at a time, stay a few
    seconds, then make way for the next. Lives outside #app so re-renders don't restart it.          */
 let REVIEWS = [];
-const REVIEW_SHOW_MS = 4500, REVIEW_GAP_MS = 700, REVIEW_HIDE_KEY = "ehiffectReviewsHidden";
+const REVIEW_SHOW_MS = 7000, REVIEW_GAP_MS = 1800, REVIEW_HIDE_KEY = "ehiffectReviewsHidden";
 const reviewTicker = { i: 0, timer: null, running: false, paused: false };
 function reviewsHidden(){ try{ return sessionStorage.getItem(REVIEW_HIDE_KEY) === "1"; }catch(e){ return false; } }
 function syncReviewPop(){
@@ -3431,7 +3863,7 @@ function syncReviewPop(){
     });
     document.body.appendChild(root);
   }
-  if(!reviewTicker.running){ reviewTicker.running = true; reviewTicker.timer = setTimeout(showNextReview, 1500); }
+  if(!reviewTicker.running){ reviewTicker.running = true; reviewTicker.timer = setTimeout(showNextReview, 3500); }
 }
 function showNextReview(){
   const root = document.getElementById('review-root');
@@ -3489,6 +3921,8 @@ function checkRoute(){
   }
   if(window.location.hash === '#admin'){ window.location.replace('admin.html'); return; }   // the full admin site lives at admin.html
   else if(window.location.hash === '#work'){ state.view = 'gallery'; }
+  else if(window.location.hash === '#regulars'){ state.view = REGULARS ? 'services' : REGULARS_ON ? 'regulars' : 'landing'; }
+  else if(window.location.hash === '#services'){ state.view = 'services'; }
   else if(/^#feedback(=[a-z]+)?$/.test(window.location.hash)){
     const k = window.location.hash.replace(/^#feedback=?/, '');
     state.view = 'feedback'; if(k && FEEDBACK_SERVICES.some(s => s[0] === k)) state.fbService = k;

@@ -14,7 +14,7 @@
     --bg:#171214; --panel:#1F1719; --panel-2:#2A2023; --pink:#E38AAE; --pink-deep:#C97A9B; --pink-soft:rgba(227,138,174,.12);
     --cream:#F4EAE5; --muted:#A6969A; --line:rgba(227,138,174,.22); --line-2:rgba(244,234,229,.08);
     --good:#8fd487; --good-bg:#203320; --bad:#e39997; --bad-bg:#3a1f22; --warn:#f0d48a; --warn-bg:#3a3020;
-    --tab-h:64px;
+    --tab-h:0px;   /* the old bottom tab bar is gone (nav is at the top now) */
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; background:var(--bg); color:var(--cream); font-family:'Work Sans', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
@@ -23,7 +23,7 @@
   button{ cursor:pointer; }
   a{ color:var(--pink); }
   .serif{ font-family:'Cormorant Garamond', Georgia, serif; }
-  .page{ max-width:680px; margin:0 auto; padding:calc(20px + env(safe-area-inset-top)) 16px calc(var(--tab-h) + 40px + env(safe-area-inset-bottom)); }
+  .page{ max-width:680px; margin:0 auto; padding:18px 16px calc(40px + env(safe-area-inset-bottom)); }
 
   /* header */
   .hello{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin:6px 0 22px; }
@@ -82,12 +82,23 @@
   .link-btn{ border:none; background:none; padding:0; color:var(--pink); font-size:13px; text-decoration:underline; text-underline-offset:3px; }
 
   /* tabs */
-  .tabs{ position:fixed; left:0; right:0; bottom:0; z-index:20; background:rgba(23,18,20,.96); backdrop-filter:blur(8px); border-top:1px solid var(--line);
-         padding-bottom:env(safe-area-inset-bottom); }
-  .tabs-in{ max-width:680px; margin:0 auto; display:grid; grid-template-columns:repeat(6,1fr); height:var(--tab-h); }
-  .tab{ border:none; background:none; color:var(--muted); font-size:11.5px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; position:relative; }
-  .tab .ic{ font-size:19px; line-height:1; }
-  .tab.on{ color:var(--pink); }
+  /* nav bar across the top */
+  .topnav{ position:sticky; top:0; z-index:20; background:rgba(23,18,20,.96); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top); }
+  .topnav-in{ max-width:680px; margin:0 auto; display:flex; align-items:center; gap:12px; padding:10px 16px; }
+  .brand{ border:none; background:none; padding:0; font-family:'Cormorant Garamond', serif; font-size:22px; font-weight:600; color:var(--cream); white-space:nowrap; cursor:pointer; }
+  .navlinks{ display:flex; gap:4px; margin-left:auto; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .navlinks::-webkit-scrollbar{ display:none; }
+  .navlink{ position:relative; flex-shrink:0; display:flex; align-items:center; gap:5px; border:none; background:none; color:var(--muted); font-size:13px; padding:8px 11px; border-radius:999px; white-space:nowrap; text-decoration:none; cursor:pointer; }
+  .navlink .ic{ font-size:14px; line-height:1; }
+  .navlink:hover{ color:var(--cream); }
+  .navlink.on{ background:var(--pink); color:#241318; }
+  .navlink .badge{ position:static; margin-left:2px; }
+  .navlink.on .badge{ background:none; color:#241318; min-width:0; padding:0; font-size:12px; }   /* on the selected tab the count is just a number, not a box */
+  .brand:focus-visible, .navlink:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  @media (max-width:600px){
+    .topnav-in{ flex-wrap:wrap; row-gap:4px; padding:8px 12px 6px; }
+    .navlinks{ width:100%; margin-left:0; }
+  }
   .tab .badge{ position:absolute; top:8px; left:calc(50% + 8px); background:var(--pink); color:#241318; font-size:10px; font-weight:700; border-radius:999px; min-width:17px; height:17px; padding:0 4px; display:flex; align-items:center; justify-content:center; }
 
   /* inputs */
@@ -230,6 +241,13 @@ const byWhen = (a, b) => (a.dateIso || "9999").localeCompare(b.dateIso || "9999"
 const statusLabel = s => ({ pending:"Pending", approved:"Approved", denied:"Denied", cancelled:"Cancelled", "no-show":"No-show", rescheduled:"Rescheduled" }[s] || s);
 const pill = s => `<span class="pill p-${esc(s)}">${esc(statusLabel(s))}</span>`;
 const get = key => S.data && S.data.bookings.find(b => b.key === key);
+// When a request came in, as a number for sorting ("11/13/2026 02:05 PM" from your Sheet). 0 if unknown.
+function sentAt(b){
+  const m = String(b.submittedAt || "").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([AP]M))?/i);
+  if(!m) return 0;
+  let h = Number(m[4] || 0) % 12; if(/p/i.test(m[6] || "")) h += 12;
+  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]), h, Number(m[5] || 0)).getTime();
+}
 const num = v => (v === "" || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
 // What she actually paid: what you entered, or the price if you marked it done without entering an amount.
 const paidOf = b => num(b.amountPaid) !== null ? num(b.amountPaid) : (b.serviced ? (num(b.grandTotal) ?? num(b.total) ?? 0) : 0);
@@ -353,6 +371,32 @@ function clashNote(b){
   const c = clashes(b); if(!c.length) return "";
   return `<div class="row-note" style="border-color:var(--bad);">⚠ Overlaps with ${c.map(x => esc(first(x.name)) + " at " + esc(x.time || "?")).join(", ")} (counting your ${BUFFER_MIN}-min buffer)</div>`;
 }
+// Finished by any sign you left: ticked done, a done date, what they paid, or the thank-you email sent/skipped (matches your morning email).
+const wrappedUp = b => b.serviced || String(b.servicedOn || "").trim() !== "" || (b.amountPaid !== "" && b.amountPaid !== undefined && b.amountPaid !== null) || String(b.rebookEmailed || "").trim() !== "";
+// The rest of the service paid by card through Square (set by your Apps Script).
+function payTag(b){ return b.balancePaid ? '<span class="tag good">💳 paid in full online</span>' : ""; }
+// Booked at the regulars' rate (from the website's Regulars page). "unverified" = the password didn't match, so check the price.
+function regTag(b){
+  return b.regularRate === "checked" ? '<span class="tag">$ regulars\' rate</span>'
+    : b.regularRate ? '<span class="tag warn">$ regulars\' rate? check price</span>' : '';
+}
+// Loyalty badges, counted by phone number: "↺ returning" from a client's 2nd appointment, "★ regular" from their 3rd.
+// Only real appointments count (approved or done), not cancelled/denied ones, bundle orders or consultations.
+const RETURNING_MIN = 2, REGULAR_MIN = 3;
+const countsAsAppt = b => !b.isBundle && !b.isConsult && (b.status === "approved" || b.serviced);
+function apptCounts(){
+  if(!S.data) return {};
+  if(S.data._apptFor !== S.data.bookings){
+    const m = {};
+    S.data.bookings.forEach(b => { if(countsAsAppt(b)){ const k = phoneKey(b); m[k] = (m[k] || 0) + 1; } });
+    S.data._appt = m; S.data._apptFor = S.data.bookings;
+  }
+  return S.data._appt;
+}
+function loyaltyTagFor(n){
+  return n >= REGULAR_MIN ? '<span class="tag good">★ regular</span>' : n >= RETURNING_MIN ? '<span class="tag">↺ returning</span>' : '';
+}
+const loyaltyTag = b => loyaltyTagFor(apptCounts()[phoneKey(b)] || 0);
 // What they said about photos/videos for your page (asked on the booking form).
 function contentTag(b){
   const v = String(b.contentOk || "");
@@ -368,7 +412,7 @@ function lists(){
   return {
     today: all.filter(b => b.dateIso === t && b.status === "approved").sort(byWhen),
     requests: all.filter(b => b.request && (b.status === "approved" || b.status === "pending")).sort(byWhen),
-    pending: all.filter(b => b.status === "pending").sort((a, b) => String(a.submittedAt).localeCompare(String(b.submittedAt))),
+    pending: all.filter(b => b.status === "pending").sort((a, b) => sentAt(b) - sentAt(a)),   // newest request first
     messages: all.filter(b => b.needsReply),
     late: all.filter(b => b.lateNote && b.dateIso === t && b.status === "approved"),
     deposits: all.filter(b => b.status === "approved" && !b.isBundle && !b.depositPaid && upcoming(b)).sort(byWhen),
@@ -378,12 +422,23 @@ function lists(){
                 ((b.needsHair && !b.hairOrdered) || (b.kit && b.kit !== "—" && !b.kitPacked))).sort(byWhen),
     week: all.filter(b => (b.status === "approved" || b.status === "pending") && !b.isBundle && b.dateIso && b.dateIso >= t && daysAway(b.dateIso) <= 6 &&
                 (b.dateIso > t || todo(b))).sort(byWhen),
-    wrap: all.filter(b => b.status === "approved" && !b.serviced && b.dateIso && (b.dateIso < t || (b.dateIso === t && b.timeMin !== null && b.timeMin + 240 < new Date().getHours()*60 + new Date().getMinutes()))).sort(byWhen),
+    wrap: all.filter(b => b.status === "approved" && !wrappedUp(b) && b.dateIso && (b.dateIso < t || (b.dateIso === t && b.timeMin !== null && b.timeMin + 240 < new Date().getHours()*60 + new Date().getMinutes()))).sort(byWhen),
   };
 }
 function needsCount(){ if(!S.data) return 0; const L = lists(); return L.requests.length + L.pending.length + L.messages.length + L.prep.length + L.wrap.length + (S.data.inquiries || []).length; }
 
 /* ============== screens ============== */
+// The nav bar across the top: The Ehiffect (home) and every section. Stays put while you scroll.
+const NAV = [["inbox","⌂","Home"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"],["feedback","★","Feedback"]];
+function topNav(n, fbN){
+  return `<header class="topnav"><div class="topnav-in">
+    <button class="brand" data-a="tab" data-k="inbox" aria-label="The Ehiffect, go to Home">The Ehiffect</button>
+    <nav class="navlinks" aria-label="Sections">
+      ${NAV.map(([k, ic, l]) => `<button class="navlink ${S.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}" aria-current="${S.tab === k ? 'page' : 'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k === 'inbox' && n ? `<span class="badge">${n}</span>` : ''}${k === 'feedback' && fbN ? `<span class="badge">${fbN}</span>` : ''}</button>`).join("")}
+      <a class="navlink" href="${SITE_URL}" target="_blank" rel="noopener">Site ↗</a>
+    </nav>
+  </div></header>`;
+}
 function render(){
   const app = document.getElementById("app");
   if(!S.key || (!S.data && !S.loading)){ app.innerHTML = loginScreen(); renderLayer(); const i = document.getElementById("pass"); if(i) i.focus(); return; }
@@ -398,12 +453,9 @@ function render(){
       <div style="font-size:13.5px; line-height:1.55;">${me.owner ? `The "new booking request" email to <b>you</b> failed last time (${esc(me.owner.msg)}). New requests still arrive here in your Inbox, so keep an eye on the Inbox badge.<br>` : ''}${me.client ? `An email to a client failed last time (${esc(me.client.msg)}).<br>` : ''}${typeof me.quota === "number" && me.quota < 10 ? `Only ${me.quota} emails left to send today.<br>` : ''}
       To fix it, open Apps Script in your Sheet, run <b>testEmail</b> and click <b>Allow</b> if it asks.</div></div>` : '';
   const staleNote = S.stale && !needsNewScript() ? `<div class="hint" style="margin:0 0 12px;">${S.refreshFailed ? "Showing your last saved copy. Couldn't reach your Sheet just now." : "Showing your last saved copy, updating…"} <button class="btn" data-a="refresh-now" style="margin-left:6px;">Refresh</button></div>` : '';
-  app.innerHTML = `<div class="page">${outdated}${mailBox}${staleNote}${screen()}</div>
+  app.innerHTML = `${topNav(n, fbN)}<div class="page">${outdated}${mailBox}${staleNote}${screen()}</div>
   ${S.retry ? `<div class="syncbar"><span>Not saved — your signal dropped.</span><button class="btn primary" data-a="retry-save">Try again</button></div>` : ''}
-  <nav class="tabs" aria-label="Sections"><div class="tabs-in">
-    ${[["inbox","✉︎","Inbox"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"],["feedback","★","Feedback"]].map(([k,ic,l]) =>
-      `<button class="tab ${S.tab===k?'on':''}" data-a="tab" data-k="${k}" aria-current="${S.tab===k?'page':'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k==='inbox' && n ? `<span class="badge">${n}</span>` : ''}${k==='feedback' && fbN ? `<span class="badge">${fbN}</span>` : ''}</button>`).join("")}
-  </div></nav>`;
+`;
   renderLayer();
 }
 
@@ -430,7 +482,7 @@ function bookingRow(b, opts){
   opts = opts || {};
   return `<div class="row" data-a="open" data-k="${esc(b.key)}">
     <div class="row-main">
-      <div class="row-title">${esc(b.name || "No name")} ${opts.noPill ? '' : pill(b.status)}</div>
+      <div class="row-title">${esc(b.name || "No name")} ${opts.noPill ? '' : pill(b.status)}${loyaltyTag(b)}${regTag(b)}${payTag(b)}</div>
       <div class="row-sub">${esc(opts.sub !== undefined ? opts.sub : (when(b) + " · " + svc(b)))}</div>
       ${opts.note ? `<div class="row-note">${opts.note}</div>` : ''}
     </div>
@@ -448,7 +500,7 @@ function inbox(){
   const dayTag = b => { const d = daysAway(b.dateIso); return d === 0 ? 'today' : d === 1 ? 'tomorrow' : new Date(b.dateIso + "T12:00:00").toLocaleDateString(undefined, { weekday: "long" }); };
   const prepRow = b => `<div class="row" style="align-items:flex-start; cursor:default;">
       <div class="row-main" data-a="open" data-k="${esc(b.key)}" style="cursor:pointer;">
-        <div class="row-title">${esc(b.name)} ${todo(b) ? '<span class="tag warn">to prep</span>' : ''}${b.status === 'pending' ? ' <span class="tag bad">not approved yet</span>' : ''}${b.isSqueeze ? ' <span class="tag warn">⚡ squeeze-in</span>' : ''}</div>
+        <div class="row-title">${esc(b.name)} ${todo(b) ? '<span class="tag warn">to prep</span>' : ''}${b.status === 'pending' ? ' <span class="tag bad">not approved yet</span>' : ''}${b.isSqueeze ? ' <span class="tag warn">⚡ squeeze-in</span>' : ''}${loyaltyTag(b)}${regTag(b)}${payTag(b)}</div>
         <div class="row-sub">${esc((b.time || "no time") + " · " + svcName(b))}</div>
         ${b.needsHair ? `<div class="row-note">✂ ${esc(b.hairDetails)}</div>` : ''}
         <div>${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/^No|face/i.test(b.contentOk || '') ? contentTag(b) : ''}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
@@ -470,6 +522,10 @@ function inbox(){
     return out;
   };
   return header(hi + ", Ehi", dayLabel(t)) + `
+    ${sec("New requests", L.pending, L.pending.map(b => bookingRow(b, { noPill:true,
+        sub: when(b) + " · " + svc(b) + " · " + money(b.total) + (b.waiting ? " · waiting " + b.waiting : ""),
+        note: [!b.isBundle && !b.isConsult ? (b.checkIn ? "📋 Hair check-in is in" + (b.checkInPhotos && b.checkInPhotos.length ? " (" + b.checkInPhotos.length + " photo" + (b.checkInPhotos.length === 1 ? "" : "s") + ")" : "") + " — tap to read it" : "⚠ No hair check-in yet — you may want it before approving") : "", /LESS THAN 24 HRS/.test(b.serviceLabel) ? "⏰ Last-minute squeeze-in (less than 24 hrs away)" : "", clashes(b).length ? "⚠ Overlaps with " + clashes(b).map(x => first(x.name) + " at " + (x.time || "?")).join(", ") : "", b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
+        actions: `<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
     <div class="today">
       <div class="today-date">Today</div>
       ${L.today.length ? L.today.map(b => `<div class="slot" data-a="open" data-k="${esc(b.key)}">
@@ -485,10 +541,6 @@ function inbox(){
     ${sec("Reschedule requests", L.requests, L.requests.map(b => bookingRow(b, { noPill:true,
         sub: "Now: " + when(b), note: (b.request.within24 ? "🚨 Within 24 hrs · " : "") + "Wants " + esc(b.request.date + " " + b.request.time) + (b.request.reason ? "<br>“" + esc(b.request.reason) + "”" : ""),
         actions: `<button class="btn ok" data-a="req" data-d="approve" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="req" data-d="deny" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
-    ${sec("New requests", L.pending, L.pending.map(b => bookingRow(b, { noPill:true,
-        sub: when(b) + " · " + svc(b) + " · " + money(b.total) + (b.waiting ? " · waiting " + b.waiting : ""),
-        note: [!b.isBundle && !b.isConsult ? (b.checkIn ? "📋 Hair check-in is in" + (b.checkInPhotos && b.checkInPhotos.length ? " (" + b.checkInPhotos.length + " photo" + (b.checkInPhotos.length === 1 ? "" : "s") + ")" : "") + " — tap to read it" : "⚠ No hair check-in yet — you may want it before approving") : "", /LESS THAN 24 HRS/.test(b.serviceLabel) ? "⏰ Last-minute squeeze-in (less than 24 hrs away)" : "", clashes(b).length ? "⚠ Overlaps with " + clashes(b).map(x => first(x.name) + " at " + (x.time || "?")).join(", ") : "", b.dealAlert, String(b.checks||"").includes("⚠") ? b.checks : ""].filter(Boolean).map(esc).join("<br>") || "",
-        actions: `<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>` })).join(""))}
     ${sec("Questions from the website", INQ, INQ.map(q => `<div class="row" style="cursor:default; align-items:flex-start;">
         <div class="row-main">
           <div class="row-title">${esc(q.name)}${q.appointment ? ` <span class="tag">${esc(q.appointment)}</span>` : ''}</div>
@@ -559,7 +611,7 @@ function schedule(){
       <div class="day-head">${iso === t ? "Today" : dayLabel(iso)} <small>${days[iso].length} booked${isOff(iso) ? ' · <span class="off">marked off</span>' : ''}</small></div>
       <div class="list">${days[iso].map(b => `<div class="row ${b.status==='pending'?'pend':''}" data-a="open" data-k="${esc(b.key)}">
         <div style="width:64px; font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:600;">${esc(b.time || "—")}</div>
-        <div class="row-main"><div class="row-title">${esc(b.name)} ${b.status==='pending' ? pill('pending') : ''}</div>
+        <div class="row-main"><div class="row-title">${esc(b.name)} ${b.status==='pending' ? pill('pending') : ''}${loyaltyTag(b)}${regTag(b)}${payTag(b)}</div>
           <div class="row-sub">${esc(svc(b))}</div>
           ${b.status==='approved' && !b.isBundle ? `<span class="tag ${b.depositPaid?'good':'bad'}">${b.depositPaid?'deposit in':'no deposit'}</span>` : ''}${b.needsHair ? `<span class="tag ${b.hairOrdered?'good':'warn'}">${b.hairOrdered?'hair ordered':'hair to order'}</span>` : ''}${b.request ? '<span class="tag warn">wants to move</span>' : ''}
         </div><span class="chev" aria-hidden="true">›</span></div>`).join("")}</div>`).join("")
@@ -576,19 +628,24 @@ function clientGroups(){
     const spent = bs.reduce((s, b) => s + (b.amountPaid !== "" && !isNaN(Number(b.amountPaid)) ? Number(b.amountPaid) : (b.serviced ? Number(b.total) || 0 : 0)), 0);
     const next = bs.find(b => b.dateIso && b.dateIso >= t && (b.status === "approved" || b.status === "pending"));
     return { k, name: latest.name, phone: latest.phone, ig: latest.ig, email: (bs.slice().reverse().find(b => b.email) || {}).email || "",
-             bookings: bs, visits: visits.length, spent, noShows: bs.filter(b => b.status === "no-show").length, next };
+             bookings: bs, visits: visits.length, spent, noShows: bs.filter(b => b.status === "no-show").length, next,
+             appts: bs.filter(countsAsAppt).length };
   }).sort((a, c) => (c.next ? 1 : 0) - (a.next ? 1 : 0) || String(a.name).localeCompare(String(c.name)));
 }
 
 function clients(){
   const q = S.search.trim().toLowerCase(), qd = q.replace(/\D/g, "");
-  const gs = clientGroups().filter(g => !q || String(g.name).toLowerCase().includes(q) || String(g.ig).toLowerCase().includes(q) || (qd.length >= 3 && String(g.phone).replace(/\D/g,"").includes(qd)));
-  return header("Clients", gs.length + " " + (gs.length === 1 ? "client" : "clients")) + `
+  const gs = clientGroups().filter(g => !q || String(g.name).toLowerCase().includes(q) || String(g.ig).toLowerCase().includes(q) || (qd.length >= 3 && String(g.phone).replace(/\D/g,"").includes(qd)))
+    .filter(g => S.clientKind === "regular" ? g.appts >= REGULAR_MIN : S.clientKind === "returning" ? (g.appts >= RETURNING_MIN && g.appts < REGULAR_MIN) : true);
+  const noun = { regular: ["regular", "regulars"], returning: ["returning client", "returning clients"] }[S.clientKind] || ["client", "clients"];
+  return header("Clients", gs.length + " " + noun[gs.length === 1 ? 0 : 1]) + `
     <input class="in search" id="search" type="search" placeholder="Search name, phone, or IG" value="${esc(S.search)}"/>
+    <div class="btn-row" style="margin:0 0 10px;" role="group" aria-label="Show">${[["", "All"], ["returning", "↺ Returning"], ["regular", "★ Regulars"]].map(([k, l]) =>
+      `<button class="btn ${(S.clientKind || "") === k ? 'primary' : ''}" data-a="client-kind" data-k="${k}" aria-pressed="${(S.clientKind || "") === k ? 'true' : 'false'}">${l}</button>`).join("")}</div>
     <div class="list">${gs.map(g => `<div class="row" data-a="client" data-k="${esc(g.k)}">
       <div class="row-main"><div class="row-title">${esc(g.name)}</div>
         <div class="row-sub">${g.visits} visit${g.visits===1?'':'s'} · ${money(g.spent)} spent${g.next ? ' · next ' + esc(shortDay(g.next.dateIso)) : ''}</div>
-        ${g.noShows ? `<span class="tag bad">${g.noShows} no-show${g.noShows>1?'s':''}</span>` : ''}${g.visits >= 2 ? '<span class="tag good">returning</span>' : ''}
+        ${g.noShows ? `<span class="tag bad">${g.noShows} no-show${g.noShows>1?'s':''}</span>` : ''}${loyaltyTagFor(g.appts)}
       </div><span class="chev" aria-hidden="true">›</span></div>`).join("") || `<div class="empty" style="padding:14px;">No clients match that search.</div>`}</div>`;
 }
 
@@ -655,6 +712,10 @@ function more(){
     ${hoursSection()}
     <div class="box"><label class="check" style="padding:0;"><input type="checkbox" id="rb-toggle" ${cfgOf().rebookEmails !== false ? "checked" : ""}/> Email clients after their appointment (and when they cancel) so they can rebook — with the aftercare guide for their service</label>
       <p class="hint" style="margin:6px 0 0;">The wording is under Emails → "Rebook".</p></div>
+    <div class="box"><label class="check" style="padding:0;"><input type="checkbox" id="reg-toggle" ${cfgOf().regulars !== false ? "checked" : ""}/> Show "Regulars" on my website</label>
+      <p class="hint" style="margin:6px 0 0;">${cfgOf().regularsPasswordSet === false
+        ? "No regulars password yet, so the link stays hidden either way. Set one in your Sheet: Ehiffect menu → Set regulars password."
+        : "Off hides the Regulars link on your homepage. Anyone already signed in keeps their rates until they close the tab."}</p></div>
     <h2 class="sec">Links</h2>
     <div class="list">
       <a class="row" href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;"><div class="row-main"><div class="row-title">Open booking site</div></div><span class="chev">↗</span></a>
@@ -728,7 +789,7 @@ function detailSheet(b){
   if(st !== "approved") quick.push(`<button class="btn no" data-a="delete" data-k="${esc(b.key)}">Delete</button>`);
   const ci = b.checkIn || {};
   return `<div class="veil" data-a="close" data-bg="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(b.name)}">
-    <div class="sheet-head"><div><h3>${esc(b.name || "No name")}</h3><p>${pill(st)} ${esc(when(b))}</p></div>
+    <div class="sheet-head"><div><h3>${esc(b.name || "No name")}</h3><p>${pill(st)} ${esc(when(b))} ${loyaltyTag(b)}${regTag(b)}${payTag(b)}</p></div>
       <button class="icon-btn" data-a="close" aria-label="Close">×</button></div>
     <div class="sheet-body">
       <div class="btn-row">${quick.join("")}</div>
@@ -895,9 +956,10 @@ function composeSheet(){
         <div class="field"><label>Message</label><textarea id="c-body" style="min-height:260px;">${esc(d.body)}</textarea></div>
         ${(() => { const b = get(c.key); if(!b || b.isBundle) return ''; const n = num(b.grandTotal) ?? num(b.total);
           return `<div class="field" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span class="hint" style="margin:0;">Cost estimate $</span>
+            <span class="hint" style="margin:0;">${c.kind === 'deposit' ? 'Confirmed total $' : 'Cost estimate $'}</span>
             <input type="text" id="c-est" inputmode="decimal" value="${n === null || n === undefined ? '' : esc(String(n))}" style="width:90px; flex:none;"/>
-            <button class="btn" type="button" data-a="c-estimate">Add cost estimate to this email</button>
+            <button class="btn" type="button" data-a="c-estimate">${c.kind === 'deposit' ? 'Confirm this total' : 'Add cost estimate to this email'}</button>
+            ${c.kind === 'deposit' ? `<p class="hint" style="margin:4px 0 0; width:100%;">Puts "Your total · Deposit received · Left to pay" in the email and saves it as their final total, so their appointment page shows the same amount left.</p>` : ''}
           </div>`; })()}
         <div class="field"><label>Pink button (leave blank for none)</label><input type="text" id="c-button" value="${esc(d.button)}"/></div>
         <p class="hint">Changes here only affect this one email. To change the wording for everyone, go to More → Emails.</p>
@@ -997,6 +1059,18 @@ async function act(body, busyText, doneText){
   }catch(err){ S.busy = ""; if(!(err && (err.outdated || err.auth))) S.retry = { body, busyText, doneText }; render(); failToast(err); }
 }
 
+// Saves without making you wait: the screen has already changed. If the save fails, it's undone and you're told.
+async function actQuick(body, undo, doneText){
+  try{
+    const r = await api("adminAct", body);
+    if(r && r.ok){
+      const i = S.data.bookings.findIndex(b => b.key === body.key);
+      if(i >= 0 && r.booking) S.data.bookings[i] = r.booking;
+      cacheSave(); if(doneText) toast(doneText);
+    }else{ undo(); render(); toast((r && r.error) || "That didn't save — try again."); }
+  }catch(err){ undo(); render(); failToast(err); }
+}
+
 const STATUS_FLOW = {
   approved: { kind:"approved", title:"Approve", ok:"Approve", done:"Approved" },
   denied: { kind:"denied", title:"Deny", ok:"Deny", done:"Denied" },
@@ -1022,6 +1096,7 @@ document.addEventListener("click", async e => {
   if(a === "refresh"){ load(false); return; }
   if(a === "open"){ S.open = k; S.replyDraft = ""; renderLayer(); return; }
   if(a === "client"){ S.client = k; renderLayer(); return; }
+  if(a === "client-kind"){ S.clientKind = k || ""; render(); return; }   // All / ↺ Returning (2 appointments) / ★ Regulars (3+)
   if(a === "close"){ if(S.open && S.client){ S.open = null; } else { S.open = null; S.client = null; } renderLayer(); return; }
   if(a === "close-compose"){ S.compose = null; renderLayer(); return; }
   if(a === "close-tpl"){ S.tpl = null; renderLayer(); return; }
@@ -1108,13 +1183,32 @@ document.addEventListener("click", async e => {
     }catch(err){ failToast(err); }
     return;
   }
-  if(a === "tick"){ act({ key:k, changes:{ [el.dataset.f]: el.checked } }, "Saving…", el.checked ? "Checked off" : "Unchecked"); return; }
+  if(a === "tick"){
+    const b = get(k), f = el.dataset.f, v = el.checked;
+    if(!b){ act({ key:k, changes:{ [f]: v } }, "Saving…", v ? "Checked off" : "Unchecked"); return; }
+    const was = b[f]; b[f] = v; render();                              // shows right away…
+    actQuick({ key:k, changes:{ [f]: v } }, () => { b[f] = was; }, v ? "Checked off" : "Unchecked");   // …saves behind the scenes
+    return;
+  }
   if(a === "custom"){ const b = get(k); compose({ key:k, kind:"custom", title:"Email " + first(b.name), okLabel:"Send email", doneText:"Email sent" }); return; }
   if(a === "c-estimate"){
     const bod = document.getElementById("c-body"), inp = document.getElementById("c-est");
     if(!bod || !inp) return;
     const n = Number(String(inp.value).replace(/[$,\s]/g, ""));
-    if(!inp.value.trim() || isNaN(n) || n < 0){ toast("Type the estimate amount first."); return; }
+    if(!inp.value.trim() || isNaN(n) || n < 0){ toast("Type the amount first."); return; }
+    const usd = v => "$" + (Math.round(v * 100) % 100 ? v.toFixed(2) : Math.round(v));
+    if(S.compose && S.compose.kind === "deposit"){                    // confirmed total: breakdown in the email + saved on the booking
+      const dep = Number((S.data.settings && S.data.settings.depositAmount) || 20);
+      const block = "Your total: " + usd(n) + "\nDeposit received: −$" + dep + "\nLeft to pay: " + usd(Math.max(0, n - dep));
+      const paras = bod.value.replace(/\n*Your total: [^\n]*\nDeposit received: [^\n]*\nLeft to pay: [^\n]*/g, "")
+        .replace(/\n*Estimated total: [^\n]*/g, "").replace(/\s+$/, "").split(/\n\s*\n/);
+      paras.splice(Math.min(1, paras.length), 0, block);             // right after "I received your deposit…"
+      bod.value = paras.filter(x => x.trim()).join("\n\n");
+      S.compose.draft.body = bod.value;
+      S.compose.changes = Object.assign({}, S.compose.changes, { grandTotal: n });
+      toast("Total " + usd(n) + " set. It saves when you tap " + (S.compose.okLabel || "Mark received"));
+      return;
+    }
     const amount = "$" + (Math.round(n * 100) / 100);
     const para = "Estimated total: " + amount + ". This is an estimate. I'll confirm your final price before your appointment.";
     let text = bod.value.replace(/\n*Estimated total: [^\n]*(\n|$)/g, "\n").replace(/\s+$/, "");
@@ -1257,7 +1351,7 @@ document.addEventListener("visibilitychange", () => { if(!document.hidden && S.k
 const pct = x => (isFinite(x) ? Math.round(x * 100) : 0) + "%";
 const ceil5 = n => Math.ceil(n / 5) * 5;
 const parseMoney = v => { const t = String(v === undefined || v === null ? "" : v).replace(/[$,\s]/g, ""); if(t === "") return null; const n = Number(t); return isNaN(n) || n < 0 ? NaN : n; };
-const cfgOf = () => (S.data && S.data.config) || { prices:{}, deals:[], hours:{}, saleEnds:"", latest:"", rebookEmails:true };
+const cfgOf = () => (S.data && S.data.config) || { prices:{}, deals:[], hours:{}, saleEnds:"", latest:"", rebookEmails:true, regulars:true };
 const needsNewScript = () => !!(S.outdated || (S.data && !S.stale && (S.data.version || 0) < ADMIN_NEEDS_VERSION));
 
 /* ---------- profit report + price predictor ---------- */
@@ -1747,6 +1841,7 @@ document.addEventListener("change", e => {
     renderLayer(); return;
   }
   if(t.id === "rb-toggle"){ saveConfig({ rebookEmails: t.checked }, t.checked ? "Rebooking emails are on" : "Rebooking emails are off"); return; }
+  if(t.id === "reg-toggle"){ saveConfig({ regulars: t.checked }, t.checked ? "Regulars is showing on your website" : "Regulars is hidden on your website"); return; }
   if(S.dealEdit){
     const d = S.dealEdit;
     if(t.id === "de-type"){ d.type = t.value; renderLayer(); }
