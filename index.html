@@ -1056,15 +1056,15 @@ function isHalloweenWeek(dateStr){
 const WEEKDAY_WINDOWS = {
   0: null, // Sunday — flexible
   1: [{start:"07:00", end:"14:00"}, {start:"18:45", end:"21:00"}], // Monday
-  2: [{start:"07:00", end:"10:00"}, {start:"18:10", end:"21:00"}], // Tuesday
+  2: [{start:"18:10", end:"21:00"}], // Tuesday — evenings only (class in the mornings)
   3: [{start:"07:00", end:"14:00"}, {start:"18:45", end:"21:00"}], // Wednesday
-  4: [{start:"07:00", end:"10:00"}, {start:"18:10", end:"21:00"}], // Thursday
-  5: [{start:"07:00", end:"12:45"}, {start:"15:00", end:"21:00"}], // Friday
+  4: [{start:"18:10", end:"21:00"}], // Thursday — evenings only (class in the mornings)
+  5: [{start:"15:00", end:"21:00"}], // Friday — afternoons/evenings only (no mornings)
   6: null, // Saturday — flexible
 };
 // Quick-services-only note for the days whose morning window is short (kept as a manual
 // flag here since it's about appointment length, not something derivable from the windows).
-const QUICK_SERVICES_ONLY_MORNING = { 2: true, 4: true };
+const QUICK_SERVICES_ONLY_MORNING = {};   // (Tuesday & Thursday mornings are closed now)
 // Builds the client-facing availability note straight from effectiveWindows(), so it can
 // never drift out of sync with the actual bookable windows (including the 7pm cutoff) again.
 function availabilityNoteFor(day){
@@ -1081,6 +1081,32 @@ function minutesToTime(t){ return String(Math.floor(t/60)).padStart(2,'0') + ':'
 
 // Hard cutoff — nothing is bookable at or after this time, no matter what a day's windows say below.
 let LATEST_BOOKABLE_TIME = "19:00";
+// About how long an appointment takes, in minutes, so clients only see start times that finish inside your hours.
+// Services not listed here can start any time in your hours. Shown to clients as "approx.".
+// Start times are checked against the longer end of each range, so you're never booked into running late.
+const SERVICE_MINUTES = { si: 210, qw: 180 };      // Sew-In 3:30 hrs, Quick Weave up to 3:00 hrs
+const SERVICE_TIME_LABEL = { si: "3:30 hrs approx.", qw: "2:30–3:00 hrs approx." };   // what clients see
+// This booking's length (null = not timed).
+function bookingMinutes(){ return SERVICE_MINUTES[state.category] || null; }
+// The same, worked out from a booked service's name (for rescheduling from the appointment page).
+function minutesForService(name){
+  const t = String(name || '');
+  if(/sew-?in/i.test(t)) return SERVICE_MINUTES.si;
+  if(/quick ?weave/i.test(t)) return SERVICE_MINUTES.qw;
+  return null;
+}
+// A day's hours as minutes, with the 8:45 AM floor but the real end time (so an appointment can run to the end of your window).
+function dayWindows(dateStr){
+  const day = new Date(dateStr + 'T12:00:00').getDay(), floor = timeToMinutes(EARLIEST_BOOKABLE_TIME);
+  return (WEEKDAY_WINDOWS[day] || [FLEXIBLE_DAY_RANGE]).map(w => ({ start: Math.max(timeToMinutes(w.start), floor), end: timeToMinutes(w.end) })).filter(w => w.start < w.end);
+}
+// Does an appointment starting at timeStr finish before that window of your hours ends?
+function fitsHours(dateStr, timeStr, minutes){
+  if(!minutes) return true;
+  const t = timeToMinutes(timeStr);
+  return dayWindows(dateStr).some(w => t >= w.start && t + minutes <= w.end);
+}
+
 // The earliest regular start time on any day (your admin hours included). Earlier than this is only a request:
 // on days you have morning hours, clients can ask for EARLY_REQUEST_FROM up to this time, and you approve it or not.
 const EARLIEST_BOOKABLE_TIME = "08:45";
@@ -1115,6 +1141,7 @@ function earlySlotsFor(dateStr){
 function isTimeAllowed(dateStr, timeStr){
   if(!dateStr || !timeStr) return true; // nothing to check yet
   if(state.earlyRequest && earlySlotsFor(dateStr).includes(timeStr)) return true;   // an early request you'll approve or not
+  if(state.view === 'book' && !fitsHours(dateStr, timeStr, bookingMinutes())) return false;   // must finish inside your hours
   const day = new Date(dateStr + 'T12:00:00').getDay();
   const t = timeToMinutes(timeStr);
   return effectiveWindows(day).some(w => t >= timeToMinutes(w.start) && t <= timeToMinutes(w.end));
@@ -1168,16 +1195,18 @@ function isShortNotice(dateStr, timeStr){
   return (t - Date.now()) < 24 * 3600e3;
 }
 
-function timeSlotsFor(dateStr){
+// Start times inside your hours. With `minutes`, only the ones that also finish before that window ends.
+function timeSlotsFor(dateStr, minutes){
   if(!dateStr) return [];
   const day = new Date(dateStr + 'T12:00:00').getDay();
   const windows = effectiveWindows(day);
-  const slots = [];
+  let slots = [];
   windows.forEach(w=>{
     for(let t=timeToMinutes(w.start); t<=timeToMinutes(w.end); t+=15){
       slots.push(String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'));
     }
   });
+  if(minutes) slots = slots.filter(sl => fitsHours(dateStr, sl, minutes));
   // Booking for today: only times at least an hour from now.
   if(dateStr === todayStr()){ const n = new Date(), soon = n.getHours()*60 + n.getMinutes() + 60; return slots.filter(s => timeToMinutes(s) >= soon); }
   return slots;
@@ -1838,8 +1867,8 @@ function renderRegulars(){
 /* ============== Services & Prices (searchable menu) ============== */
 // Built from the same price list the booking form uses, so prices always match (and show the regulars' rates once unlocked).
 const SERVICE_GROUPS = [
-  { group:'Sew-In', cat:'si', desc:QUIZ_SERVICES.si.desc, plus:true },
-  { group:'Quick Weave', cat:'qw', desc:QUIZ_SERVICES.qw.desc, plus:true },
+  { group:'Sew-In', cat:'si', desc:QUIZ_SERVICES.si.desc + ' Time in chair: ' + SERVICE_TIME_LABEL.si, plus:true },
+  { group:'Quick Weave', cat:'qw', desc:QUIZ_SERVICES.qw.desc + ' Time in chair: ' + SERVICE_TIME_LABEL.qw, plus:true },
   { group:'Braids & Twists', cat:'braids', desc:QUIZ_SERVICES.braids.desc },
   { group:'Cornrows & Crochet', cat:'cornrows', desc:'Neat cornrows, custom designs, and crochet installed over a braid-down.' },
   { group:'Treatments', cat:'treatments', desc:'' },
@@ -2178,7 +2207,7 @@ function renderManage(){
       <div class="field"><label>New date</label>${renderCalendar()}</div>
       ${state.date ? `<div class="field"><label>New time</label>
         <select data-action="pick-time-slot"><option value="">choose a time</option>
-        ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date).length ? `<option value="" disabled>no times left today — pick another day</option>` : ''}</select></div>` : ''}
+        ${timeSlotsFor(state.date, minutesForService(state.manage && state.manage.service)).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date, minutesForService(state.manage && state.manage.service)).length ? `<option value="" disabled>no start times fit on this day — pick another day</option>` : ''}</select></div>` : ''}
       <div class="field"><label>${within ? 'What happened? <span style="color:var(--pink-text);">*required</span>' : 'Anything I should know? (optional)'}</label>
         <textarea data-mfield="reason" placeholder="${within ? 'tell me what came up' : 'optional'}">${escapeHTML(f.reason||'')}</textarea></div>
       <button class="cta-btn" data-action="m-send-reschedule" ${state.mBusy?'disabled':''}>${state.mBusy?'Sending…':(m.status==='pending'?'Update my request':'Send reschedule request')}</button>`;
@@ -2419,7 +2448,8 @@ function renderCalendar(){
     const isPast = dateStr < today;
     const squeezable = squeezeApplies() && isFullDay(dateStr) && !isDayOff(dateStr);
     const ownDay = state.view==='manage' && state.manage && dateStr === mIso(state.manage.date);
-    const isBlocked = isDateBlocked(dateStr) && !squeezable && !ownDay;
+    const noFit = state.view === 'book' && !isPast && !!bookingMinutes() && !timeSlotsFor(dateStr, bookingMinutes()).length && !earlyRequestOK(dateStr);   // e.g. a sew-in on a short evening
+    const isBlocked = (isDateBlocked(dateStr) && !squeezable && !ownDay) || noFit;
     const isSelected = state.date === dateStr;
     const cls = ['cal-day'];
     if(isPast) cls.push('past');
@@ -2688,8 +2718,9 @@ function renderBook(){
         <div class="back-link" data-action="toggle-early" role="button" tabindex="0" style="display:block; margin:8px 0 0;">‹ Back to my regular times</div>` : `
         <select data-action="pick-time-slot">
           <option value="">choose a time</option>
-          ${timeSlotsFor(state.date).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date).length ? `<option value="" disabled>no times left today — pick another day</option>` : ''}
+          ${timeSlotsFor(state.date, bookingMinutes()).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date, bookingMinutes()).length ? `<option value="" disabled>${bookingMinutes() && timeSlotsFor(state.date).length ? 'no start times fit this appointment on this day — pick another day' : 'no times left today — pick another day'}</option>` : ''}
         </select>
+        ${bookingMinutes() ? `<div class="avail-note" style="margin-top:8px;">Time in chair: ${SERVICE_TIME_LABEL[state.category]} You'll only see start times that finish within my hours.</div>` : ''}
         ${earlyRequestOK(state.date) && state.date !== todayStr() ? `<div class="back-link" data-action="toggle-early" role="button" tabindex="0" style="display:block; margin:8px 0 0;">Need a time before ${formatTimeLabel(EARLIEST_BOOKABLE_TIME)}? Request an earlier time ›</div>` : ''}`}
       </div>` : ''}
       ${state.bookingType!=='solo' ? `<div class="avail-note">${bookingTypeNoteText()}</div>` : ''}
