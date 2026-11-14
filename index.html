@@ -840,6 +840,7 @@ function currentBraidSizes(){
 let BOHO_PRICE = 40;
 
 const CORNROW_OPTIONS = [
+  { key:"braiddown", name:"Braid Down", price:40, note:"Flat braids to wear under a wig or half wig." },
   { key:"6", name:"6 rows", price:40 },
   { key:"8-10", name:"8–10 rows", price:50 },
   { key:"custom", name:"Custom", price:80, plus:true, note:"Starting price. Tell me the style in your notes and I’ll confirm the final price." },
@@ -979,7 +980,7 @@ const QUIZ_SERVICES = {
     price:h=> ({ from:minOf([BOX_BRAID_SIZES,TWIST_SIZES,TWO_STRAND_SIZES,MARLEY_TWIST_SIZES,MINI_TWIST_SIZES].flat()),
       label: h==='buy' ? `for the style itself; if I provide the hair, packs are ${money(BRAID_HAIR_PACK_PRICE)} each (less for two-strand and mini twists).` : "for the style itself; price depends on the style and size you pick. Bring your own hair or add hair packs." }),
     book:{ category:'braids' } },
-  cornrows: { name:"Cornrows", desc:"Neat cornrows in 6 rows or 8–10 rows. Want a custom design? Describe it in your booking notes.",
+  cornrows: { name:"Cornrows", desc:"Neat cornrows in 6 rows or 8–10 rows, or a braid down to wear under a wig or half wig. Want a custom design? Describe it in your booking notes.",
     price:()=>({ from:minOf(CORNROW_OPTIONS), label:"done with your own hair — no hair purchase needed." }),
     book:{ category:'cornrows' } },
   crochet: { name:"Crochet", desc:"Crochet hair installed over a braid-down, with no leave-out. Bring your own hair or have me provide it.",
@@ -2034,7 +2035,7 @@ const SERVICE_INFO = {
     time: null, wear: null,
     note: "Please arrive with your hair freshly washed and fully dry." },
   cornrows: {
-    desc: "Neat, sleek cornrows, from simple straight-backs to custom designs.",
+    desc: "Neat, sleek cornrows, from simple straight-backs to custom designs, plus braid downs for wigs and half wigs.",
     inc: "Clean parting and cornrows in the style of your choice. Custom designs available on request.",
     time: null, wear: null,
     note: "Please arrive with your hair freshly washed and fully dry." },
@@ -2106,9 +2107,18 @@ const LOOKBOOK = {
     { src:"photos/sew-in-closure-behind-hairline.jpg", name:"Closure", sub:"Sew-in with closure behind the hairline" },
     { src:"photos/sew-in-versatile-parting.jpg", name:"Versatile Parting", sub:"Sew-in" },
     { src:"photos/sew-in-closure-behind-hairline-2.jpg", name:"Closure", sub:"Sew-in behind the hairline, with closure" },
+    { src:"photos/sew-in-fulani-braids.jpg", name:"Fulani", sub:"Sew-in with Fulani braids" },
   ],
   qw: [
-    { src:"photos/quick-weave.jpg", name:"Quick Weave", sub:"Bonded install" },
+    { src:"photos/quick-weave.jpg", name:"Sleek Straight", sub:"Quick weave" },
+    { src:"photos/quick-weave-2.jpg", name:"Body Wave", sub:"Quick weave with leave-out" },
+  ],
+  braids: [
+    { src:"photos/sew-in-fulani-braids.jpg", name:"Fulani Braids", sub:"Paired with a sew-in" },
+  ],
+  cornrows: [
+    { src:"photos/braid-down.jpg", name:"Braid Down", sub:"For under a wig or half wig" },
+    { src:"photos/cornrows-straight-back.jpg", name:"Straight Back", sub:"Cornrows" },
   ],
 };
 // The Luxury Care Kit (the pink box), wrapped and opened. Put the files in the photos folder with these names; until then nothing shows.
@@ -2234,7 +2244,7 @@ const SERVICE_GROUPS = [
   { group:'Sew-In', cat:'si', desc:QUIZ_SERVICES.si.desc + ' Time in chair: ' + SERVICE_TIME_LABEL.si, plus:true },
   { group:'Quick Weave', cat:'qw', desc:QUIZ_SERVICES.qw.desc + ' Time in chair: ' + SERVICE_TIME_LABEL.qw, plus:true },
   { group:'Braids & Twists', cat:'braids', desc:QUIZ_SERVICES.braids.desc },
-  { group:'Cornrows & Crochet', cat:'cornrows', desc:'Neat cornrows, custom designs, and crochet installed over a braid-down.' },
+  { group:'Cornrows & Crochet', cat:'cornrows', desc:'Neat cornrows, custom designs, braid downs for wigs and half wigs, and crochet installed over a braid-down.' },
   { group:'Treatments', cat:'treatments', desc:'' },
   { group:'Takedowns', cat:'takedown', desc:'' },
   { group:'Shop Hair', shop:true, desc:"Virgin and raw hair bundles to take home. Tell me what you'd like and I'll confirm your price; every order comes with a complimentary Mini Care Kit." },
@@ -2975,6 +2985,7 @@ function renderBook(){
         <div class="opt-group" style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:2px;">Style</div>
           <div class="cat-grid">${Object.entries(BRAID_STYLES).map(([k,name])=>`<div class="cat ${state.braidStyle===k?'selected':''}" data-action="pick-braid-style" data-key="${k}"><div class="cat-name">${name}</div></div>`).join('')}</div>
+          ${lookbookHTML('braids')}
           ${state.braidStyle && BRAID_STYLE_NOTES[state.braidStyle] ? `<div class="opt-sub" style="margin-top:6px;">${BRAID_STYLE_NOTES[state.braidStyle]}</div>` : ''}
           ${state.braidStyle && BRAID_SERVICE_KEY[state.braidStyle] ? serviceBlock(BRAID_SERVICE_KEY[state.braidStyle]) : ''}
           ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${currentBraidSizes().map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><div><div class="opt-name">${s.name}</div>${s.note ? `<div class="opt-sub">${s.note}</div>` : ''}</div><span class="opt-price">${money(s.price)}${s.note?'+':''}</span></div>`).join('')}` : ''}
@@ -2992,7 +3003,7 @@ function renderBook(){
             </div>` : ''}
         </div>` : ''}
 
-      ${state.category==='cornrows' ? serviceBlock('cornrows') : ''}
+      ${state.category==='cornrows' ? serviceBlock('cornrows') + lookbookHTML('cornrows') : ''}
       ${state.category==='cornrows' ? `<div class="opt-group" style="margin-top:14px;">${CORNROW_OPTIONS.map(c=>`<div class="opt ${state.cornrowKey===c.key?'selected':''}" data-action="pick-cornrow" data-key="${c.key}"><div><div class="opt-name">${c.name}</div>${c.note ? `<div class="opt-sub">${c.note}</div>` : ''}</div><span class="opt-price">${money(c.price)}${c.plus ? '+' : ''}</span></div>`).join('')}</div>` : ''}
 
       ${state.category==='crochet' ? serviceBlock('crochet') : ''}

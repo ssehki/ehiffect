@@ -207,6 +207,7 @@ const PRICE_CATALOG = [
   ["pack.braid","Braids & Twists","Hair pack (braids & twists)",20],
   ["pack.twostrand","Braids & Twists","Hair pack (two-strand)",10],
   ["pack.mini","Braids & Twists","Hair pack (mini twists)",15],
+  ["cornrow.braiddown","Cornrows & Crochet","Cornrows — Braid Down",40],
   ["cornrow.6","Cornrows & Crochet","Cornrows — 6 rows",40],
   ["cornrow.8-10","Cornrows & Crochet","Cornrows — 8–10 rows",50],
   ["cornrow.custom","Cornrows & Crochet","Cornrows — Custom (starting price)",80],
