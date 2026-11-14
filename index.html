@@ -607,9 +607,9 @@
   .look-head{ display:flex; justify-content:space-between; align-items:baseline; margin:0 0 8px; }
   .look-head span{ font-size:10.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--gold); }
   .look-head em{ font-style:normal; font-size:11px; color:var(--muted); }
-  .look-row{ display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .look-row{ display:flex; align-items:flex-start; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
   .look-row::-webkit-scrollbar{ display:none; }
-  .look-card{ flex:0 0 148px; width:148px; scroll-snap-align:start; border:none; padding:0; background:none; text-align:left; cursor:pointer; color:var(--cream); font-family:'Work Sans', sans-serif; }
+  .look-card{ flex:0 0 148px; width:148px; scroll-snap-align:start; border:none; padding:0; background:none; text-align:left; cursor:pointer; color:var(--cream); font-family:'Work Sans', sans-serif; display:flex; flex-direction:column; justify-content:flex-start; align-self:flex-start; }
   .look-card img{ display:block; width:148px; height:185px; object-fit:cover; border-radius:2px; border:1px solid var(--line); transition:border-color .3s ease; }
   .look-card:hover img{ border-color:var(--pink); }
   .look-card:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
