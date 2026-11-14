@@ -1566,12 +1566,17 @@ function stepOneError(){
 }
 
 // Top menu: Back, then Home / Booking / Bundles / Checkout.
+// The menu at the top of booking and Shop Hair: "home · booking · checkout" (or "home · bundles · checkout"),
+// thin and underlined. Booking/bundles is step 1, checkout is step 2; the step you're on is underlined in pink.
 function flowNavHTML(){
-  const inBook = state.view === 'book', inBundles = state.view === 'bundles';
-  const co = (inBook || inBundles) && state.bookStep === 'checkout' && serviceChosen();
-  const canCheckout = (inBook || inBundles) && serviceChosen();
-  const tab = (act, label, on, off) => `<button type="button" class="fn-tab${on ? ' on' : ''}${off ? ' off' : ''}" data-action="${act}"${on ? ' aria-current="step"' : ''}${off ? ' aria-disabled="true" title="Pick a service first"' : ''}>${label}</button>`;
-  return `<div class="flow-nav"><div class="fn-tabs">${tab('go-landing', 'Home', false, false)}${tab('nav-booking', 'Booking', inBook && !co, false)}${tab('nav-bundles', 'Bundles', inBundles && !co, false)}${tab('nav-checkout', 'Checkout', co, !canCheckout)}</div></div>`;
+  const inBundles = state.view === 'bundles';
+  const co = state.bookStep === 'checkout' && serviceChosen();
+  const mid = inBundles ? ['nav-bundles', 'bundles'] : ['nav-booking', 'booking'];
+  return `<nav class="stepbar ${co ? 'at-checkout' : ''}" aria-label="Steps">
+    <button type="button" data-action="go-landing">home</button><span class="stepbar-sep" aria-hidden="true">·</span>
+    <button type="button" class="stepbar-mid" data-action="${mid[0]}"${co ? '' : ' aria-current="step"'}>${mid[1]}</button><span class="stepbar-sep" aria-hidden="true">·</span>
+    <button type="button" class="stepbar-end" data-action="nav-checkout"${co ? ' aria-current="step"' : ''}${serviceChosen() ? '' : ' aria-disabled="true" title="Pick a service first"'}>checkout</button>
+  </nav>`;
 }
 function checkoutSummaryHTML(){
   return `<div class="card">
@@ -2705,6 +2710,7 @@ function stepBarHTML(middle, done){
   </nav>`;
 }
 function syncStepBar(){
+  return;   // the top menu now shows the real step (booking or checkout), so nothing to work out from scrolling
   const bar = document.querySelector('.stepbar'); if(!bar || bar.classList.contains('is-done')) return;
   const ck = document.getElementById('checkout');
   bar.classList.toggle('at-checkout', !!ck && ck.getBoundingClientRect().top < window.innerHeight * 0.55);
