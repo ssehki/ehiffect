@@ -1118,7 +1118,7 @@ function timeToMinutes(t){ const [h,m] = t.split(':').map(Number); return h*60+m
 function minutesToTime(t){ return String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0'); }
 
 // Hard cutoff — nothing is bookable at or after this time, no matter what a day's windows say below.
-let LATEST_BOOKABLE_TIME = "19:00";
+let LATEST_BOOKABLE_TIME = "20:00";   // last start time (your admin's hours can change it)
 // About how long an appointment takes, in minutes, so clients only see start times that finish inside your hours.
 // Services not listed here can start any time in your hours. Shown to clients as "approx.".
 // Start times are checked against the longer end of each range, so you're never booked into running late.
@@ -1138,11 +1138,13 @@ function dayWindows(dateStr){
   const day = new Date(dateStr + 'T12:00:00').getDay(), floor = timeToMinutes(EARLIEST_BOOKABLE_TIME);
   return (WEEKDAY_WINDOWS[day] || [FLEXIBLE_DAY_RANGE]).map(w => ({ start: Math.max(timeToMinutes(w.start), floor), end: timeToMinutes(w.end) })).filter(w => w.start < w.end);
 }
-// Does an appointment starting at timeStr finish before that window of your hours ends?
+// Does an appointment starting at timeStr fit that window of your hours? Daytime windows (before your afternoon / class)
+// must finish in time; evening windows (ending EVENING_RUNS_LATE or later) can run late, so any start in them works.
+const EVENING_RUNS_LATE = "20:00";
 function fitsHours(dateStr, timeStr, minutes){
   if(!minutes) return true;
-  const t = timeToMinutes(timeStr);
-  return dayWindows(dateStr).some(w => t >= w.start && t + minutes <= w.end);
+  const t = timeToMinutes(timeStr), late = timeToMinutes(EVENING_RUNS_LATE);
+  return dayWindows(dateStr).some(w => t >= w.start && (w.end >= late || t + minutes <= w.end));
 }
 
 // The earliest regular start time on any day (your admin hours included). Earlier than this is only a request:
@@ -2551,9 +2553,10 @@ function renderManage(){
     ${payBoxes}
     ${showCheckin && !m.checkIn ? `<button class="m-checkin-cta" data-action="m-tab" data-key="checkin"><b>📋 Fill out your hair check-in</b><span>Photos + a few quick questions so I can prep for you</span></button>` : ''}
     ${showCheckin && carriedFrom ? `<button class="m-checkin-cta m-checkin-soft" data-action="m-tab" data-key="checkin"><b>📋 Has your hair changed since last time?</b><span>Your hair check-in from ${escapeHTML(carriedFrom)} is on file. Only update it if something's different.</span></button>` : ''}
+    ${!closed && !m.isBundle && within && m.status === 'approved' ? `<div class="m-info" style="margin-top:14px;">📅 It's less than 24 hours until your appointment, so changes go through me. Tap <b>Message</b> and I'll sort it out.</div>` : ''}
     <div class="m-actions">
       ${showCheckin && m.checkIn && !carriedFrom ? btn('checkin','📋 Hair check-in ✓') : ''}
-      ${!closed && !m.isBundle ? btn('reschedule','📅 Reschedule') : ''}
+      ${!closed && !m.isBundle && !(within && m.status === 'approved') ? btn('reschedule','📅 Reschedule') : ''}
       ${!closed && !m.isBundle && !m.isConsult ? btn('late','⏰ Running late') : ''}
       ${btn('message','💬 Message' + (m.thread.length ? ' (' + m.thread.length + ')' : ''))}
       ${!closed ? btn('cancel','Cancel', 'm-act-quiet') : ''}
@@ -3007,7 +3010,7 @@ function renderBook(){
           <option value="">choose a time</option>
           ${timeSlotsFor(state.date, bookingMinutes()).map(t=>`<option value="${t}" ${state.time===t?'selected':''}>${formatTimeLabel(t)}</option>`).join('')}${state.date && !timeSlotsFor(state.date, bookingMinutes()).length ? `<option value="" disabled>${bookingMinutes() && timeSlotsFor(state.date).length ? 'no start times fit this appointment on this day — pick another day' : 'no times left today — pick another day'}</option>` : ''}
         </select>
-        ${bookingMinutes() ? `<div class="avail-note" style="margin-top:8px;">Time in chair: ${SERVICE_TIME_LABEL[state.category]} You'll only see start times that finish within my hours.</div>` : ''}
+        ${bookingMinutes() ? `<div class="avail-note" style="margin-top:8px;">Time in chair: ${SERVICE_TIME_LABEL[state.category]}</div>` : ''}
         ${earlyRequestOK(state.date) && state.date !== todayStr() ? `<div class="back-link" data-action="toggle-early" role="button" tabindex="0" style="display:block; margin:8px 0 0;">Need a time before ${formatTimeLabel(EARLIEST_BOOKABLE_TIME)}? Request an earlier time ›</div>` : ''}`}
       </div>` : ''}
       ${state.bookingType!=='solo' ? `<div class="avail-note">${bookingTypeNoteText()}</div>` : ''}

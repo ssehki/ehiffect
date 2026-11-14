@@ -376,7 +376,8 @@ function clashNote(b){
 // Finished by any sign you left: ticked done, a done date, what they paid, or the thank-you email sent/skipped (matches your morning email).
 const wrappedUp = b => b.serviced || String(b.servicedOn || "").trim() !== "" || (b.amountPaid !== "" && b.amountPaid !== undefined && b.amountPaid !== null) || String(b.rebookEmailed || "").trim() !== "";
 // The rest of the service paid by card through Square (set by your Apps Script).
-function payTag(b){ return b.balancePaid ? '<span class="tag good">💳 paid in full online</span>' : ""; }
+function payTag(b){ return (b.balancePaid ? '<span class="tag good">💳 paid in full online</span>' : "")
+  + (b.rescheduleCount ? `<span class="tag">↻ rescheduled ${b.rescheduleCount}×</span>` : ""); }   // moves you approved
 // Booked at the regulars' rate (from the website's Regulars page). "unverified" = the password didn't match, so check the price.
 function regTag(b){
   return b.regularRate === "checked" ? '<span class="tag">$ regulars\' rate</span>'
@@ -1726,7 +1727,7 @@ function hoursState(){
 function hoursSection(){
   if(!(S.data && S.data.defaultHours)) return `<details class="fold"><summary>🗓 Availability</summary><div><p class="hint" style="margin:0;">Update your Sheet's script (see the banner at the top) to turn this on.</p></div></details>`;
   const H = hoursState();
-  const latest = S.latestDraft !== undefined ? S.latestDraft : (cfgOf().latest || (S.data.defaultLatest || "19:00"));
+  const latest = S.latestDraft !== undefined ? S.latestDraft : (cfgOf().latest || (S.data.defaultLatest || "20:00"));
   const row = d => {
     const h = H[d], w = h.w;
     return `<div class="hrow">

@@ -676,7 +676,7 @@ const HEADERS = [
   "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "rebookEmailed", "calendarEvent", "hairOrdered", "hairOrderedOn",
   "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
   "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source", "contentOk", "regular", "regularRate",
-  "squareDeposit", "squareBalance", "balancePaid", "paidOnline", "dayOfEmailed"
+  "squareDeposit", "squareBalance", "balancePaid", "paidOnline", "dayOfEmailed", "rescheduleCount"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -1858,6 +1858,7 @@ function handleManage(body){
     if(type === "reschedule"){
       const date = formatDateStr(clip(body.date, 10)), time = formatTimeStr(clip(body.time, 5)), reason = clip(body.reason, 600);
       if(!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) return manageShape(b, { ok: false, error: "Pick a new date." });
+      if(within && b.status === "approved") return manageShape(b, { ok: false, error: "It's less than 24 hours until your appointment, so changes go through me. Send me a message and I'll sort it out." });
       if(within && !reason) return manageShape(b, { ok: false, error: "Since this is within 24 hours, please explain what's going on." });
       const from = whenText(b), to = whenText({ date: date, time: time });
       if(b.status === "pending"){                                   // not approved yet → just update the request
@@ -1949,6 +1950,7 @@ function decideRequest(b, decision, override){
   const from = whenText(b), to = whenText({ date: b.reqDate, time: b.reqTime });
   if(decision === "approve"){
     set("date", asDate(b.reqDate)); set("time", asTime(b.reqTime));
+    set("rescheduleCount", (Number(b.rescheduleCount) || 0) + 1);   // shown in your admin as "rescheduled N×"
     if(!override || override.send !== false) sendTemplate(b, "reschedApproved", { oldWhen: from, newWhen: to,
       depositNote: isPaid(b) ? "Your deposit carries over to your new time, so you won't pay it twice." : "" }, override);
   }else{
@@ -2120,7 +2122,8 @@ function adminBooking(b, settings){
     tip: String(b.tip) === "" ? "" : Number(b.tip), hairCost: String(b.hairCost) === "" ? "" : Number(b.hairCost), source: String(b.source || ""),
     isSqueeze: isSqueeze(b), service: cleanService(b), contentOk: String(b.contentOk || ""),
     regular: String(b.regular || ""), regularRate: String(b.regularRate || ""),
-    balancePaid: isTrue(b.balancePaid), paidOnline: String(b.paidOnline || "")
+    balancePaid: isTrue(b.balancePaid), paidOnline: String(b.paidOnline || ""),
+    rescheduleCount: Number(b.rescheduleCount) || 0
   });
 }
 
