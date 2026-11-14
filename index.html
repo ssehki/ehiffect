@@ -2747,6 +2747,21 @@ function renderBook(){
 
       ${(state.category==='qw'||state.category==='si') ? `
         ${serviceBlock(state.category)}
+        <div style="margin-top:14px;">   <!-- style first, right after choosing Sew-In / Quick Weave -->
+          <div class="opt-sub" style="margin-bottom:6px;">Style</div>
+          <div class="length-row style-row">
+            <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]) || (state.style==='custom' && state.category!=='si'))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
+            ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 1px; color:inherit; opacity:.75;">Most requested</span>Versatile<span class="sty-price">+${money(VERSATILE_SURCHARGE[state.category])}</span></div>` : ''}
+            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling<span class="sty-price">+${money(FULANI_SURCHARGE[state.category])}</span></div>
+            ${state.category==='si' ? `
+            <div class="length-btn ${state.style==='custom' && state.customStyle==='flipover'?'selected':''}" data-action="pick-custom" data-key="flipover">Flipover sew-in</div>
+            <div class="length-btn ${state.style==='custom' && state.customStyle==='hybrid'?'selected':''}" data-action="pick-custom" data-key="hybrid">Hybrid sew-in</div>` : ''}
+          </div>
+          ${state.category==='si' ? `
+          <div class="length-btn custom-style-btn ${state.style==='custom' && state.customStyle==='own'?'selected':''}" data-action="pick-custom" data-key="own" style="margin-top:6px;">Custom (describe your own)</div>
+          ${state.style==='custom' && state.customStyle==='own' ? `<div class="field" style="margin:10px 0 0;"><label>Describe the style you want</label><input type="text" id="f-custom-style" maxlength="80" value="${escapeHTML(state.customStyleText)}" placeholder="e.g. invisible part with a middle leave-out"/></div>` : ''}
+          ${state.style==='custom' ? `<div class="opt-sub" style="margin-top:8px;">Price confirmed when I approve your request.</div>` : ''}` : ''}
+        </div>
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.slice().reverse().map(t=>`
             <div class="opt tier ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
@@ -2787,27 +2802,7 @@ function renderBook(){
               </div>` : ''}
           `).join('')}
         </div>
-        <div style="margin-top:14px;">
-          <div class="opt-sub" style="margin-bottom:6px;">Style</div>
-          <div class="length-row style-row">
-            <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]) || (state.style==='custom' && state.category!=='si'))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
-            ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 1px; color:inherit; opacity:.75;">Most requested</span>Versatile<span class="sty-price">+${money(VERSATILE_SURCHARGE[state.category])}</span></div>` : ''}
-            <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling<span class="sty-price">+${money(FULANI_SURCHARGE[state.category])}</span></div>
-          </div>
-          ${state.category==='si' ? `
-            <div class="length-btn custom-style-btn ${state.style==='custom'?'selected':''}" data-action="pick-style" data-key="custom" style="margin-top:6px;">Custom styling</div>
-            ${state.style==='custom' ? `<div class="custom-style-box">
-              <div class="opt-sub" style="margin:12px 0 6px;">Pick a custom style</div>
-              <div class="length-row">
-                <div class="length-btn ${state.customStyle==='flipover'?'selected':''}" data-action="pick-custom-style" data-key="flipover">Flipover sew-in</div>
-                <div class="length-btn ${state.customStyle==='hybrid'?'selected':''}" data-action="pick-custom-style" data-key="hybrid">Hybrid sew-in</div>
-                <div class="length-btn ${state.customStyle==='own'?'selected':''}" data-action="pick-custom-style" data-key="own">Write my own</div>
-              </div>
-              ${state.customStyle==='own' ? `<div class="field" style="margin:10px 0 0;"><label>Describe the style you want</label><input type="text" id="f-custom-style" maxlength="80" value="${escapeHTML(state.customStyleText)}" placeholder="e.g. invisible part with a middle leave-out"/></div>` : ''}
-              <div class="opt-sub" style="margin-top:8px;">Price confirmed when I approve your request.</div>
-            </div>` : ''}
-          ` : ''}
-        </div>` : ''}
+      ` : ''}
 
       ${state.category==='braids' ? `
         <div class="opt-group" style="margin-top:14px;">
@@ -3731,6 +3726,7 @@ function attachHandlers(){
       }
       else if(action==='pick-style'){ state.style = key; if(key !== 'custom'){ state.customStyle = ''; state.customStyleText = ''; } }
       else if(action==='pick-custom-style'){ state.customStyle = key; if(key !== 'own') state.customStyleText = ''; }
+      else if(action==='pick-custom'){ state.style = 'custom'; state.customStyle = key; if(key !== 'own') state.customStyleText = ''; }   // Flipover / Hybrid / Custom style buttons
       else if(action==='pick-tier'){ state.tierKey = key; state.pkgLengths=[]; state.length=null; state.lengthIn=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
       else if(action==='pick-install-texture'){ state.installTexture = el.value; }
       else if(action==='pick-length-select'){
