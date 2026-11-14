@@ -2132,8 +2132,7 @@ const LOOKBOOK = {
     { src:"photos/sew-in-fulani-braids.jpg", name:"Fulani", sub:"Sew-in with Fulani braids" },
   ],
   qw: [
-    { src:"photos/quick-weave.jpg", name:"Sleek Straight", sub:"Quick weave" },
-    { src:"photos/quick-weave-2.jpg", name:"Body Wave", sub:"Quick weave with leave-out" },
+    { src:"photos/quick-weave.jpg", name:"Sleek Straight", sub:"Quick weave", pos:"center 58%" },
   ],
   braids: [
     { src:"photos/sew-in-fulani-braids.jpg", name:"Fulani Braids", sub:"Paired with a sew-in" },
@@ -2289,7 +2288,7 @@ function serviceResultsHTML(){
     if(!rows.length) return '';
     const cat = id => g.group === 'Cornrows & Crochet' ? (id.startsWith('crochet') ? 'crochet' : 'cornrows') : g.cat;
     return `<section class="svc-group">
-      ${g.cat && LOOKBOOK[g.cat] && !q ? `<button type="button" class="svc-photo" data-action="look-open" data-key="${g.cat}:0" aria-label="See ${g.group} looks"><img src="${LOOKBOOK[g.cat][0].src}" alt="${g.group} by The Ehiffect" loading="lazy"/>${LOOKBOOK[g.cat].length > 1 ? `<span>${LOOKBOOK[g.cat].length} looks ›</span>` : ''}</button>` : ''}
+      ${g.cat && LOOKBOOK[g.cat] && !q ? `<button type="button" class="svc-photo" data-action="look-open" data-key="${g.cat}:0" aria-label="See ${g.group} looks"><img src="${LOOKBOOK[g.cat][0].src}" alt="${g.group} by The Ehiffect" loading="lazy"${LOOKBOOK[g.cat][0].pos ? ` style="object-position:${LOOKBOOK[g.cat][0].pos}"` : ''}/>${LOOKBOOK[g.cat].length > 1 ? `<span>${LOOKBOOK[g.cat].length} looks ›</span>` : ''}</button>` : ''}
       <h2 class="svc-h">${g.group}</h2>
       ${g.desc && !q ? `<p class="svc-desc">${g.desc}</p>` : ''}
       ${rows.map(it => `<div class="svc-row">
