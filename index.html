@@ -62,7 +62,7 @@
   h1.title{ text-align:center; font-family:'Cormorant Garamond', serif; font-weight:500; font-size:clamp(28px, 7.5vw, 34px); line-height:1.15; margin: 18px 0 14px; color:var(--cream); position:relative; z-index:1; letter-spacing:0.01em; }
   .tagline{ text-align:center; color:var(--muted); font-size:14.5px; line-height:1.7; font-family:'Work Sans', sans-serif; margin: 0 auto; max-width:340px; position:relative; z-index:1; }
   /* the "uncomplicated & at your service" line under a logo or page title reads as a quiet serif signature */
-  .hero .logo-img + .tagline, .hero h1.title + .tagline:not([style]){ font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:400; font-size:19px; line-height:1.5; letter-spacing:0.01em; }
+  .hero .logo-img + .tagline, .home-hero-top .logo-img + .tagline, .hero h1.title + .tagline:not([style]){ font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:400; font-size:19px; line-height:1.5; letter-spacing:0.01em; }
   .eyebrow{ text-align:center; text-transform:uppercase; letter-spacing:0.32em; font-size:10.5px; color:var(--gold); font-weight:500; margin:0 0 14px; position:relative; z-index:1; }
 
   .cta-btn{
@@ -590,6 +590,19 @@
   .takedown-note b{ color:var(--pink-text); }
   .takedown-note ul{ margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:12.5px; }
   .takedown-note li + li{ margin-top:4px; }
+  /* homepage: full-screen Luxury Care Kit photo, logo on top, Reserve at the bottom; it drifts and fades as you scroll */
+  .home-hero{ position:relative; height:100vh; height:100svh; min-height:540px; overflow:hidden; background:#F3E6E4; }
+  .home-hero-bg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 85%; transform:translateY(var(--lift, 0px)) scale(1.04); will-change:transform; }
+  .home-hero-veil{ position:absolute; inset:0; background:linear-gradient(to bottom, rgba(248,243,239,.94) 0%, rgba(248,243,239,.7) 30%, rgba(248,243,239,0) 50%, rgba(36,19,24,0) 64%, rgba(36,19,24,.38) 100%); }
+  .home-hero-top{ position:relative; text-align:center; padding:58px 20px 0; opacity:var(--fade, 1); }
+  .home-hero-bottom{ position:absolute; left:0; right:0; bottom:0; max-width:480px; margin:0 auto; padding:0 20px 26px; text-align:center; opacity:var(--fade, 1); }
+  .home-hero-bottom .cta-btn{ margin:0; box-shadow:0 10px 28px rgba(36,19,24,.22); }
+  .home-hero-scroll{ display:inline-block; margin-top:16px; padding:6px 10px; border:none; background:none; cursor:pointer; font-family:'Work Sans', sans-serif; font-size:10.5px; font-weight:600; letter-spacing:.3em; text-transform:uppercase; color:#FBF6F2; animation:heroHint 2.4s ease-in-out infinite; }
+  @keyframes heroHint{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(5px); } }
+  .home-pin{ position:fixed; left:50%; bottom:14px; z-index:40; width:calc(100% - 32px); max-width:448px; margin:0; transform:translate(-50%, 160%); transition:transform .4s ease; box-shadow:0 10px 28px rgba(36,19,24,.2); }
+  .home-pin.show{ transform:translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce){ .home-hero-scroll{ animation:none; } .home-hero-bg{ transform:none; } .home-pin{ transition:none; } }
+
   /* aftercare kit photos */
   .kit-thumb{ width:34px; height:34px; object-fit:cover; border-radius:2px; margin-right:10px; flex:0 0 auto; }
   .kit-line summary{ align-items:center; }
@@ -2122,7 +2135,7 @@ const LOOKBOOK = {
   ],
 };
 // The Luxury Care Kit (the pink box), wrapped and opened. Put the files in the photos folder with these names; until then nothing shows.
-const KIT_PHOTOS = { closed: "photos/luxury-kit-closed.jpg", open: "photos/luxury-kit-open.jpg" };
+const KIT_PHOTOS = { closed: "photos/luxury-kit-closed.webp", open: "photos/luxury-kit-open.webp" };
 const photoIf = (src, alt, cls) => MISSING_PHOTOS.has(src) ? '' :
   `<img class="${cls || ''}" src="${src}" alt="${alt}" loading="lazy" style="display:none;" onload="this.style.display=''" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.remove()"/>`;
 function lookbookHTML(cat){
@@ -2314,19 +2327,37 @@ function renderServices(){
   </div>`;
 }
 
+// Homepage scroll: the box photo drifts and the words fade; the pinned Reserve button slides up once you're past the photo.
+window.addEventListener('scroll', () => {
+  const h = document.querySelector('.home-hero'); if(!h) return;
+  const y = window.scrollY, H = h.offsetHeight || 1;
+  if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    h.style.setProperty('--lift', Math.min(y, H) * 0.35 + 'px');
+    h.style.setProperty('--fade', Math.max(0, 1 - y / (H * 0.6)).toFixed(3));
+  }
+  const pin = document.querySelector('.home-pin');
+  if(pin){ const on = y > H * 0.8; pin.classList.toggle('show', on); pin.tabIndex = on ? 0 : -1; }
+}, { passive: true });
 function renderLanding(){
   return `
-  <div class="wrap theme-light landing-wrap" style="min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center;">
+  <section class="home-hero theme-light" aria-label="The Ehiffect">
+    <img class="home-hero-bg" src="${KIT_PHOTOS.closed}" alt="" fetchpriority="high" onerror="this.remove()"/>
+    <div class="home-hero-veil"></div>
     ${REGULARS_ON || REGULARS ? `<button type="button" class="regulars-link" data-action="go-regulars">${REGULARS ? '★ Regulars' : 'Regulars'}</button>` : ''}
-    <div class="hero" style="padding-top:0; padding-bottom:8px;">
+    <div class="home-hero-top">
       <p class="eyebrow">by appointment · bloomington</p>
-      <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:150px; margin:10px auto 26px;"/>
+      <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:150px; margin:10px auto 18px;"/>
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
-
-    <div style="margin-top:36px;">
-      ${searchRowHTML(false)}
+    <div class="home-hero-bottom">
       <button class="cta-btn" data-action="landing-pick" data-key="service">Reserve Your Appointment</button>
+      <button type="button" class="home-hero-scroll" onclick="document.querySelector('.landing-wrap').scrollIntoView({behavior:'smooth'})">scroll ↓</button>
+    </div>
+  </section>
+  <button class="cta-btn home-pin" data-action="landing-pick" data-key="service" tabindex="-1">Reserve Your Appointment</button>
+  <div class="wrap theme-light landing-wrap" style="min-height:0; padding-top:40px;">
+    <div>
+      ${searchRowHTML(false)}
       <div class="home-pair">
         <button class="cta-btn secondary" data-action="landing-pick" data-key="bundles">Shop Hair</button>
         <button class="cta-btn secondary" data-action="go-aftercare">Aftercare</button>
@@ -2339,8 +2370,8 @@ function renderLanding(){
     </button>
     <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your visit ›</div>
 
-    ${MISSING_PHOTOS.has(KIT_PHOTOS.closed) ? '' : `<section class="home-kit" aria-label="The Luxury Care Kit" style="display:none;">
-      ${photoIf(KIT_PHOTOS.closed, 'The Ehiffect Luxury Care Kit, wrapped with a satin ribbon', 'home-kit-img').replace('onload="this.style.display=\'\'"', 'onload="this.style.display=\'\'; this.closest(\'.home-kit\').style.display=\'\'"')}
+    ${MISSING_PHOTOS.has(KIT_PHOTOS.open) ? '' : `<section class="home-kit" aria-label="The Luxury Care Kit" style="display:none;">
+      ${photoIf(KIT_PHOTOS.open, 'Inside the Luxury Care Kit: satin bonnet, oil and a thank-you card', 'home-kit-img').replace('onload="this.style.display=\'\'"', 'onload="this.style.display=\'\'; this.closest(\'.home-kit\').style.display=\'\'"')}
       <p class="eyebrow" style="margin:16px 0 6px;">the luxury care kit</p>
       <p class="home-kit-text">Wrapped in pink with a satin ribbon: a satin bonnet, a nourishing oil and a note from me. Included with qualifying packages, or add it when you book.</p>
     </section>`}
