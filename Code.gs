@@ -2892,7 +2892,14 @@ function handleDashboardEdit(dash, a1){
 
   const bookings = getSheet(), colMap = getColumns(bookings).map;
   const cell = dash.getRange(a1), val = cell.getValue();
-  if(a1 === DASH.DEP) setCell(bookings, colMap, "depositPaid", row, val === true);
+  if(a1 === DASH.DEP){
+    setCell(bookings, colMap, "depositPaid", row, val === true);
+    // Ticking "deposit" here emails the client, the same as ticking it in Bookings or your admin site.
+    if(val === true){
+      const me = readBookings().find(x => x.row === row);
+      if(me && me.status === "approved" && !isTrue(me.depositEmailed) && emailDepositReceived(me)) setCell(bookings, colMap, "depositEmailed", row, true);
+    }
+  }
   else if(a1 === DASH.PACK) setCell(bookings, colMap, "kitPacked", row, val === true);
   else if(a1 === DASH.SHIP) setCell(bookings, colMap, "shipped", row, val === true);
   else if(a1 === DASH.SERV){
