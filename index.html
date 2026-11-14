@@ -116,14 +116,45 @@
   .opt-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
   .opt-flag{ font-size:9.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--pink-deep); margin-bottom:4px; }
   .style-row{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
-  .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; padding-left:6px; padding-right:6px; }
-  .style-row .sty-price{ display:block; margin-top:2px; font-size:10.5px; font-weight:400; opacity:.7; letter-spacing:.02em; }
-  .style-row .opt-flag{ letter-spacing:.1em; font-size:8.5px; white-space:nowrap; }
+  .style-row .length-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0; min-height:30px; padding:3px 3px; font-size:12px; line-height:1.1; }
+  .style-row .sty-price{ display:block; margin-top:1px; font-size:9px; font-weight:400; opacity:.7; letter-spacing:.02em; }
+  .len-grid{ flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .len-grid .length-btn{ flex:0 0 auto; width:46px; height:46px; min-width:0; padding:0; font-size:13px; display:flex; align-items:center; justify-content:center; }
+  .length-btn.custom-style-btn{ width:100%; flex:none; text-align:center; min-height:0; padding:5px 4px; font-size:12px; }
+  .style-row .opt-flag{ letter-spacing:.08em; font-size:7px; white-space:nowrap; margin-bottom:1px; }
   .home-reviews{ margin-top:34px; }
   .hr-card{ margin:0 0 10px; padding:14px 16px; background:#FFFFFF; border:1px solid var(--line); border-radius:8px; text-align:left; }
   .hr-stars{ color:#B85C82; font-size:13px; letter-spacing:.08em; margin-bottom:4px; }
   .hr-card blockquote{ margin:0; font-size:14px; line-height:1.5; color:#211A1B; }
   .hr-card figcaption{ margin-top:6px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:#8C7B7E; }
+  .svc-block { margin:16px 0 16px; padding:0; }
+  .svc-block > :last-child { margin-bottom:0; }
+  .svc-desc  { color:#e9dfe2; font-size:14.5px; line-height:1.5; margin:0 0 12px; }
+  .svc-inc   { color:#b9aab0; font-size:13.5px; line-height:1.5; margin:0 0 12px; }
+  .svc-label { display:block; font-size:10.5px; letter-spacing:.13em; text-transform:uppercase; color:#e48aae; margin-bottom:3px; }
+  .svc-meta  { display:flex; flex-wrap:wrap; gap:8px 24px; color:#b9aab0; font-size:13.5px; line-height:1.4; margin-bottom:12px; }
+  .svc-note  { color:#8f8287; font-size:12.5px; line-height:1.45; font-style:italic; margin:0; }
+  .opt.selected .opt-flag{ color:#241318; opacity:.65; }
+  .reg-panel{ margin:0 0 14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; }
+  .reg-ok{ margin:0 0 12px; padding:10px 12px; border:1px solid var(--pink); border-radius:4px; font-size:13px; line-height:1.5; }
+  .reg-undo{ margin-left:6px; text-decoration:underline; cursor:pointer; color:var(--pink); }
+  .reg-err{ color:#E7A0A0; font-size:12.5px; margin-top:4px; }
+  .flow-nav{ position:sticky; top:0; z-index:25; margin:-36px -20px 18px; padding:10px 20px 12px; background:var(--bg); border-bottom:1px solid var(--line); }
+  .fn-tabs{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .fn-tab{ padding:9px 2px; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:10.5px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; }
+  .fn-tab.on{ background:var(--pink); border-color:var(--pink); color:#241318; }
+  .fn-tab.off{ opacity:0.4; cursor:default; }
+  .len-grid .length-btn{ position:relative; }
+  .len-n{ position:absolute; top:-6px; right:-6px; min-width:16px; height:16px; padding:0 3px; box-sizing:border-box; border-radius:8px; background:var(--cream); color:#241318; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1; }
+  .len-sum{ margin-top:8px; }
+  .len-link{ margin-left:6px; color:var(--pink); text-decoration:underline; cursor:pointer; }
+  .opt.tier{ display:block; }
+  .tier-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .tier-lines{ margin-top:3px; }
+  .opt.tier .tier-lines .svc-inc{ font-size:12px; line-height:1.4; margin:0; }
+  .opt.tier .tier-lines .opt-sub{ font-size:11px; line-height:1.4; margin-top:1px; }
+  .opt.selected .svc-inc{ color:#3a2830; }
+  .opt .svc-inc{ font-size:12.5px; line-height:1.5; margin:5px 0 0; }
   .includes-note{ margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; font-size:13px; line-height:1.55; color:var(--muted); }
   .includes-note b{ color:var(--cream); font-weight:600; }
   .opt-price{ font-size:14px; color:var(--pink-text); font-weight:600; white-space:nowrap; margin-left:10px;}
@@ -668,44 +699,38 @@ let saleEndsAt = SALE_ENDS;   // the end date actually in use (admin can move it
 const saleEndsLabel = () => 'sale ends ' + saleEndsAt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
 const INSTALLS = {
   qw: { label:"Quick Weave", tiers:[
-    { key:"service", name:"Service only", price:120 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:160 },
-    { key:"human", name:"+ human hair (2 bundles)", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly." },
-    { key:"human3", name:"+ human hair (3 bundles)", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"+ premium bundles", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"3 bundles (Triippy hair) · 12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"+ raw hair", price:610, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
+    { key:"service", name:"Installation only", inc:"bring your own hair, three bundles recommended.", price:120 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"three bundles of synthetic hair included.", price:160, lengths:true, addBundle:{ "16-20":25, "22+":25 } },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"two bundles of human hair included.", price:255, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"three bundles of human hair included.", price:285, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"premium", name:"Premium bundles", inc:"three bundles of Triippy hair included.", labelName:"Premium human hair (Triippy) — 3 bundles", price:335, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"raw", name:"Raw hair package", inc:"three bundles of raw hair included, plus the Luxury Care Kit.", price:610, lengths:true, addBundle:{ "16-20":0, "22+":0 }, note:"starting price, varies by length. final quote after your request." },
   ]},
   si: { label:"Sew-In", tiers:[
-    { key:"service", name:"Installation only", price:175 },
-    { key:"synthetic", name:"+ synthetic hair (3 bundles)", price:200 },
-    { key:"human", name:"+ human hair (2 bundles)", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Add bundles or longer lengths below." },
-    { key:"human3", name:"+ human hair (3 bundles)", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"premium", name:"+ premium bundles", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, base:"3 bundles (Triippy hair) · 12–14” base length · Longer lengths priced accordingly.",
-      note:"Final pricing depends on your selected hair. You’ll see your full total before your booking is approved." },
-    { key:"raw", name:"+ raw hair", price:650, note:"Starting price. Varies by length and type, and includes the Luxury Care Kit. Final quote after your consultation." },
+    { key:"service", name:"Installation only", inc:"bring your own hair, three bundles recommended.", price:175 },
+    { key:"synthetic", name:"Synthetic hair (3 bundles)", inc:"three bundles of synthetic hair included.", price:200, lengths:true, addBundle:{ "16-20":25, "22+":25 } },
+    { key:"human", name:"Human hair package — 2 bundles", inc:"two bundles of human hair included.", price:295, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"human3", name:"Human hair package — 3 bundles", inc:"three bundles of human hair included.", price:325, popular:true, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"premium", name:"Premium bundles", inc:"three bundles of Triippy hair included.", labelName:"Premium human hair (Triippy) — 3 bundles", price:375, lengths:true, addBundle:{ "16-20":50, "22+":70 }, note:"starting price, varies by length. final quote after your request." },
+    { key:"raw", name:"Raw hair package", inc:"three bundles of raw hair included, plus the Luxury Care Kit.", price:650, lengths:true, addBundle:{ "16-20":0, "22+":0 }, note:"starting price, varies by length. final quote after your request." },
   ]}
 };
 
 // Fulani styling is a technique upcharge on top of whichever tier is picked —
 // PLACEHOLDER surcharge derived from a "$140-160 total" range — confirm exact number.
-const FULANI_SURCHARGE = { qw: 70, si: 70 };
+// Extra-bundle lengths a client can pick. 16 to 20 inch bundles use the "16-20" price, 22 inch and up use the "22+" price.
+const EXTRA_LENGTHS = [
+  { key:'16', label:'16"', band:'16-20' }, { key:'18', label:'18"', band:'16-20' }, { key:'20', label:'20"', band:'16-20' },
+  { key:'22', label:'22"', band:'22+' }, { key:'24', label:'24"', band:'22+' }, { key:'26', label:'26"', band:'22+' },
+  { key:'28', label:'28"', band:'22+' }, { key:'30', label:'30"', band:'22+' }, { key:'32+', label:'32"+', band:'22+' },
+];
+const FULANI_SURCHARGE = { qw: 80, si: 80 };
 // Versatile styling: a parting that can be styled several ways. A styling choice (like Fulani), sew-ins and quick weaves.
-const VERSATILE_SURCHARGE = { si: 20, qw: 20 };
-
-// What the price covers, shown above the options so nobody is surprised at the appointment.
-const INSTALL_INCLUDES = {
-  si: { yes:"the braid-down, the sewing, and styling of your choice", no:"a wash and dry. Please arrive with your hair already washed and fully dry." },
-  qw: { yes:"the install and styling of your choice", no:"a wash and dry. Please arrive with your hair already washed and fully dry." },
-};
+const VERSATILE_SURCHARGE = { si: 15, qw: 15 };
 
 const INSTALL_ADDONS = [
-  { key:"curls", name:"Curls / wand styling", price:15 },
   { key:"closure", name:"Closure install", price:30 },
   { key:"extraBundleSynthetic", name:"Extra bundle (synthetic)", price:25 },
-  { key:"extraBundleHuman", name:"Extra bundle (human)", price:50 },
 ];
 
 // the add-ons shown for the service being booked (versatile styling is for sew-ins only)
@@ -766,7 +791,7 @@ const TREATMENTS = [
   { key:"massage", name:"Hair massage", price:60 },
 ];
 
-const RAW_HUMAN_TEXTURES = ["straight","body wave","deep wave","water wave","cambodian wavy (raw)","burmese curly","eurasian curly","vietnamese curly","loose deep wave","afro curly","bone straight","indian curly","kinky curly","kinky straight","yaki straight","loose wave","natural wave"];
+const RAW_HUMAN_TEXTURES = ["straight","body wave","deep wave","water wave","cambodian wavy (raw)","indian wavy","burmese curly","eurasian curly","vietnamese curly","loose deep wave","afro curly","bone straight","indian curly","kinky curly","kinky straight","yaki straight","loose wave","natural wave"];
 const SYNTHETIC_TEXTURES = ["kinky curly","deep wave","water wave","body wave","straight","yaki straight"];
 
 // Groups a flat texture list into a handful of labeled buckets so the dropdown isn't one
@@ -774,7 +799,7 @@ const SYNTHETIC_TEXTURES = ["kinky curly","deep wave","water wave","body wave","
 // if it's a raw-specific texture waiting on the finalized raw texture list.
 const TEXTURE_GROUPS = {
   straight: ["straight", "bone straight", "yaki straight"],
-  bodywave: ["body wave", "deep wave", "water wave", "loose deep wave", "loose wave", "natural wave"],
+  bodywave: ["body wave", "deep wave", "water wave", "indian wavy", "loose deep wave", "loose wave", "natural wave"],
   curly: ["burmese curly", "eurasian curly", "vietnamese curly", "indian curly", "afro curly"],
   kinky: ["kinky curly", "kinky straight"],
 };
@@ -1452,6 +1477,9 @@ let state = {
   showQuizPrompt: true, quizStep: 0, quizAnswers: {}, quizName: "", fabEntered: false, landingMenu: false,
   manageToken: "", manage: null, mLoading: false, mErr: "", mTab: "", mForm: {}, mPhotos: [], mNotice: "", mErrText: "", mBusy: false,
   installTexture: "",
+  bookStep: "service",   // Booking / Bundles page: service | checkout
+  regular: null, regularOpen: false, regularName: "", regularCode: "", regularErr: "", regularBusy: false,   // regular-client price (see regularPanelHTML)
+  customStyle: "", customStyleText: "",      // Sew-In "Custom styling": flipover | hybrid | own (+ their words)
   dealsSelected: [],
   loyaltyVisit: "", btcFirstConfirmed: false, hallohairCostumeConfirmed: false,
   treatmentGroupSize: 1, treatmentGroupNames: "",
@@ -1466,9 +1494,119 @@ let state = {
   loadingAdmin: false,
 };
 
+/* ============== steps, top menu and the real back button ============== */
+// Booking and Bundles are two steps: pick your service, then Checkout (date, details, send).
+// Every screen change is saved in the browser's history, so Back (and the phone's back swipe) goes one step back.
+const HIST_VIEWS = ['landing','book','bundles','questions','aftercare','gallery','feedback','manage','confirm'];
+let histSig = '', histIdx = 0;
+function histSnap(){
+  const inFlow = state.view === 'book' || state.view === 'bundles';
+  const step = (inFlow && state.bookStep === 'checkout') ? 'checkout' : 'service';
+  return { ehi:1, idx:histIdx, view:state.view, step:step, sig: state.view + (inFlow ? ':' + step : '') };
+}
+function initHistory(){
+  try{ history.scrollRestoration = 'manual'; }catch(e){}
+  histIdx = 0;
+  const s = histSnap(); histSig = s.sig;
+  try{ history.replaceState(s, ''); }catch(e){}
+}
+function syncHistory(){
+  const s = histSnap(); if(s.sig === histSig) return;
+  histSig = s.sig;
+  if(state.view === 'admin' || state.view === 'admin-gate') return;
+  try{
+    if(state.view === 'confirm'){ history.replaceState(s, ''); return; }   // a sent request is not a step you come back to
+    histIdx++; s.idx = histIdx;
+    history.pushState(s, '', location.pathname + location.search);
+  }catch(e){}
+}
+window.addEventListener('popstate', e=>{
+  const h = e.state; if(!h || !h.ehi) return;
+  histIdx = h.idx || 0;
+  state.landingMenu = false; state.quizOpen = false; state.galleryOpen = null; state.error = '';
+  let v = HIST_VIEWS.indexOf(h.view) >= 0 ? h.view : 'landing';
+  if(v === 'confirm' && !state.wasSubmitted) v = 'landing';
+  state.view = v;
+  if(v === 'book' && state.category === 'bundles'){ resetSelection(); state.category = null; }
+  if(v === 'bundles' && state.category !== 'bundles'){ resetSelection(); state.category = 'bundles'; }
+  state.bookStep = (h.step === 'checkout' && (v === 'book' || v === 'bundles') && serviceChosen()) ? 'checkout' : 'service';
+  const s = histSnap(); histSig = s.sig;
+  try{ history.replaceState(s, ''); }catch(err){}
+  window.scrollTo(0, 0);
+  render();
+});
+// true when the browser history is doing the work (the page re-draws itself on popstate)
+function goBack(){
+  if(histIdx > 0){ try{ history.back(); return true; }catch(e){} }
+  // opened straight onto this screen, so there is no earlier one: go up one level instead
+  if((state.view === 'book' || state.view === 'bundles') && state.bookStep === 'checkout') state.bookStep = 'service';
+  else state.view = 'landing';
+  state.error = ''; window.scrollTo(0, 0);
+  return false;
+}
+
+// What has to be filled in on the first step before checkout makes sense.
+function stepOneError(){
+  const c = state.category;
+  if(c === 'si' && state.style === 'custom' && (!state.customStyle || (state.customStyle === 'own' && !(state.customStyleText || '').trim()))) return "Please pick your custom style (flipover, hybrid) or describe your own.";
+  if((c === 'qw' || c === 'si') && state.tierKey && state.tierKey !== 'service' && !state.installTexture) return "Please choose a texture for your hair.";
+  if((c === 'qw' || c === 'si') && currentTier() && currentTier().lengths && state.pkgLengths.length < tierBundles(currentTier())) return `Please pick the length for each of your ${tierBundles(currentTier())} bundles (tap a length once per bundle).`;
+  if(c === 'crochet'){
+    if(!state.crochetHairSource || !state.crochetConfirmed) return "Please pick who's providing the hair and confirm you'll send hair details.";
+    if(!(state.crochetDetails || '').trim()) return "Please tell me about the crochet style you want (pattern, length, color, etc).";
+  }
+  if(c === 'bundles' && !(state.bundleDetails || '').trim()) return "Please describe the type/brand/length of bundles you want.";
+  if(c === 'takedown' && !state.takedownWashConfirmed) return "Please confirm your hair will be washed and fully dry before your takedown.";
+  if(c === 'custom' && !(state.customDetails || '').trim()) return "Please describe the style you want, or paste a link/photo reference.";
+  if(c === 'treatments' && state.treatmentGroupSize > 1){
+    if(TREATMENTS.filter(t => state.treatmentKeys[t.key]).length !== 1) return "For a group booking, please select exactly one service that everyone will get.";
+    if(!(state.treatmentGroupNames || '').trim()) return "Please add your bestie(s) name/IG so I can match your bookings.";
+  }
+  return '';
+}
+
+// Top menu: Back, then Home / Booking / Bundles / Checkout.
+function flowNavHTML(){
+  const inBook = state.view === 'book', inBundles = state.view === 'bundles';
+  const co = (inBook || inBundles) && state.bookStep === 'checkout' && serviceChosen();
+  const canCheckout = (inBook || inBundles) && serviceChosen();
+  const tab = (act, label, on, off) => `<button type="button" class="fn-tab${on ? ' on' : ''}${off ? ' off' : ''}" data-action="${act}"${on ? ' aria-current="step"' : ''}${off ? ' aria-disabled="true" title="Pick a service first"' : ''}>${label}</button>`;
+  return `<div class="flow-nav"><div class="fn-tabs">${tab('go-landing', 'Home', false, false)}${tab('nav-booking', 'Booking', inBook && !co, false)}${tab('nav-bundles', 'Bundles', inBundles && !co, false)}${tab('nav-checkout', 'Checkout', co, !canCheckout)}</div></div>`;
+}
+function checkoutSummaryHTML(){
+  return `<div class="card">
+    <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
+    <div class="step-label"><span class="step-title">Your order</span></div>
+    <div style="font-size:14px; line-height:1.5;">${escapeHTML(serviceLabelText())}</div>
+    <div class="total-bar" style="margin-top:12px;"><span class="label">estimated total</span><span class="amount">${displayTotal(calcTotal())}</span></div>
+    ${''/* per-client "Regular client?" codes retired: regulars use the Regulars page (shared password) instead */}
+    <span class="back-link" data-action="to-service" role="button" tabindex="0" style="margin:10px 0 0;">&lsaquo; change my ${state.category === 'bundles' ? 'order' : 'service'}</span>
+  </div>`;
+}
+function continueHTML(){
+  if(!serviceChosen() || state.bookStep === 'checkout') return '';
+  return `<div class="card">${state.error ? `<div class="error-text" style="margin:0 0 10px;">${state.error}</div>` : ''}<button type="button" class="submit-btn" style="margin-top:0;" data-action="to-checkout">Continue to checkout</button></div>`;
+}
+
+// Package hair: how many bundles come in each package, and the little length picker (tap a length once per bundle, repeats allowed).
+const PACKAGE_BUNDLES = { synthetic:3, human:2, human3:3, premium:3, raw:3 };
+function tierBundles(t){ return (t && PACKAGE_BUNDLES[t.key]) || 0; }
+function lenSummary(picks){
+  return EXTRA_LENGTHS.filter(x => picks.indexOf(x.key) >= 0).map(x => { const n = picks.filter(k => k === x.key).length; return x.label + (n > 1 ? ' x' + n : ''); }).join(', ');
+}
+function lenPickerHTML(picks, max, addAct, who){
+  const cnt = k => picks.filter(x => x === k).length;
+  const grp = (band, title) => `<div class="opt-sub" style="margin:8px 0 2px;">${title}</div><div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band === band).map(x => `<div class="length-btn ${cnt(x.key) ? 'selected' : ''}" data-action="${addAct}" data-key="${x.key}">${x.label}${cnt(x.key) > 1 ? `<span class="len-n">${cnt(x.key)}</span>` : ''}</div>`).join('')}</div>`;
+  const status = picks.length
+    ? `${max ? picks.length + ' of ' + max : picks.length} picked: ${lenSummary(picks)} <span class="len-link" data-action="len-undo" data-key="${who}" role="button" tabindex="0">undo</span> <span class="len-link" data-action="len-clear" data-key="${who}" role="button" tabindex="0">clear</span>`
+    : (max ? `0 of ${max} picked` : 'Nothing picked yet');
+  return grp('16-20', '16–20"') + grp('22+', '22"+') + `<div class="opt-sub len-sum">${status}</div>`;
+}
+function bundleLengthText(){ return state.bundleLengths && state.bundleLengths.length ? ', lengths: ' + lenSummary(state.bundleLengths) : ''; }
+
 function resetSelection(){
-  state.style="traditional";
-  state.tierKey=null; state.length=null; state.addBundleCount=0; state.addons={};
+  state.style="traditional"; state.customStyle=""; state.customStyleText="";
+  state.tierKey=null; state.length=null; state.lengthIn=null; state.addBundleCount=0; state.addons={};
   state.braidStyle=null; state.braidSize=null; state.ownHair=null; state.braidBoho=false; state.braidHairPacks=1;
   state.cornrowKey=null; state.treatmentKeys={};
   state.crochetHairSource=null; state.crochetConfirmed=false; state.crochetDetails="";
@@ -1476,6 +1614,7 @@ function resetSelection(){
   state.customDetails="";
   state.takedownKey=null; state.takedownWashConfirmed=false;
   state.squeezeIn=false;
+  state.bookStep="service"; state.pkgLengths=[]; state.bundleLengths=[]; state.longerOpen=false;
   state.installTexture="";
   state.dealsSelected=[];
   state.loyaltyVisit=""; state.btcFirstConfirmed=false; state.hallohairCostumeConfirmed=false;
@@ -1525,6 +1664,7 @@ function render(){
   if(!fabHTML) fabRoot.classList.remove('fab-away');
   // cream page edges on desktop for the light-theme pages (homepage + Style Finder)
   syncReviewPop();
+  syncHistory();
   const light = ['landing','aftercare','services','regulars'].includes(state.view) ? '#F8F3EF' : '';
   document.documentElement.style.background = light; document.body.style.background = light;
   attachHandlers();
@@ -1558,7 +1698,7 @@ function computeBaseTotal(){
   if(state.category==='qw' || state.category==='si'){
     const tier = currentTier();
     if(tier){
-      total += tier.price;
+      total += tierPrice(tier);
       if(tier.addBundle && state.addBundleCount>0 && state.length) total += tier.addBundle[state.length] * state.addBundleCount;
       if(state.style === 'fulani') total += FULANI_SURCHARGE[state.category];
       else if(state.style === 'versatile' && VERSATILE_SURCHARGE[state.category]) total += VERSATILE_SURCHARGE[state.category];
@@ -1729,9 +1869,11 @@ function serviceLabelText(){
     const tier = currentTier(); if(!tier) return '';
     let s = `${INSTALLS[state.category].label} — ${tier.labelName || tier.name}`;
     if(state.installTexture) s += `, texture: ${state.installTexture}`;
+    if(tier.lengths && state.pkgLengths && state.pkgLengths.length) s += `, bundle lengths: ${lenSummary(state.pkgLengths)}`;
     if(state.style === 'fulani') s += ` (Fulani styling)`;
     else if(state.style === 'versatile' && VERSATILE_SURCHARGE[state.category]) s += ` (Versatile styling)`;
-    if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${state.length}`;
+    else if(state.style === 'custom' && state.category === 'si') s += ` (${state.customStyle==='flipover' ? 'Flipover sew-in' : state.customStyle==='hybrid' ? 'Hybrid sew-in' : (state.customStyleText.trim() ? 'Custom styling: ' + state.customStyleText.trim() : 'Custom styling')})`;
+    if(state.length) s += `, +${state.addBundleCount} bundle(s) @ ${(EXTRA_LENGTHS.find(x => x.key === state.lengthIn) || { label: state.length }).label}`;
     return s;
   }
   if(state.category==='braids'){
@@ -1748,7 +1890,7 @@ function serviceLabelText(){
     return s;
   }
   if(state.category==='bundles'){
-    return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
+    return `Bundle purchase only — ${state.bundleHairSource||'hair type not specified'}, qty ${state.bundleQty}${bundleLengthText()}, texture: ${state.bundleTexture||'not specified'} — ${state.bundleDetails}`;
   }
   if(state.category==='custom') return `Custom style request (approval-based) — ${state.customDetails}`;
   if(state.category==='takedown'){
@@ -1759,11 +1901,86 @@ function serviceLabelText(){
   return '';
 }
 
+// A short description under each service: what it is, what's included, how long it takes, how long it lasts, and one note.
+// Any line left as null is simply not shown, so nothing is made up. Fill in the null ones as you decide them.
+const SERVICE_INFO = {
+  si: {
+    desc: null,
+    inc: "A full braid-down, bundles sewn with needle and thread, oiling, and styling of your choice.",
+    time: "3:30 hrs approx.", wear: "6 to 12 weeks approx.",
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  qw: {
+    desc: "A seamless, low-commitment install for a fresh look in less time.",
+    inc: "A protective shield over your natural hair, tracks precisely placed, oiling, and styling of your choice.",
+    time: "2:00 hrs approx. (3:00 hrs with styling)", wear: "2 to 4 weeks approx.",
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  box: {
+    desc: "Lightweight, natural-looking braids, parted cleanly and finished with care.",
+    inc: "Precise parting, braiding hair, and finished ends.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed, fully dry and stretched." },
+  twostrand: {
+    desc: "Clean, defined twists on your natural hair, a classic protective style.",
+    inc: "Sectioning, twisting from root to end, and a finished, polished look.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry. Retwists are not offered." },
+  marley: {
+    desc: "Full, textured twists with a soft, natural finish.",
+    inc: "Sectioning, Marley hair, and twists finished to your preferred length.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  cornrows: {
+    desc: "Neat, sleek cornrows, from simple straight-backs to custom designs.",
+    inc: "Clean parting and cornrows in the style of your choice. Custom designs available on request.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  crochet: {
+    desc: "A quick, versatile protective style with endless texture options.",
+    inc: "A full braid-down, crochet hair looped in, and styling of your choice.",
+    time: null, wear: null,
+    note: "Please arrive with your hair freshly washed and fully dry." },
+  treatments: {
+    desc: "Restorative care to strengthen, hydrate and revive your hair.",
+    inc: null,
+    time: null, wear: null,
+    note: "Ideal before or between protective styles." },
+};
+// Which description a Braids & Twists style uses (styles without one show nothing).
+const BRAID_SERVICE_KEY = { box:'box', twostrand:'twostrand', marley:'marley' };
+function serviceBlock(key){
+  const i = SERVICE_INFO[key];
+  if(!i) return '';
+  const meta = [i.time ? `<span><span class="svc-label">Time in chair</span>${i.time}</span>` : '', i.wear ? `<span><span class="svc-label">Wear</span>${i.wear}</span>` : ''].join('');
+  return `<div class="svc-block">` + (i.desc ? `<p class="svc-desc">${i.desc}</p>` : '') +
+    (i.inc ? `<p class="svc-inc"><span class="svc-label">Your appointment includes</span>${i.inc}</p>` : '') +
+    (meta ? `<div class="svc-meta">${meta}</div>` : '') +
+    (i.note ? `<p class="svc-note">${i.note}</p>` : '') + `</div>`;
+}
+
+// ---- Regular clients: type your name + the code I gave you, and your regular installation-only price shows up ----
+// The code is checked by my Sheet (action=regularCheck), never in this page, so it can't be read from the site's code.
+function tierPrice(t){
+  return (state.regular && state.category === 'si' && t.key === 'service') ? state.regular.rate : t.price;
+}
+function regularPanelHTML(){
+  if(state.regular){
+    return `<div class="reg-ok">Welcome back, <b>${escapeHTML(state.regular.first)}</b>! ${(state.category==='si' && state.tierKey==='service') ? `Your regular Sew-In installation-only price (${money(state.regular.rate)}) is applied.` : `You're verified as a regular client.`} <span class="reg-undo" data-action="regular-clear" role="button" tabindex="0">Not you?</span></div>`;
+  }
+  return `<div class="back-link" data-action="regular-toggle" role="button" tabindex="0" style="display:block; text-align:left; margin:0 0 12px;">Regular client? ${state.regularOpen ? '‹' : '›'}</div>` +
+    (state.regularOpen ? `<div class="reg-panel">
+      <div class="opt-sub" style="margin:0 0 8px;">Type the name you booked under and the code I gave you.</div>
+      <div class="field" style="margin-bottom:8px;"><label>Your name</label><input type="text" id="f-regular-name" value="${escapeHTML(state.regularName)}" placeholder="first and last name" autocomplete="name"/></div>
+      <div class="field" style="margin-bottom:8px;"><label>Regular client code</label><input type="text" id="f-regular-code" value="${escapeHTML(state.regularCode)}" placeholder="your code" autocapitalize="characters" autocomplete="off"/></div>
+      ${state.regularErr ? `<div class="reg-err">${escapeHTML(state.regularErr)}</div>` : ''}
+      <button class="cta-btn" data-action="regular-apply" ${state.regularBusy ? 'disabled' : ''} style="margin:8px 0 0;">${state.regularBusy ? 'Checking...' : 'Apply my regular price'}</button>
+    </div>` : '');
+}
+
 const CATEGORIES = [
-  { key:'qw', name:'Quick Weave' },
   { key:'si', name:'Sew-In' },
-  { key:'braids', name:'Braids & Twists' },
   { key:'cornrows', name:'Cornrows' },
+  { key:'qw', name:'Quick Weave' },
+  { key:'braids', name:'Braids & Twists' },
   { key:'crochet', name:'Crochet' },
   { key:'treatments', name:'Hair Treatments' },
   { key:'takedown', name:'Takedowns' },
@@ -2105,7 +2322,7 @@ function renderGallery(){
   const cur = (open !== null && open !== undefined) ? GALLERY[open] : null;
   return `
   <div class="wrap gal-wrap">
-    <span class="back-link" data-action="go-landing" role="button" tabindex="0">&lsaquo; homepage</span>
+    <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
     <div class="hero" style="padding-top:4px; margin-bottom:22px;">
       <p class="eyebrow">My work</p>
       <h1 class="title" style="margin:6px 0 8px;">Styled by The Ehiffect</h1>
@@ -2397,7 +2614,7 @@ function renderAftercare(){
   };
   return `
   <div class="wrap theme-light ac-wrap">
-    <span class="back-link" data-action="go-landing" role="button" tabindex="0">&lsaquo; homepage</span>
+    <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
     <div class="hero" style="padding-top:4px; margin-bottom:18px;">
       <p class="eyebrow">Aftercare guide</p>
       <img class="logo-img" src="data:image/png;base64,${LOGO_LIGHT_B64}" alt="The Ehiffect" style="width:110px; margin:4px auto 16px;"/>
@@ -2497,63 +2714,41 @@ function renderBook(){
   const showDetails = serviceChosen();
   const dayNote = state.date ? availabilityNoteFor(new Date(state.date + 'T12:00:00').getDay()) : null;
 
+  const co = showDetails && state.bookStep === 'checkout';
   return `
   <div class="wrap">
-    ${stepBarHTML('booking')}
+    ${flowNavHTML()}
     <div class="hero">
-      <h1 class="title" style="margin-top:0;">Reserve Your Appointment</h1>
+      <h1 class="title" style="margin-top:0;">${co ? 'Checkout' : 'Reserve Your Appointment'}</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
       <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your service · confirmed within 24 hours · your deposit secures your time</p>
       ${regularsBannerHTML()}
     </div>
 
-    <div class="card">
-      <span class="back-link" data-action="go-landing">&lsaquo; back</span>
+    ${co ? checkoutSummaryHTML() : `<div class="card">
+      <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
       ${state.category==='consult' ? `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Consultation</span></div>
       <div class="back-link" data-action="pick-category" data-key="" role="button" tabindex="0" style="margin:-4px 0 10px;">See all services instead ›</div>
       <p class="aftercare-text" style="margin:0;">Not sure a style will work for your hair, or just have questions before committing? A consultation is time set aside just to talk through it — whether it's a specific concern about your hair, making sure a service is possible, or anything else you'd like to ask. I'll confirm the consultation once it's booked.</p>
       ` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Select your service</span></div>
+      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 12px;">Unsure? Begin with a consultation ›</div>
       <div class="cat-grid">
         ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
-      </div>
-      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:center; margin:12px 0 0;">Unsure? Begin with a consultation ›</div>`}
+      </div>`}
 
-      ${state.category && state.category!=='consult' ? `
-      <div class="field" style="margin-top:14px; text-align:center;">
-        <label style="display:block;">Booking type</label>
-        <select data-action="pick-booking-type" style="text-align:center; text-align-last:center;">
-          <option value="solo" ${state.bookingType==='solo'?'selected':''}>Solo</option>
-          <option value="couple" ${state.bookingType==='couple'?'selected':''}>Couple Booking</option>
-          <option value="bestie" ${state.bookingType==='bestie'?'selected':''}>Bestie Booking</option>
-        </select>
-        ${bookingTypeShortNote() ? `<div class="opt-sub" style="margin-top:5px;">${bookingTypeShortNote()}</div>` : ''}
-        ${state.bookingType!=='solo' ? `
-        <div class="field" style="margin-top:12px;">
-          <label>${state.bookingType==='couple' ? "Partner's name" : "Bestie's name"}</label>
-          <input type="text" id="f-partner-name" value="${state.partnerName}" placeholder="their name"/>
-        </div>
-        <div class="field">
-          <label>${state.bookingType==='couple' ? "Partner's Instagram handle or phone number" : "Bestie's Instagram handle or phone number"}</label>
-          <input type="text" id="f-partner-contact" value="${state.partnerContact}" placeholder="@theirhandle or their number"/>
-        </div>
-        ` : ''}
-      </div>` : ''}
 
-      ${state.category==='si' ? `
-        <div class="signature-card">
-          ${MISSING_PHOTOS.has('photos/gift-box.jpg') ? '' : `<img class="signature-img" src="photos/gift-box.jpg" alt="The Ehiffect haircare gift box" style="display:none;" onload="this.style.display=''" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.remove()"/>`}
-          <div class="signature-eyebrow">The Signature Client Experience</div>
-          First-time clients booking qualifying sew-in packages receive a curated haircare gift, complete with personalized aftercare guidance to help maintain their style.
-        </div>` : ''}
       ${(state.category==='qw'||state.category==='si') ? `
-        <div class="includes-note"><b>What’s included:</b> ${INSTALL_INCLUDES[state.category].yes}.<br><b>Not included:</b> ${INSTALL_INCLUDES[state.category].no}</div>
+        ${serviceBlock(state.category)}
         <div class="opt-group" style="margin-top:14px;">
           ${INSTALLS[state.category].tiers.slice().reverse().map(t=>`
-            <div class="opt ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
-              <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div>${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}</div>
-              <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${money(t.price)}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">${saleEndsLabel()}</div>` : ''}</div>
+            <div class="opt tier ${state.tierKey===t.key?'selected':''}" data-action="pick-tier" data-key="${t.key}">
+              <div class="tier-head">
+                <div>${t.popular ? '<div class="opt-flag">Most popular</div>' : ''}<div class="opt-name">${t.name}</div></div>
+                <div class="opt-price">${t.was ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.was)}</s>` : ''}${tierPrice(t) !== t.price ? `<s style="opacity:0.55;font-weight:400;margin-right:6px;">${money(t.price)}</s>` : ''}${money(tierPrice(t))}+${t.was ? `<div class="opt-sub" style="text-align:right;font-weight:400;">October price</div>` : ''}</div>
+              </div>
+              <div class="tier-lines">${t.inc ? `<p class="svc-inc">${t.inc}</p>` : ''}${t.base ? `<div class="opt-sub opt-base">${t.base}</div>` : ''}${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}${tierPrice(t) !== t.price ? `<div class="opt-sub">your regular client price</div>` : ''}</div>
             </div>
             ${(state.tierKey===t.key && t.key!=='service') ? `
               <div style="padding:0 2px; margin-top:8px;">
@@ -2567,14 +2762,20 @@ function renderBook(){
               </div>` : ''}
             ${(state.tierKey===t.key && t.lengths) ? `
               <div style="padding:0 2px;">
-                <div class="opt-sub" style="margin-top:8px;">Need longer? Add bundles at:</div>
-                <div class="length-row">
-                  <div class="length-btn ${state.length==='16-20'?'selected':''}" data-action="pick-length" data-key="16-20">16–20" · +${money(t.addBundle["16-20"])}/bundle</div>
-                  <div class="length-btn ${state.length==='22+'?'selected':''}" data-action="pick-length" data-key="22+">22"+ · +${money(t.addBundle["22+"])}/bundle</div>
-                </div>
-                ${state.length ? `
+                <div class="opt-sub" style="margin-top:12px; color:var(--cream);"><b>Length of your ${tierBundles(t)} bundles</b></div>
+                <div class="opt-sub">Tap a length once for each bundle. Pick the same one ${tierBundles(t)} times, or mix them.</div>
+                ${lenPickerHTML(state.pkgLengths, tierBundles(t), 'pkg-len-add', 'pkg')}
+                <div class="back-link" data-action="toggle-longer" role="button" tabindex="0" style="display:block; margin:14px 0 0;">Need more? Add extra bundles ${state.longerOpen ? '&lsaquo;' : '&rsaquo;'}</div>
+                ${!state.longerOpen && state.length ? `<div class="opt-sub">+${state.addBundleCount} extra bundle(s) at ${(EXTRA_LENGTHS.find(x => x.key === state.lengthIn) || { label:'' }).label}</div>` : ''}
+                ${state.longerOpen ? `
+                <div class="opt-sub" style="margin-top:8px;">Add extra bundles in the length you want:</div>
+                <div class="opt-sub" style="margin:8px 0 4px;">16–20"${t.addBundle["16-20"] ? ' · +' + money(t.addBundle["16-20"]) + ' per bundle' : ''}</div>
+                <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='16-20').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>
+                <div class="opt-sub" style="margin:10px 0 4px;">22"+${t.addBundle["22+"] ? ' · +' + money(t.addBundle["22+"]) + ' per bundle' : ''}</div>
+                <div class="length-row len-grid">${EXTRA_LENGTHS.filter(x => x.band==='22+').map(x => `<div class="length-btn ${state.lengthIn===x.key?'selected':''}" data-action="pick-length" data-key="${x.key}">${x.label}</div>`).join('')}</div>` : ''}
+                ${state.longerOpen && state.length ? `
                 <div class="bundle-row">
-                  <span class="opt-sub">Extra bundles needed</span>
+                  <span class="opt-sub">Extra bundles needed (${(EXTRA_LENGTHS.find(x => x.key === state.lengthIn) || { label:'' }).label})</span>
                   <div class="stepper"><button data-action="bundle-minus" ${state.addBundleCount<=0?'disabled':''}>−</button><span>${state.addBundleCount}</span><button data-action="bundle-plus">+</button></div>
                 </div>` : ''}
               </div>` : ''}
@@ -2583,10 +2784,23 @@ function renderBook(){
         <div style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:6px;">Style</div>
           <div class="length-row style-row">
-            <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
-            ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 3px; color:inherit; opacity:.75;">Most requested</span>Versatile<span class="sty-price">+${money(VERSATILE_SURCHARGE[state.category])}</span></div>` : ''}
+            <div class="length-btn ${(state.style==='traditional' || (state.style==='versatile' && !VERSATILE_SURCHARGE[state.category]) || (state.style==='custom' && state.category!=='si'))?'selected':''}" data-action="pick-style" data-key="traditional">Traditional</div>
+            ${VERSATILE_SURCHARGE[state.category] ? `<div class="length-btn ${state.style==='versatile'?'selected':''}" data-action="pick-style" data-key="versatile"><span class="opt-flag" style="display:block; margin:0 0 1px; color:inherit; opacity:.75;">Most requested</span>Versatile<span class="sty-price">+${money(VERSATILE_SURCHARGE[state.category])}</span></div>` : ''}
             <div class="length-btn ${state.style==='fulani'?'selected':''}" data-action="pick-style" data-key="fulani">Fulani styling<span class="sty-price">+${money(FULANI_SURCHARGE[state.category])}</span></div>
           </div>
+          ${state.category==='si' ? `
+            <div class="length-btn custom-style-btn ${state.style==='custom'?'selected':''}" data-action="pick-style" data-key="custom" style="margin-top:6px;">Custom styling</div>
+            ${state.style==='custom' ? `<div class="custom-style-box">
+              <div class="opt-sub" style="margin:12px 0 6px;">Pick a custom style</div>
+              <div class="length-row">
+                <div class="length-btn ${state.customStyle==='flipover'?'selected':''}" data-action="pick-custom-style" data-key="flipover">Flipover sew-in</div>
+                <div class="length-btn ${state.customStyle==='hybrid'?'selected':''}" data-action="pick-custom-style" data-key="hybrid">Hybrid sew-in</div>
+                <div class="length-btn ${state.customStyle==='own'?'selected':''}" data-action="pick-custom-style" data-key="own">Write my own</div>
+              </div>
+              ${state.customStyle==='own' ? `<div class="field" style="margin:10px 0 0;"><label>Describe the style you want</label><input type="text" id="f-custom-style" maxlength="80" value="${escapeHTML(state.customStyleText)}" placeholder="e.g. invisible part with a middle leave-out"/></div>` : ''}
+              <div class="opt-sub" style="margin-top:8px;">Price confirmed when I approve your request.</div>
+            </div>` : ''}
+          ` : ''}
         </div>` : ''}
 
       ${state.category==='braids' ? `
@@ -2594,6 +2808,7 @@ function renderBook(){
           <div class="opt-sub" style="margin-bottom:2px;">Style</div>
           <div class="cat-grid">${Object.entries(BRAID_STYLES).map(([k,name])=>`<div class="cat ${state.braidStyle===k?'selected':''}" data-action="pick-braid-style" data-key="${k}"><div class="cat-name">${name}</div></div>`).join('')}</div>
           ${state.braidStyle && BRAID_STYLE_NOTES[state.braidStyle] ? `<div class="opt-sub" style="margin-top:6px;">${BRAID_STYLE_NOTES[state.braidStyle]}</div>` : ''}
+          ${state.braidStyle && BRAID_SERVICE_KEY[state.braidStyle] ? serviceBlock(BRAID_SERVICE_KEY[state.braidStyle]) : ''}
           ${state.braidStyle ? `<div class="opt-sub" style="margin:12px 0 2px;">Size</div>${currentBraidSizes().map(s=>`<div class="opt ${state.braidSize===s.key?'selected':''}" data-action="pick-braid-size" data-key="${s.key}"><div><div class="opt-name">${s.name}</div>${s.note ? `<div class="opt-sub">${s.note}</div>` : ''}</div><span class="opt-price">${money(s.price)}${s.note?'+':''}</span></div>`).join('')}` : ''}
           ${state.braidSize ? `<div class="opt-sub" style="margin:12px 0 2px;">Hair</div><div class="length-row"><div class="length-btn ${state.ownHair==='own'?'selected':''}" data-action="pick-own-hair" data-key="own">I have my own hair</div><div class="length-btn ${state.ownHair==='provide'?'selected':''}" data-action="pick-own-hair" data-key="provide">Please provide hair</div></div>` : ''}
           ${state.ownHair==='provide' ? `
@@ -2609,8 +2824,10 @@ function renderBook(){
             </div>` : ''}
         </div>` : ''}
 
+      ${state.category==='cornrows' ? serviceBlock('cornrows') : ''}
       ${state.category==='cornrows' ? `<div class="opt-group" style="margin-top:14px;">${CORNROW_OPTIONS.map(c=>`<div class="opt ${state.cornrowKey===c.key?'selected':''}" data-action="pick-cornrow" data-key="${c.key}"><div><div class="opt-name">${c.name}</div>${c.note ? `<div class="opt-sub">${c.note}</div>` : ''}</div><span class="opt-price">${money(c.price)}${c.plus ? '+' : ''}</span></div>`).join('')}</div>` : ''}
 
+      ${state.category==='crochet' ? serviceBlock('crochet') : ''}
       ${state.category==='crochet' ? `
         <div class="opt-group" style="margin-top:14px;">
           <div class="opt-sub" style="margin-bottom:6px;">Crochet, no leave-out — who's providing the hair?</div>
@@ -2633,6 +2850,7 @@ function renderBook(){
           <div class="opt-sub">You'll be able to upload inspo photos of the style in the next step.</div>
         </div>` : ''}
 
+      ${state.category==='treatments' ? serviceBlock('treatments') : ''}
       ${state.category==='treatments' ? `<div class="opt-group" style="margin-top:14px;">${TREATMENTS.map(t=>`
         <div class="opt ${state.treatmentKeys[t.key]?'selected':''} ${t.unavailable?'disabled':''}" data-action="${t.unavailable?'treatment-unavailable':'toggle-treatment'}" data-key="${t.key}">
           <div><div class="opt-name">${t.name}</div>${t.note ? `<div class="opt-sub">${t.note}</div>` : ''}${(t.unavailable && state.unavailableNoteKey===t.key) ? `<div class="opt-sub" style="color:var(--pink-text);">Not currently offering this — check back soon!</div>` : ''}</div>
@@ -2671,25 +2889,25 @@ function renderBook(){
           <div class="opt-sub">You'll be able to upload reference photos in the next step too.</div>
         </div>` : ''}
 
-    </div>
+    </div>`}
 
-    ${(state.category==='qw'||state.category==='si') && state.tierKey ? `
+    ${!co && (state.category==='qw'||state.category==='si') && state.tierKey ? `
     <div class="card">
       <div class="step-label"><span class="step-num">2</span><span class="step-title">Add-ons</span></div>
       ${installAddons().map(a=>`<div class="addon-row"><label><input type="checkbox" data-action="toggle-addon" data-key="${a.key}" ${state.addons[a.key]?'checked':''}/>${a.name}</label><span class="opt-price">+${money(a.price)}</span></div>${a.note ? `<div class="addon-note">${a.note}</div>` : ''}`).join('')}
       <div class="total-bar"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} priority fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div>
     </div>` : ''}
 
-    ${showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' && state.category!=='consult' ? `
+    ${!co && showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' && state.category!=='consult' ? `
     <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} priority fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
-    ${showDetails && kitsApply() ? `
+    ${co && kitsApply() ? `
     <div class="card">
       ${aftercareIntroHTML()}
       ${kitStatusText() ? `<div class="avail-note" style="margin-top:10px;">${kitStatusText()}</div>` : ''}
     </div>` : ''}
 
-    ${showDetails && state.category!=='bundles' ? `
+    ${co && state.category!=='bundles' ? `
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Choose your date &amp; time</span></div>
       ${state.category!=='consult' ? `
@@ -2726,7 +2944,7 @@ function renderBook(){
       ${state.bookingType!=='solo' ? `<div class="avail-note">${bookingTypeNoteText()}</div>` : ''}
     </div>` : ''}
 
-    ${showDetails && state.category==='treatments' ? `
+    ${!co && showDetails && state.category==='treatments' ? `
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Booking together?</span></div>
       <div class="opt-sub" style="margin-bottom:10px;">Same service, same day — group rate applies to everyone together (max 3).</div>
@@ -2745,7 +2963,9 @@ function renderBook(){
     </div>` : ''}
 
 
-    ${showDetails && state.category==='consult' ? `
+    ${continueHTML()}
+
+    ${co && state.category==='consult' ? `
     <div class="card" id="checkout">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
       <div class="opt-sub" style="margin-bottom:10px;">This will be a phone call — just need a way to reach you.</div>
@@ -2755,8 +2975,31 @@ function renderBook(){
       <div class="opt-sub" style="margin-top:-6px;">Add at least one — phone or Instagram.</div>
     </div>` : ''}
 
-    ${showDetails && state.category!=='consult' ? `
-    <div class="card" id="checkout">
+    ${co && state.category!=='consult' ? `
+    <div class="card">
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Booking type</span></div>
+      <div class="field" style="margin:0; text-align:center;">
+        <select data-action="pick-booking-type" aria-label="Booking type" style="text-align:center; text-align-last:center;">
+          <option value="solo" ${state.bookingType==='solo'?'selected':''}>Solo</option>
+          <option value="couple" ${state.bookingType==='couple'?'selected':''}>Couple Booking</option>
+          <option value="bestie" ${state.bookingType==='bestie'?'selected':''}>Bestie Booking</option>
+        </select>
+        ${bookingTypeShortNote() ? `<div class="opt-sub" style="margin-top:5px;">${bookingTypeShortNote()}</div>` : ''}
+        ${state.bookingType!=='solo' ? `
+        <div class="field" style="margin-top:12px;">
+          <label>${state.bookingType==='couple' ? "Partner's name" : "Bestie's name"}</label>
+          <input type="text" id="f-partner-name" value="${state.partnerName}" placeholder="their name"/>
+        </div>
+        <div class="field">
+          <label>${state.bookingType==='couple' ? "Partner's Instagram handle or phone number" : "Bestie's Instagram handle or phone number"}</label>
+          <input type="text" id="f-partner-contact" value="${state.partnerContact}" placeholder="@theirhandle or their number"/>
+        </div>
+        ` : ''}
+      </div>
+    </div>` : ''}
+
+    ${co && state.category!=='consult' ? `
+    <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
       <div class="field"><label>Name <span style="color:var(--pink-text);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number <span style="color:var(--pink-text);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
@@ -2781,7 +3024,7 @@ function renderBook(){
       <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
     </div>` : ''}
 
-    ${showDetails && state.category!=='bundles' && state.category!=='treatments' && state.category!=='consult' ? `
+    ${co && state.category!=='bundles' && state.category!=='treatments' && state.category!=='consult' ? `
     <div class="card">
       <details class="drop" data-keep="dealsOpen" ${state.dealsOpen?'open':''}>
       <summary><span class="step-num">•</span>Using a deal?${state.dealsSelected.length ? `<span class="drop-count">${state.dealsSelected.length} selected</span>` : ''}</summary>
@@ -2827,7 +3070,7 @@ function renderBook(){
       ${isThanksgivingWeek(state.date) ? `<div class="avail-note" style="margin-top:12px;">🦃 Thanksgiving week discount (15% off) is automatically applied to your total — no need to select it.</div>` : ''}
     </div>` : ''}
 
-    ${showDetails ? `
+    ${co ? `
     <div class="card">
       ${state.category!=='consult' ? `
       <details class="policy-box" data-keep="policyOpen" ${state.policyOpen?'open':''}>
@@ -2838,7 +3081,7 @@ function renderBook(){
       <div class="deposit-note">
         ${state.category==='consult'
           ? `Your consultation isn't confirmed until a <b>${money(CONFIG.depositAmount)} fee</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. If you end up booking a service, this goes toward your deposit — no separate deposit needed.`
-          : `Your appointment isn't confirmed until a <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. Deposit comes off your total at your appointment. A deposit is always required — unless you've already paid for a consultation, which counts toward it.`}
+          : `Your appointment isn't confirmed until your <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time.<span style="display:block; margin-top:10px;">Your deposit comes off your total at your appointment. A paid consultation counts toward it.</span>`}
       </div>
 
       <div class="agree-row">
@@ -2859,23 +3102,22 @@ const CONTENT_ANSWERS = ["Yes, photos & videos are fine", "Yes, but keep my face
 function contentQuestionApplies(){ return !!state.category && state.category !== 'bundles' && state.category !== 'consult'; }
 
 function renderBundles(){
+  const co = state.bookStep === 'checkout';
   return `
   <div class="wrap">
-    ${stepBarHTML('bundles')}
+    ${flowNavHTML()}
     <div class="hero">
-      <h1 class="title" style="margin-top:0;">The Hair Shop</h1>
+      <h1 class="title" style="margin-top:0;">${co ? 'Checkout' : 'The Hair Shop'}</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
       <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your hair · I confirm your price · collect when ready</p>
     </div>
 
-    <div class="card">
-      <span class="back-link" data-action="go-landing">&lsaquo; back</span>
-      <div class="step-label"><span class="step-num">1</span><span class="step-title">Your hair</span></div>
-      <div class="field"><label>Virgin or raw hair?</label>
-        <div class="length-row" style="margin-top:0;">
-          <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
-          <div class="length-btn ${state.bundleHairSource==='raw'?'selected':''}" data-action="pick-bundle-source" data-key="raw">Raw hair</div>
-        </div>
+    ${co ? checkoutSummaryHTML() : `<div class="card">
+      <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
+      <div class="opt-sub" style="margin-bottom:6px;">Virgin or raw hair?</div>
+      <div class="length-row">
+        <div class="length-btn ${state.bundleHairSource==='virgin'?'selected':''}" data-action="pick-bundle-source" data-key="virgin">Virgin hair</div>
+        <div class="length-btn ${state.bundleHairSource==='raw'?'selected':''}" data-action="pick-bundle-source" data-key="raw">Raw hair</div>
       </div>
       <div class="field">
         <label for="f-bundle-texture">Hair type</label>
@@ -2884,32 +3126,33 @@ function renderBundles(){
           ${textureOptionsHTML(Array.from(new Set([...RAW_HUMAN_TEXTURES, ...SYNTHETIC_TEXTURES])), state.bundleTexture)}
         </select>
       </div>
-      <div class="field">
-        <div class="bundle-row" style="margin-top:0;">
-          <label style="margin:0;">How many bundles?</label>
-          <div class="stepper"><button data-action="qty-minus" aria-label="One less bundle" ${state.bundleQty<=1?'disabled':''}>−</button><span>${state.bundleQty}</span><button data-action="qty-plus" aria-label="One more bundle">+</button></div>
-        </div>
+      <div class="opt-sub" style="margin-bottom:2px;">Length of your bundles</div>
+      <div class="opt-sub">Tap a length once for each bundle. Same length every time, or mix them.</div>
+      ${lenPickerHTML(state.bundleLengths || [], 0, 'bundle-len-add', 'bundle')}
+      <div style="height:14px;"></div>
+      <div class="opt-sub" style="margin-bottom:6px;">How many bundles?</div>
+      <div class="bundle-row">
+        <span class="opt-sub">Quantity</span>
+        <div class="stepper"><button data-action="qty-minus" ${state.bundleQty<=1?'disabled':''}>−</button><span>${state.bundleQty}</span><button data-action="qty-plus">+</button></div>
       </div>
-      <div class="field" style="margin-bottom:0;">
-        <label for="f-bundle-details">Any other details? (brand, length, color)</label>
+      <div class="field" style="margin-top:14px;">
+        <label>Any other details? (brand, length, color)</label>
         <textarea id="f-bundle-details" placeholder="e.g. 18 inch, [brand] — I'll send my full catalog to pick from">${state.bundleDetails}</textarea>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="step-label"><span class="step-num">2</span><span class="step-title">Care kit <span class="opt-sub" style="display:inline; font-family:'Work Sans', sans-serif;">optional</span></span></div>
-      <div class="opt-sub" style="font-size:13px; line-height:1.55;">Every bundle order includes a complimentary Mini Care Kit.${state.bundleHairSource==='raw' ? ` Luxury Care Kit included with qualifying hair packages — I'll confirm when I quote your order.` : ''}</div>
-      <div class="addon-row" style="margin-top:6px; border-bottom:none;">
-        <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the Luxury Care Kit</label>
-        <span class="opt-price">+${money(LUXURY_KIT_PRICE)}</span>
+      <div style="margin-top:16px; border-top:1px solid var(--line); padding-top:14px;">
+        ${aftercareIntroHTML()}
+        <div class="avail-note" style="margin-top:10px;">Every bundle order includes a complimentary Mini Care Kit.${state.bundleHairSource==='raw' ? ` Luxury Care Kit included with qualifying hair packages — I'll confirm when I quote your order.` : ''}</div>
+        <div class="addon-row" style="margin-top:8px;">
+          <label><input type="checkbox" data-action="toggle-bundle-kit-upgrade" ${state.bundleKitUpgrade?'checked':''}/>Upgrade to the Luxury Care Kit</label>
+          <span class="opt-price">+${money(LUXURY_KIT_PRICE)}</span>
+        </div>
       </div>
-      <details class="kit-more">
-        <summary>See what's in each kit</summary>
-        <div class="kit-more-body">${aftercareIntroHTML()}</div>
-      </details>
-    </div>
+    </div>`}
 
-    <div class="shop-steps">
+    ${continueHTML()}
+
+    ${co ? `<div class="shop-steps">
       <div class="shop-steps-title">How ordering works</div>
       <ol>
         <li>Send your request below.</li>
@@ -2919,7 +3162,7 @@ function renderBundles(){
     </div>
 
     <div class="card" id="checkout">
-      <div class="step-label"><span class="step-num">3</span><span class="step-title">Your details</span></div>
+      <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
       <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
       <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
       <div class="field"><label>Email <span style="color:var(--pink-text);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
@@ -2947,7 +3190,7 @@ function renderBundles(){
 
       ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
       <button class="submit-btn" data-action="submit">Request My Hair</button>
-    </div>
+    </div>` : ''}
 
   </div>`;
 }
@@ -2959,7 +3202,7 @@ function renderConfirm(){
   const whenLine = state.category==='bundles'
     ? (state.date ? `Pickup: ${state.date}` : '')
     : [state.date, state.time].filter(Boolean).join(' at ');
-  return `<div class="wrap">${stepBarHTML(state.category==='bundles' ? 'bundles' : 'booking', true)}<div class="confirm">${checkSVG}<h2>Your request has been received</h2>
+  return `<div class="wrap"><div class="confirm">${checkSVG}<h2>Your request has been received</h2>
   <div class="policy-box" style="text-align:left;">
     ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
@@ -2992,7 +3235,7 @@ function renderQuestions(){
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
     <div class="card">
-      <span class="back-link" data-action="go-landing">&lsaquo; back</span>
+      <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
       <div class="step-label"><span class="step-title">Haven't heard back yet?</span></div>
       <p class="opt-sub">I confirm every request by email within 24 hours (check spam too). If it's been longer than that, DM me on Instagram and I'll take a look.</p>
     </div>
@@ -3046,7 +3289,7 @@ function renderFeedback(){
         <div class="step-label"><span class="step-title">Thank you, truly.</span></div>
         <p class="opt-sub">Your feedback was sent. It really helps me make every appointment better.</p>
         <button class="cta-btn" data-action="go-landing" style="margin:12px 0 0;">Return Home</button>` : `
-        <span class="back-link" data-action="go-landing">&lsaquo; back</span>
+        <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
         <div class="takedown-note" style="margin:0 0 16px;"><b>This is anonymous.</b> Your name, email, and phone number aren't attached, so please be honest. Every answer is optional except the stars.</div>
         <div class="field"><label>How would you rate your appointment?</label>
           <div class="fb-stars" role="group" aria-label="Rating">${stars}</div>
@@ -3211,7 +3454,24 @@ function attachHandlers(){
         else if(key === 'consult'){ state.view = 'book'; state.category = 'consult'; }
         else { state.view = 'book'; state.category = null; state.fabPop = true; }
       }
-      else if(action==='go-landing'){ state.view = 'landing'; state.landingMenu = false; }
+      else if(action==='go-landing'){ state.view = 'landing'; state.landingMenu = false; state.error = ''; window.scrollTo(0,0); }
+      else if(action==='go-back'){ if(goBack()) return; }
+      else if(action==='nav-booking' || action==='nav-bundles'){
+        const target = action==='nav-bundles' ? 'bundles' : 'book';
+        if(state.view !== target){
+          refreshTakenDates(); resetSelection();
+          state.view = target; state.category = target==='bundles' ? 'bundles' : null; state.landingMenu = false;
+        }
+        state.bookStep = 'service'; state.error = ''; window.scrollTo(0,0);
+      }
+      else if(action==='nav-checkout' || action==='to-checkout'){
+        if((state.view==='book' || state.view==='bundles') && serviceChosen()){
+          const e1 = stepOneError();
+          if(e1){ state.error = e1; state.bookStep = 'service'; }
+          else{ state.error = ''; state.bookStep = 'checkout'; window.scrollTo(0,0); }
+        }
+      }
+      else if(action==='to-service'){ state.bookStep = 'service'; state.error = ''; window.scrollTo(0,0); }
       else if(action==='open-landing-menu'){ state.landingMenu = true; markQuizSeen(); }
       else if(action==='close-landing-menu'){
         if(el.getAttribute('data-backdrop') && e.target !== el) return;   // taps inside the sheet don't close it
@@ -3443,10 +3703,36 @@ function attachHandlers(){
         if(idx >= 0){ state.dealsSelected.splice(idx,1); }
         else if(state.dealsSelected.length < MAX_DEALS){ state.dealsSelected.push(key); }
       }
-      else if(action==='pick-style'){ state.style = key; }
-      else if(action==='pick-tier'){ state.tierKey = key; state.length=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
+      else if(action==='regular-toggle'){ state.regularOpen = !state.regularOpen; state.regularErr = ''; }
+      else if(action==='regular-clear'){ state.regular = null; state.regularCode = ''; state.regularErr = ''; }
+      else if(action==='regular-apply'){
+        if(state.regularBusy) return;
+        const nm = (state.regularName || '').trim(), cd = (state.regularCode || '').trim();
+        if(!nm || !cd){ state.regularErr = "Please type your name and your code."; }
+        else{
+          state.regularErr = ''; state.regularBusy = true; render();
+          try{
+            const res = await fetch(CONFIG.apiUrl + "?action=regularCheck&payload=" + encodeURIComponent(JSON.stringify({ name: nm, code: cd })));
+            const j = await res.json();
+            if(j && j.ok){
+              state.regular = { name: j.name, first: j.first, rate: Number(j.rate) };
+              state.regularOpen = false;
+              if(!state.name) state.name = j.name;
+            }else state.regularErr = (j && j.error) || "I couldn't check that right now. Please try again in a bit.";
+          }catch(err){ state.regularErr = "I couldn't check that right now. Please try again in a bit."; }
+          state.regularBusy = false;
+        }
+      }
+      else if(action==='pick-style'){ state.style = key; if(key !== 'custom'){ state.customStyle = ''; state.customStyleText = ''; } }
+      else if(action==='pick-custom-style'){ state.customStyle = key; if(key !== 'own') state.customStyleText = ''; }
+      else if(action==='pick-tier'){ state.tierKey = key; state.pkgLengths=[]; state.length=null; state.lengthIn=null; state.addBundleCount=0; state.installTexture=""; state.error=''; }
       else if(action==='pick-install-texture'){ state.installTexture = el.value; }
-      else if(action==='pick-length'){ state.length = key; state.addBundleCount = state.addBundleCount || 1; }
+      else if(action==='pick-length-select'){
+        const L = EXTRA_LENGTHS.find(x => x.key === el.value);
+        if(L){ state.lengthIn = L.key; state.length = L.band; state.addBundleCount = state.addBundleCount || 1; }
+        else{ state.lengthIn = null; state.length = null; state.addBundleCount = 0; }
+      }
+      else if(action==='pick-length'){ const L = EXTRA_LENGTHS.find(x => x.key === key); if(L){ state.lengthIn = L.key; state.length = L.band; state.addBundleCount = state.addBundleCount || 1; } }
       else if(action==='bundle-plus'){ state.addBundleCount++; }
       else if(action==='bundle-minus'){ state.addBundleCount = Math.max(0,state.addBundleCount-1); }
       else if(action==='toggle-addon'){ state.addons[key] = !state.addons[key]; }
@@ -3489,8 +3775,22 @@ function attachHandlers(){
       else if(action==='pick-takedown'){ state.takedownKey = key; }
       else if(action==='toggle-takedown-wash'){ state.takedownWashConfirmed = !state.takedownWashConfirmed; }
       else if(action==='qty-plus'){ state.bundleQty++; }
-      else if(action==='qty-minus'){ state.bundleQty = Math.max(1, state.bundleQty-1); }
+      else if(action==='qty-minus'){ state.bundleQty = Math.max(1, state.bundleQty-1); if(state.bundleLengths && state.bundleLengths.length > state.bundleQty) state.bundleLengths.length = state.bundleQty; }
       else if(action==='pick-bundle-source'){ state.bundleHairSource = key; }
+      else if(action==='bundle-len-add'){
+        state.bundleLengths = state.bundleLengths || [];
+        if(state.bundleLengths.length >= state.bundleQty) state.bundleQty = state.bundleLengths.length + 1;   // another length = another bundle
+        state.bundleLengths.push(key);
+      }
+      else if(action==='pkg-len-add'){
+        const t = currentTier(); const max = tierBundles(t);
+        if(t && state.pkgLengths.length < max) state.pkgLengths.push(key);
+      }
+      else if(action==='len-undo' || action==='len-clear'){
+        const arr = key === 'bundle' ? (state.bundleLengths = state.bundleLengths || []) : state.pkgLengths;
+        if(action === 'len-undo') arr.pop(); else arr.length = 0;
+      }
+      else if(action==='toggle-longer'){ state.longerOpen = !state.longerOpen; }
       else if(action==='pick-bundle-texture'){ state.bundleTexture = el.value; }
       else if(action==='toggle-agree'){ state.agreedPolicy = !state.agreedPolicy; }
       else if(action==='pick-content'){ state.contentOk = key; if(/photos or videos/.test(state.error)) state.error = ""; }
@@ -3515,6 +3815,8 @@ function attachHandlers(){
         if(partnerNameEl) state.partnerName = partnerNameEl.value.trim();
         const partnerContactEl = document.getElementById('f-partner-contact');
         if(partnerContactEl) state.partnerContact = partnerContactEl.value.trim();
+        const s1err = stepOneError();
+        if(s1err){ state.error = s1err; state.bookStep = 'service'; render(); return; }
 
         if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(state.email || '')){
           state.error = "Please add a valid email — your confirmation and appointment updates are sent there."; render(); return;
@@ -3523,6 +3825,9 @@ function attachHandlers(){
           if(!state.phone && !state.ig){ state.error = "Please add a phone number or Instagram so I can reach you."; render(); return; }
         } else if(!state.name || !state.phone){
           state.error = "Please add your name and phone number so I can confirm your appt."; render(); return;
+        }
+        if(state.category==='si' && state.style==='custom' && (!state.customStyle || (state.customStyle==='own' && !state.customStyleText.trim()))){
+          state.error = "Please pick your custom style (flipover, hybrid) or describe your own."; render(); return;
         }
         if((state.category==='qw'||state.category==='si') && state.tierKey && state.tierKey!=='service' && !state.installTexture){
           state.error = "Please choose a texture for your hair."; render(); return;
@@ -3545,19 +3850,19 @@ function attachHandlers(){
           state.error = "Please let me know if you're okay with photos or videos of your hair."; render(); return;
         }
         if(state.category==='crochet'){
-          state.crochetDetails = document.getElementById('f-crochet-details').value.trim();
+          const crEl = document.getElementById('f-crochet-details'); if(crEl) state.crochetDetails = crEl.value.trim();
           if(!state.crochetHairSource || !state.crochetConfirmed){ state.error = "Please pick who's providing the hair and confirm you'll send hair details."; render(); return; }
           if(!state.crochetDetails){ state.error = "Please tell me about the crochet style you want (pattern, length, color, etc)."; render(); return; }
         }
         if(state.category==='bundles'){
-          state.bundleDetails = document.getElementById('f-bundle-details').value.trim();
+          const bdEl = document.getElementById('f-bundle-details'); if(bdEl) state.bundleDetails = bdEl.value.trim();
           if(!state.bundleDetails){ state.error = "Please describe the type/brand/length of bundles you want."; render(); return; }
         }
         if(state.category==='takedown' && !state.takedownWashConfirmed){
           state.error = "Please confirm your hair will be washed and fully dry before your takedown."; render(); return;
         }
         if(state.category==='custom'){
-          state.customDetails = document.getElementById('f-custom-details').value.trim();
+          const cdEl = document.getElementById('f-custom-details'); if(cdEl) state.customDetails = cdEl.value.trim();
           if(!state.customDetails){ state.error = "Please describe the style you want, or paste a link/photo reference."; render(); return; }
         }
         if(state.category==='treatments' && state.treatmentGroupSize > 1){
@@ -3583,13 +3888,13 @@ function attachHandlers(){
         };
         const originalBtnText = el.textContent;
         el.disabled = true; el.textContent = "Sending...";
-        try{ await saveBooking(booking); state.view = 'confirm'; }
+        try{ await saveBooking(booking); state.wasSubmitted = true; state.view = 'confirm'; window.scrollTo(0,0); }
         catch(err){ state.error = "Something went wrong — try again in a moment."; el.disabled=false; el.textContent=originalBtnText; }
       }
       else if(action==='book-again'){
         const bookings = state.bookings;
         const wasBundle = state.category === 'bundles';
-        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, contentOk:"", error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
+        state = { view: wasBundle ? "bundles" : "book", category: wasBundle ? "bundles" : null, style:"traditional", customStyle:"", customStyleText:"", tierKey:null, length:null, addBundleCount:0, addons:{}, braidStyle:null, braidSize:null, ownHair:null, braidBoho:false, braidHairPacks:1,  cornrowKey:null, treatmentKeys:{}, crochetHairSource:null, crochetConfirmed:false, crochetDetails:"", bundleQty:1, bundleDetails:"", bundleTexture:"", bundleHairSource:"", bundleKitUpgrade:false, customDetails:"", installTexture:"", dealsSelected:[], loyaltyVisit:"", btcFirstConfirmed:false, hallohairCostumeConfirmed:false, treatmentGroupSize:1, treatmentGroupNames:"", bookingType:"solo", partnerName:"", partnerContact:"", luxuryKit:false, isFirstTimeClient:null, firstTimePhone:"", name:"",phone:"",ig:"",email:"",date:"",time:"",notes:"", referenceLink:"", photos:[], agreedPolicy:false, contentOk:"", error:"", bookings, adminInput:"", adminError:"", filter:"all", loadingAdmin:false };
         refreshTakenDates();                 // the day that was just booked should close right away
       }
       else if(action==='admin-login'){
@@ -3671,7 +3976,7 @@ function attachHandlers(){
   // keep text/textarea fields synced live so a re-render triggered by another
   // control (checkbox, select, date/time) never wipes what's already been typed
   const liveFieldMap = {
-    'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-email':'email', 'f-notes':'notes', 'f-reference-link':'referenceLink',
+    'f-custom-style':'customStyleText', 'f-regular-name':'regularName', 'f-regular-code':'regularCode', 'f-name':'name', 'f-phone':'phone', 'f-ig':'ig', 'f-email':'email', 'f-notes':'notes', 'f-reference-link':'referenceLink',
     'f-bundle-details':'bundleDetails', 'f-crochet-details':'crochetDetails',
     'f-group-names':'treatmentGroupNames',
     'f-partner-name':'partnerName', 'f-partner-contact':'partnerContact',
@@ -3968,6 +4273,7 @@ try{ applyLiveConfig(JSON.parse(localStorage.getItem(LIVE_CFG_KEY) || 'null') ||
 checkRoute();
 if(quizAlreadySeen()) state.showQuizPrompt = false;
 loadQuizProgress();
+initHistory();
 render();
 refreshTakenDates();
 loadLiveConfig();
