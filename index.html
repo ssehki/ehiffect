@@ -590,6 +590,37 @@
   .takedown-note b{ color:var(--pink-text); }
   .takedown-note ul{ margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:12.5px; }
   .takedown-note li + li{ margin-top:4px; }
+  /* aftercare kit photos */
+  .kit-thumb{ width:34px; height:34px; object-fit:cover; border-radius:2px; margin-right:10px; flex:0 0 auto; }
+  .kit-line summary{ align-items:center; }
+  .kit-line summary span{ flex:1; }
+  .kit-pics{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 14px; }
+  .kit-pics:empty, .kit-pics:empty + .kit-pics-cap{ display:none; }
+  .kit-pics-cap{ margin:-8px 0 14px; font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); text-align:center; }
+  .kit-pics img{ width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:2px; }
+  .home-kit{ margin-top:34px; text-align:center; }
+  .home-kit-img{ width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:2px; }
+  .home-kit-text{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:18px; line-height:1.45; color:var(--cream); margin:0 auto; max-width:340px; }
+
+  /* the looks: swipeable photo row on the booking page */
+  .look{ margin:16px 0 4px; }
+  .look-head{ display:flex; justify-content:space-between; align-items:baseline; margin:0 0 8px; }
+  .look-head span{ font-size:10.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--gold); }
+  .look-head em{ font-style:normal; font-size:11px; color:var(--muted); }
+  .look-row{ display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .look-row::-webkit-scrollbar{ display:none; }
+  .look-card{ flex:0 0 42%; max-width:180px; scroll-snap-align:start; border:none; padding:0; background:none; text-align:left; cursor:pointer; color:var(--cream); }
+  .look-card img{ display:block; width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:2px; border:1px solid var(--line); transition:border-color .3s ease; }
+  .look-card:hover img{ border-color:var(--pink); }
+  .look-card:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .look-name{ display:block; margin-top:7px; font-family:'Cormorant Garamond', serif; font-size:17px; font-weight:500; line-height:1.15; }
+  .look-sub{ display:block; font-size:11px; line-height:1.35; color:var(--muted); margin-top:1px; }
+  .gal-cap b{ font-family:'Cormorant Garamond', serif; font-size:17px; font-weight:500; }
+  /* Services & Prices: photo leading a group */
+  .svc-photo{ position:relative; display:block; width:calc(100% + 40px); margin:-20px -20px 14px; padding:0; border:none; background:none; cursor:pointer; }
+  .svc-photo img{ display:block; width:100%; aspect-ratio:16/10; object-fit:cover; object-position:center 30%; }
+  .svc-photo span{ position:absolute; right:12px; bottom:10px; padding:5px 10px; background:rgba(23,18,20,.72); color:#F4EAE5; font-size:11px; letter-spacing:.08em; border-radius:999px; }
+
   /* checkout: quiet aftercare-kit line and deals link */
   .kit-line{ margin:14px 0 18px; padding:14px 18px; border:1px solid var(--line); border-radius:2px; background:var(--panel); }
   .kit-line summary{ list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:13px; color:var(--cream); }
@@ -1680,6 +1711,7 @@ function render(){
   // Style Finder modal: keep the scroll position inside it unless they moved to a new step
   const prevQmScroll = (document.querySelector('.qm-body')||{}).scrollTop || 0;
   if(state.quizOpen) app.insertAdjacentHTML('beforeend', renderQuiz());
+  if(state.lookOpen) app.insertAdjacentHTML('beforeend', lookboxHTML());
   const qmBody = document.querySelector('.qm-body');
   if(qmBody && !state.qmReset) qmBody.scrollTop = prevQmScroll;
   state.qmReset = false; state.qmEnter = false;
@@ -2061,7 +2093,50 @@ const CATEGORIES = [
 
 // Homepage "recent work" photos. Real client photos only; put the files in the photos/ folder next to index.html.
 // The first one shows large. Any file that isn't there yet is simply left out.
-const HOME_PHOTOS = ["photos/work-1.jpg", "photos/work-2.jpg", "photos/work-3.jpg", "photos/work-4.jpg"];
+const HOME_PHOTOS = ["photos/sew-in-versatile-360.jpg", "photos/sew-in-leave-out.jpg", "photos/sew-in-kinky-straight.jpg", "photos/sew-in-closure-behind-hairline.jpg"];
+// Your work, by service: shown as a swipeable row on the booking page (tap to see it big) and at the top of Services & Prices.
+// To change a photo, replace the file in the photos folder (or edit the name here). The first one leads Services & Prices.
+const LOOKBOOK = {
+  si: [
+    { src:"photos/sew-in-versatile-360.jpg", name:"Versatile 360", sub:"Sew-in with leave-out" },
+    { src:"photos/sew-in-leave-out.jpg", name:"Leave-Out", sub:"Sew-in with leave-out" },
+    { src:"photos/sew-in-kinky-straight.jpg", name:"Kinky Straight", sub:"Sew-in with my kinky straight bundles" },
+    { src:"photos/sew-in-middle-part.jpg", name:"Middle Part", sub:"Traditional sew-in" },
+    { src:"photos/sew-in-versatile-parting-leave-out.jpg", name:"Versatile Parting", sub:"Sew-in with leave-out" },
+    { src:"photos/sew-in-closure-behind-hairline.jpg", name:"Closure", sub:"Sew-in with closure behind the hairline" },
+    { src:"photos/sew-in-versatile-parting.jpg", name:"Versatile Parting", sub:"Sew-in" },
+    { src:"photos/sew-in-closure-behind-hairline-2.jpg", name:"Closure", sub:"Sew-in behind the hairline, with closure" },
+  ],
+  qw: [
+    { src:"photos/quick-weave.jpg", name:"Quick Weave", sub:"Bonded install" },
+  ],
+};
+// The Luxury Care Kit (the pink box), wrapped and opened. Put the files in the photos folder with these names; until then nothing shows.
+const KIT_PHOTOS = { closed: "photos/luxury-kit-closed.jpg", open: "photos/luxury-kit-open.jpg" };
+const photoIf = (src, alt, cls) => MISSING_PHOTOS.has(src) ? '' :
+  `<img class="${cls || ''}" src="${src}" alt="${alt}" loading="lazy" style="display:none;" onload="this.style.display=''" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.remove()"/>`;
+function lookbookHTML(cat){
+  const L = LOOKBOOK[cat]; if(!L || !L.length) return '';
+  return `<div class="look">
+    <div class="look-head"><span>The looks</span>${L.length > 2 ? '<em>swipe ›</em>' : ''}</div>
+    <div class="look-row">${L.map((l, i) => `<button type="button" class="look-card" data-action="look-open" data-key="${cat}:${i}" aria-label="See ${escapeHTML(l.name)} larger">
+      <img src="${l.src}" alt="${escapeHTML(l.name + ', ' + l.sub)} by The Ehiffect" loading="lazy"/>
+      <span class="look-name">${escapeHTML(l.name)}</span><span class="look-sub">${escapeHTML(l.sub)}</span>
+    </button>`).join('')}</div>
+  </div>`;
+}
+// The big view when a look is tapped (swipe-free: arrows, or tap outside / Escape to close).
+function lookboxHTML(){
+  if(!state.lookOpen) return '';
+  const [cat, i] = state.lookOpen.split(':'); const L = LOOKBOOK[cat] || []; const l = L[Number(i)]; if(!l) return '';
+  return `<div class="gal-box" data-action="look-close" data-backdrop="1" role="dialog" aria-modal="true" aria-label="${escapeHTML(l.name)}">
+    <button class="gal-x" data-action="look-close" aria-label="Close">×</button>
+    ${L.length > 1 ? `<button class="gal-nav prev" data-action="look-step" data-key="-1" aria-label="Previous">‹</button>
+    <button class="gal-nav next" data-action="look-step" data-key="1" aria-label="Next">›</button>` : ''}
+    <img src="${l.src}" alt="${escapeHTML(l.name + ', ' + l.sub)} by The Ehiffect"/>
+    <div class="gal-cap"><b>${escapeHTML(l.name)}</b> · ${escapeHTML(l.sub)}</div>
+  </div>`;
+}
 const MISSING_PHOTOS = new Set();   // photos that failed to load once aren't asked for again on every re-render
 /* ============== paying (deposit, and the rest of the service) ==============
    Card / Apple Pay / Google Pay (and Afterpay for the rest of a service) go through Square and mark themselves paid;
@@ -2182,6 +2257,7 @@ function serviceResultsHTML(){
     if(!rows.length) return '';
     const cat = id => g.group === 'Cornrows & Crochet' ? (id.startsWith('crochet') ? 'crochet' : 'cornrows') : g.cat;
     return `<section class="svc-group">
+      ${g.cat && LOOKBOOK[g.cat] && !q ? `<button type="button" class="svc-photo" data-action="look-open" data-key="${g.cat}:0" aria-label="See ${g.group} looks"><img src="${LOOKBOOK[g.cat][0].src}" alt="${g.group} by The Ehiffect" loading="lazy"/>${LOOKBOOK[g.cat].length > 1 ? `<span>${LOOKBOOK[g.cat].length} looks ›</span>` : ''}</button>` : ''}
       <h2 class="svc-h">${g.group}</h2>
       ${g.desc && !q ? `<p class="svc-desc">${g.desc}</p>` : ''}
       ${rows.map(it => `<div class="svc-row">
@@ -2253,6 +2329,11 @@ function renderLanding(){
     </button>
     <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your visit ›</div>
 
+    ${MISSING_PHOTOS.has(KIT_PHOTOS.closed) ? '' : `<section class="home-kit" aria-label="The Luxury Care Kit" style="display:none;">
+      ${photoIf(KIT_PHOTOS.closed, 'The Ehiffect Luxury Care Kit, wrapped with a satin ribbon', 'home-kit-img').replace('onload="this.style.display=\'\'"', 'onload="this.style.display=\'\'; this.closest(\'.home-kit\').style.display=\'\'"')}
+      <p class="eyebrow" style="margin:16px 0 6px;">the luxury care kit</p>
+      <p class="home-kit-text">Wrapped in pink with a satin ribbon: a satin bonnet, a nourishing oil and a note from me. Included with qualifying packages, or add it when you book.</p>
+    </section>`}
     <section class="home-work" aria-label="Recent work">
       <p class="eyebrow" style="margin-bottom:12px;">recent work</p>
       <div class="home-work-grid">${HOME_PHOTOS.filter(src => !MISSING_PHOTOS.has(src)).map((src, i) => `<div class="home-tile${i===0?' lead':''}"><img src="${src}" alt="Hair styled by The Ehiffect" onload="this.parentNode.classList.add('ok')" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.parentNode.remove()"/></div>`).join('')}</div>
@@ -2832,6 +2913,7 @@ function renderBook(){
 
       ${(state.category==='qw'||state.category==='si') ? `
         ${serviceBlock(state.category)}
+        ${lookbookHTML(state.category)}
         <div style="margin-top:14px;">   <!-- style first, right after choosing Sew-In / Quick Weave -->
           <div class="opt-sub" style="margin-bottom:6px;">Style</div>
           <div class="length-row style-row">
@@ -2989,8 +3071,12 @@ function renderBook(){
 
     ${co && kitsApply() ? `
     <details class="kit-line" data-keep="kitLineOpen" ${state.kitLineOpen ? 'open' : ''}>
-      <summary><span>Aftercare kit</span>${kitStatusText() ? `<em>${kitStatusText()}</em>` : '<em>see what\'s included</em>'}</summary>
-      <div class="kit-line-body">${aftercareIntroHTML()}</div>
+      <summary>${photoIf(KIT_PHOTOS.closed, 'The Ehiffect Luxury Care Kit', 'kit-thumb')}<span>Aftercare kit</span>${kitStatusText() ? `<em>${kitStatusText()}</em>` : '<em>see what\'s included</em>'}</summary>
+      <div class="kit-line-body">
+        <div class="kit-pics">${photoIf(KIT_PHOTOS.closed, 'The Ehiffect Luxury Care Kit, wrapped', '')}${photoIf(KIT_PHOTOS.open, 'Inside the Luxury Care Kit: satin bonnet, oil and a thank-you card', '')}</div>
+        <p class="kit-pics-cap">The Luxury Care Kit</p>
+        ${aftercareIntroHTML()}
+      </div>
     </details>` : ''}
 
     ${co && state.category!=='bundles' ? `
@@ -3696,6 +3782,9 @@ function attachHandlers(){
       else if(action==='open-extras'){ state.extrasOpen = true; }
       else if(action==='open-booktype'){ state.bookTypeOpen = true; }
       else if(action==='forget-me'){ try{ localStorage.removeItem(ME_KEY); }catch(err){} state.name = ''; state.phone = ''; state.email = ''; state.ig = ''; state.meFilled = false; }
+      else if(action==='look-open'){ state.lookOpen = key; }
+      else if(action==='look-close'){ if(el.getAttribute('data-backdrop') && e.target !== el) return; state.lookOpen = null; }
+      else if(action==='look-step'){ e.stopPropagation(); const [c, i] = String(state.lookOpen || '').split(':'); const n = (LOOKBOOK[c] || []).length; if(n) state.lookOpen = c + ':' + ((Number(i) + Number(key) + n) % n); }
       else if(action==='copy-address'){
         try{ await navigator.clipboard.writeText(state.manage && state.manage.address ? state.manage.address.text : ''); }catch(err){}
         state.addrCopied = true;
@@ -4149,6 +4238,11 @@ document.addEventListener('keydown', (e)=>{
   if(state.view==='gallery' && state.galleryOpen != null){
     if(e.key === 'Escape'){ state.galleryOpen = null; render(); return; }
     if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ state.galleryOpen = (state.galleryOpen + (e.key==='ArrowRight'?1:-1) + GALLERY.length) % GALLERY.length; render(); return; }
+  }
+  if(state.lookOpen && (e.key === 'Escape' || e.key === 'ArrowRight' || e.key === 'ArrowLeft')){
+    if(e.key === 'Escape') state.lookOpen = null;
+    else { const [c, i] = state.lookOpen.split(':'); const n = (LOOKBOOK[c] || []).length; state.lookOpen = c + ':' + ((Number(i) + (e.key === 'ArrowRight' ? 1 : -1) + n) % n); }
+    render(); return;
   }
   if(e.key === 'Escape' && state.quizOpen){ state.quizOpen = false; render(); return; }
   if(e.key === 'Tab' && state.quizOpen){
