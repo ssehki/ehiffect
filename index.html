@@ -612,6 +612,29 @@
   .home-pin.show{ transform:translate(-50%, 0); }
   @media (prefers-reduced-motion: reduce){ .home-hero-scroll{ animation:none; } .home-hero-bg{ transform:none; } .home-pin{ transition:none; } }
 
+  /* checkout: the Luxury Care Kit card */
+  .kit-card{ margin:16px 0 20px; border:1px solid var(--line); border-radius:3px; background:var(--panel); overflow:hidden; transition:border-color .3s ease; }
+  .kit-card.chosen{ border-color:var(--pink); }
+  .kc-pics{ display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--line); }
+  .kc-pics img{ display:block; width:100%; aspect-ratio:4/5; object-fit:cover; }
+  .kc-body{ padding:18px 18px 16px; }
+  .kc-eyebrow{ margin:0 0 6px; font-size:10.5px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--gold); }
+  .kc-title{ margin:0 0 8px; font-family:'Cormorant Garamond', serif; font-style:italic; font-size:24px; line-height:1.15; color:var(--cream); }
+  .kc-text{ margin:0 0 16px; font-size:13px; line-height:1.6; color:var(--muted); }
+  .kc-btn{ display:flex; width:100%; justify-content:space-between; align-items:center; gap:10px; padding:15px 16px; border:1px solid var(--pink); border-radius:2px; background:transparent; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; text-align:left; transition:background .2s ease; }
+  .kc-btn small{ font-size:13px; font-weight:500; letter-spacing:.02em; text-transform:none; white-space:nowrap; }
+  .kc-btn:hover{ background:var(--pink-soft); }
+  .kc-btn.on{ background:var(--pink); color:#241318; }
+  .kc-btn:focus-visible, .kc-mini-btn:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .kc-included{ padding:13px 16px; border-radius:2px; background:var(--pink); color:#241318; font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; text-align:center; }
+  .kc-mini{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line); font-size:13px; color:var(--cream); }
+  .kc-mini span{ flex:1; min-width:0; }
+  .kc-mini small{ display:block; margin-top:3px; font-size:11.5px; line-height:1.45; color:var(--muted); }
+  .kc-mini em{ font-style:normal; font-size:12px; color:var(--pink-text); text-align:right; }
+  .kc-mini-btn{ flex:0 0 auto; padding:8px 12px; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; font-size:12px; cursor:pointer; }
+  .kc-mini-btn.on{ border-color:var(--pink); color:var(--pink-text); }
+  .kit-card .kit-more{ margin-top:14px; }
+
   /* aftercare kit photos */
   .kit-thumb{ width:34px; height:34px; object-fit:cover; border-radius:2px; margin-right:10px; flex:0 0 auto; }
   .kit-line summary{ align-items:center; }
@@ -659,12 +682,13 @@
   .confirm-steps li::marker{ color:var(--gold); font-family:'Cormorant Garamond', serif; }
 
   /* checkout: pinned total + request button, quick date picks, "this is missing" highlight */
-  .pinbar{ position:fixed; left:0; right:0; bottom:0; z-index:40; background:rgba(23,18,20,.97); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom)); }
-  .pinbar-in{ max-width:440px; margin:0 auto; display:flex; align-items:center; gap:12px; }
-  .pinbar-total{ flex:1; min-width:0; display:flex; flex-direction:column; }
-  .pinbar-total span{ font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
-  .pinbar-total b{ font-family:'Cormorant Garamond', serif; font-size:22px; font-weight:500; color:var(--cream); line-height:1.1; }
-  .submit-btn.pinbar-btn{ width:auto; flex:0 0 auto; margin:0; padding:14px 18px; font-size:11.5px; }
+  .pinbar{ position:fixed; left:0; right:0; bottom:0; z-index:40; background:#171214; border-top:1px solid var(--line); padding:12px 16px calc(14px + env(safe-area-inset-bottom)); box-shadow:0 -10px 30px rgba(0,0,0,.35); }
+  .pinbar::after{ content:""; position:absolute; left:0; right:0; top:100%; height:80px; background:#171214; }
+  .pinbar-in{ max-width:440px; margin:0 auto; display:flex; align-items:center; gap:14px; }
+  .pinbar-total{ flex:0 0 auto; min-width:0; display:flex; flex-direction:column; }
+  .pinbar-total span{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+  .pinbar-total b{ font-family:'Cormorant Garamond', serif; font-size:28px; font-weight:500; color:var(--cream); line-height:1.05; }
+  .submit-btn.pinbar-btn{ flex:1; width:auto; min-height:54px; margin:0; padding:14px 12px; font-size:12px; letter-spacing:.14em; line-height:1.25; }
   .pinbar-err{ max-width:440px; margin:6px auto 0; font-size:12px; line-height:1.4; color:var(--pink-text); }
   .wrap:has(.pinbar){ padding-bottom:calc(140px + env(safe-area-inset-bottom)); }
   .quick-dates{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 12px; }
@@ -1531,6 +1555,47 @@ function aftercareIntroHTML(){
   `;
 }
 
+// Checkout: the Luxury Care Kit as something to want (photo, what's inside, one tap to add), with the Mini kit as a quiet line under it.
+function kitCardHTML(){
+  const lux = luxuryIncluded(), luxOn = state.luxuryKit;
+  const miniFree = miniKitEligible();
+  const miniPickable = !lux && !luxOn && !miniFree;
+  const base = computeBaseTotal();
+  const miniMaybe = miniPickable && state.isFirstTimeClient === null && base !== null && base >= miniKitMin();
+  const pics = MISSING_PHOTOS.has(KIT_PHOTOS.open) && MISSING_PHOTOS.has(KIT_PHOTOS.closed) ? '' : `<div class="kc-pics">
+      ${photoIf(KIT_PHOTOS.closed, 'The Ehiffect Luxury Care Kit, wrapped in pink with a satin ribbon', '')}
+      ${photoIf(KIT_PHOTOS.open, 'Inside the Luxury Care Kit: satin bonnet, hair oil and a thank-you card', '')}
+    </div>`;
+  const action = lux
+    ? `<div class="kc-included">&#10003; Included with your hair package</div>`
+    : luxOn
+    ? `<button type="button" class="kc-btn on" data-action="pick-kit-addon" data-key="luxury" aria-pressed="true">&#10003; Added<small>+${money(LUXURY_KIT_PRICE)} &middot; tap to remove</small></button>`
+    : `<button type="button" class="kc-btn" data-action="pick-kit-addon" data-key="luxury" aria-pressed="false">Add to my appointment<small>+${money(LUXURY_KIT_PRICE)}</small></button>`;
+  const mini = lux || luxOn ? ''
+    : miniFree ? `<div class="kc-mini"><span>Mini Care Kit</span><em>&#10003; complimentary${state.bookingType==='couple' ? ' with your Couple Booking' : state.bookingType==='bestie' ? ' with your Bestie Booking' : ', on me'}</em></div>`
+    : `<div class="kc-mini"><span>Or the Mini Care Kit<small>${miniMaybe ? `On me for first-time clients with ${money(miniKitMin())}+ services; I'll confirm once you add your phone number.` : 'Satin bonnet, detangling brush and more.'}</small></span>
+        <button type="button" class="kc-mini-btn ${state.miniKitPurchase ? 'on' : ''}" data-action="pick-kit-addon" data-key="mini" aria-pressed="${state.miniKitPurchase ? 'true' : 'false'}">${state.miniKitPurchase ? '&#10003; Added' : '+' + money(MINI_KIT_PURCHASE_PRICE)}</button></div>`;
+  return `<section class="kit-card${luxOn || lux ? ' chosen' : ''}" aria-label="The Luxury Care Kit">
+    ${pics}
+    <div class="kc-body">
+      <p class="kc-eyebrow">The Luxury Care Kit</p>
+      <p class="kc-title">Take the experience home.</p>
+      <p class="kc-text">Wrapped in pink with a satin ribbon: a satin bonnet and scarf, hair oil, full-size shampoo and conditioner, and a note from me, so your hair stays as fresh as the day you left my chair.</p>
+      ${action}
+      ${mini}
+      <details class="kit-more" data-keep="kitOpenAll" ${state.kitOpenAll ? 'open' : ''}>
+        <summary>See everything in each kit</summary>
+        <div class="kit-more-body">
+          <b>Luxury Care Kit</b>, hand-picked from:
+          <ul><li>Full-size shampoo + conditioner</li><li>Satin bonnet + scarf</li><li>Detangling brush</li><li>Hair oil</li><li>Hair accessories</li><li>Personalized aftercare guide</li></ul>
+          <div style="margin-top:10px;"><b>Mini Care Kit</b>, hand-picked from:</div>
+          <ul><li>Satin bonnet</li><li>Detangling brush</li><li>Hair decor</li><li>Aftercare guide</li></ul>
+        </div>
+      </details>
+    </div>
+  </section>`;
+}
+
 function fullPolicyHTML(){
   return `
     <div><b>Deposit:</b> $${CONFIG.depositAmount} required — refunded only if the appointment is cancelled at least 24 hours ahead. Always required unless you've already paid for a consultation, which counts toward it.</div>
@@ -2145,7 +2210,7 @@ const LOOKBOOK = {
 // The Luxury Care Kit (the pink box), wrapped and opened. Put the files in the photos folder with these names; until then nothing shows.
 const KIT_PHOTOS = { closed: "photos/luxury-kit-closed.webp", open: "photos/luxury-kit-open.webp" };
 const photoIf = (src, alt, cls) => MISSING_PHOTOS.has(src) ? '' :
-  `<img class="${cls || ''}" src="${src}" alt="${alt}" loading="lazy" style="display:none;" onload="this.style.display=''" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.remove()"/>`;
+  `<img class="${cls || ''}" src="${src}" alt="${alt}" style="display:none;" onload="this.style.display=''" onerror="MISSING_PHOTOS.add(this.getAttribute('src')); this.remove()"/>`;
 function lookbookHTML(cat){
   const L = LOOKBOOK[cat]; if(!L || !L.length) return '';
   return `<div class="look">
@@ -3120,15 +3185,7 @@ function renderBook(){
     ${!co && showDetails && !(state.category==='qw'||state.category==='si') && state.category!=='custom' && state.category!=='consult' ? `
     <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} priority fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
-    ${co && kitsApply() ? `
-    <details class="kit-line" data-keep="kitLineOpen" ${state.kitLineOpen ? 'open' : ''}>
-      <summary>${photoIf(KIT_PHOTOS.closed, 'The Ehiffect Luxury Care Kit', 'kit-thumb')}<span>Aftercare kit</span>${kitStatusText() ? `<em>${kitStatusText()}</em>` : '<em>see what\'s included</em>'}</summary>
-      <div class="kit-line-body">
-        <div class="kit-pics">${photoIf(KIT_PHOTOS.closed, 'The Ehiffect Luxury Care Kit, wrapped', '')}${photoIf(KIT_PHOTOS.open, 'Inside the Luxury Care Kit: satin bonnet, oil and a thank-you card', '')}</div>
-        <p class="kit-pics-cap">The Luxury Care Kit</p>
-        ${aftercareIntroHTML()}
-      </div>
-    </details>` : ''}
+    ${co && kitsApply() ? kitCardHTML() : ''}
 
     ${co && state.category!=='bundles' ? `
     <div class="card">
