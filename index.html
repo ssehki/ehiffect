@@ -598,6 +598,15 @@
   .home-hero-bottom{ position:absolute; left:0; right:0; bottom:0; max-width:480px; margin:0 auto; padding:0 20px 26px; text-align:center; opacity:var(--fade, 1); }
   .home-hero-bottom .cta-btn{ margin:0; box-shadow:0 10px 28px rgba(36,19,24,.22); }
   .home-hero-scroll{ display:inline-block; margin-top:16px; padding:6px 10px; border:none; background:none; cursor:pointer; font-family:'Work Sans', sans-serif; font-size:10.5px; font-weight:600; letter-spacing:.3em; text-transform:uppercase; color:#FBF6F2; animation:heroHint 2.4s ease-in-out infinite; }
+  .home-hero-tag2{ display:none; }
+  /* small logo top-left, the words move down by the button, so nothing sits on the box */
+  @media (min-width:0px){
+    .home-hero-top{ text-align:left; padding:16px 18px 0; max-width:none; }
+    .home-hero-top .eyebrow, .home-hero-top .tagline{ display:none; }
+    .home-hero-top .logo-img{ width:86px !important; margin:0 !important; }
+    .home-hero-veil{ background:linear-gradient(to bottom, rgba(248,243,239,.85) 0%, rgba(248,243,239,0) 16%, rgba(36,19,24,0) 55%, rgba(36,19,24,.55) 100%); }
+    .home-hero-tag2{ display:block; margin:0 0 16px; font-family:'Cormorant Garamond', serif; font-style:italic; font-size:24px; line-height:1.2; color:#FBF6F2; text-shadow:0 1px 12px rgba(36,19,24,.35); }
+  }
   @keyframes heroHint{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(5px); } }
   .home-pin{ position:fixed; left:50%; bottom:14px; z-index:40; width:calc(100% - 32px); max-width:448px; margin:0; transform:translate(-50%, 160%); transition:transform .4s ease; box-shadow:0 10px 28px rgba(36,19,24,.2); }
   .home-pin.show{ transform:translate(-50%, 0); }
@@ -2350,6 +2359,7 @@ function renderLanding(){
       <p class="tagline">uncomplicated &amp; at your service</p>
     </div>
     <div class="home-hero-bottom">
+      <p class="home-hero-tag2">uncomplicated &amp; at your service</p>
       <button class="cta-btn" data-action="landing-pick" data-key="service">Reserve Your Appointment</button>
       <button type="button" class="home-hero-scroll" onclick="document.querySelector('.landing-wrap').scrollIntoView({behavior:'smooth'})">scroll ↓</button>
     </div>
