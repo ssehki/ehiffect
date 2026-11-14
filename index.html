@@ -590,6 +590,19 @@
   .takedown-note b{ color:var(--pink-text); }
   .takedown-note ul{ margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:12.5px; }
   .takedown-note li + li{ margin-top:4px; }
+  /* checkout: pinned total + request button, quick date picks, "this is missing" highlight */
+  .pinbar{ position:fixed; left:0; right:0; bottom:0; z-index:40; background:rgba(23,18,20,.97); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .pinbar-in{ max-width:440px; margin:0 auto; display:flex; align-items:center; gap:12px; }
+  .pinbar-total{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .pinbar-total span{ font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  .pinbar-total b{ font-family:'Cormorant Garamond', serif; font-size:22px; font-weight:500; color:var(--cream); line-height:1.1; }
+  .submit-btn.pinbar-btn{ width:auto; flex:0 0 auto; margin:0; padding:14px 18px; font-size:11.5px; }
+  .pinbar-err{ max-width:440px; margin:6px auto 0; font-size:12px; line-height:1.4; color:var(--pink-text); }
+  .wrap:has(.pinbar){ padding-bottom:calc(140px + env(safe-area-inset-bottom)); }
+  .quick-dates{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 12px; }
+  .quick-dates .opt-sub{ margin-right:2px; }
+  .field-missing{ outline:2px solid var(--pink); outline-offset:4px; border-radius:2px; transition:outline-color .3s ease; }
+
   /* pay boxes: deposit now/later and paying for the appointment */
   .pay-box{ margin:18px 0 0; padding:18px; border:1px solid var(--line); background:var(--panel); text-align:left; border-radius:2px; }
   .pay-title{ font-family:'Cormorant Garamond', serif; font-size:21px; font-weight:500; line-height:1.2; color:var(--cream); margin-bottom:4px; }
@@ -1663,6 +1676,7 @@ function render(){
   if(fabRoot.dataset.sig !== fabSig || state.fabPopNow){ fabRoot.innerHTML = fabHTML; fabRoot.dataset.sig = fabSig; }
   state.fabPopNow = false;
   syncStepBar();   // re-light the right step after a redraw (booking / Shop Hair step bar)
+  focusMissing();
   if(state.svcFocus){ state.svcFocus = false; const box = document.getElementById('svc-search'); if(box) box.focus(); }
   document.body.classList.toggle('has-fab', !!fabHTML);
   fabRoot.classList.toggle('compact', window.scrollY > 40);
@@ -1684,6 +1698,42 @@ function render(){
 function currentTier(){
   if(!state.category || !(state.category in INSTALLS) || !state.tierKey) return null;
   return INSTALLS[state.category].tiers.find(t=>t.key===state.tierKey);
+}
+// Returning clients: name, phone, email and Instagram are saved on their own phone after they book, and filled in next time.
+const ME_KEY = "ehiffectMe";
+function saveMe(){ try{ localStorage.setItem(ME_KEY, JSON.stringify({ name: state.name, phone: state.phone, email: state.email, ig: state.ig })); }catch(e){} }
+function fillSavedMe(){
+  if(state.meChecked) return; state.meChecked = true;
+  if(state.name || state.phone || state.email) return;
+  let me = null; try{ me = JSON.parse(localStorage.getItem(ME_KEY) || 'null'); }catch(e){}
+  if(me && (me.name || me.phone || me.email)){ state.name = me.name || ''; state.phone = me.phone || ''; state.email = me.email || ''; state.ig = me.ig || ''; state.meFilled = true; }
+}
+function savedMeNote(){
+  return state.meFilled && state.name ? `<div class="opt-sub" style="margin:-6px 0 12px;">Welcome back, ${escapeHTML(String(state.name).split(' ')[0])}! Your details are filled in. <button type="button" class="svc-inline" data-action="forget-me">Not you?</button></div>` : '';
+}
+
+// The bar pinned to the bottom of checkout: estimated total and the button to send the request.
+function pinBarHTML(label){
+  const total = state.category === 'bundles' ? 'price confirmed after review' : displayTotal(calcTotal());
+  return `<div class="pinbar"><div class="pinbar-in">
+      <div class="pinbar-total"><span>${state.category === 'bundles' ? 'your hair' : 'estimated total'}</span><b>${total}</b></div>
+      <button class="submit-btn pinbar-btn" data-action="submit">${label}</button>
+    </div>${state.error ? `<div class="pinbar-err" role="alert">${state.error}</div>` : ''}</div>`;
+}
+// When a request can't go yet, bring the person to the thing that's missing (once per message).
+function focusMissing(){
+  if(!state.error){ state.lastFocusedError = ''; return; }
+  if(state.error === state.lastFocusedError || !(state.view === 'book' || state.view === 'bundles') || state.bookStep !== 'checkout') return;
+  state.lastFocusedError = state.error;
+  const e = state.error.toLowerCase();
+  const pick = /email/.test(e) ? '#f-email' : /name and phone/.test(e) ? (!state.name ? '#f-name' : '#f-phone') : /phone number or instagram/.test(e) ? '#f-phone'
+    : /partner|bestie/.test(e) ? '#f-partner-name' : /date/.test(e) ? '.cal-wrap' : /time/.test(e) ? '[data-action=pick-time-slot]'
+    : /polic|confirming|agree/.test(e) ? '.agree-row' : '';
+  const el = pick && document.querySelector(pick);
+  if(!el) return;
+  el.scrollIntoView({ behavior:'smooth', block:'center' });
+  const box = el.closest('.field') || el; box.classList.add('field-missing'); setTimeout(() => box.classList.remove('field-missing'), 2600);
+  if(el.matches('input, select, textarea')) setTimeout(() => el.focus({ preventScroll:true }), 350);
 }
 function serviceChosen(){
   if(state.category==='qw' || state.category==='si') return !!state.tierKey;
@@ -2651,6 +2701,22 @@ function todayStr(){
 }
 // Visual month calendar for picking an appointment date — past days are dimmed, whole
 // days you've blocked out (BLOCKED_DATES) show pink and can't be clicked.
+// The next few days this appointment can actually be booked (inside your hours, not full or off), as one-tap picks.
+function nextOpenings(count){
+  const out = [], d = new Date(); d.setHours(12, 0, 0, 0);
+  for(let i = 1; i <= 60 && out.length < count; i++){
+    d.setDate(d.getDate() + 1);
+    const ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if(isDateBlocked(ds)) continue;
+    if(!timeSlotsFor(ds, bookingMinutes()).length) continue;
+    out.push(ds);
+  }
+  return out;
+}
+function quickDatesHTML(){
+  const days = nextOpenings(3); if(!days.length) return '';
+  return `<div class="quick-dates"><span class="opt-sub">Next openings:</span>${days.map(ds => `<button type="button" class="m-chip ${state.date === ds ? 'on' : ''}" data-action="pick-cal-day" data-key="${ds}">${new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })}</button>`).join('')}</div>`;
+}
 function renderCalendar(){
   if(!state.calendarMonth){
     const n = new Date();
@@ -2717,6 +2783,7 @@ function syncStepBar(){
 }
 
 function renderBook(){
+  if(state.bookStep === 'checkout') fillSavedMe();
   const showDetails = serviceChosen();
   const dayNote = state.date ? availabilityNoteFor(new Date(state.date + 'T12:00:00').getDay()) : null;
 
@@ -2919,6 +2986,7 @@ function renderBook(){
       </div>` : ''}
       <div class="field">
         <label>Preferred date <span style="color:var(--pink-text);">*required</span></label>
+        ${state.view === 'book' ? quickDatesHTML() : ''}
         ${renderCalendar()}
         ${dayNote ? `<div class="avail-note" style="margin-top:10px;">${dayNote}</div>` : ''}
         ${squeezeApplies() && state.date ? `<div class="avail-note" style="margin-top:8px;">${isSqueezeBooking() ? `Priority day: the ${money(SQUEEZE_IN_FEE)} priority fee is included, and I’ll confirm whether I can make room for you.` : `Good news: that day is open, so no priority fee applies.`}</div>` : ''}
@@ -2970,13 +3038,13 @@ function renderBook(){
     <div class="card" id="checkout">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
       <div class="opt-sub" style="margin-bottom:10px;">This will be a phone call — just need a way to reach you.</div>
-      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can call you"/></div>
+      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" autocomplete="tel" value="${state.phone}" placeholder="so I can call you"/></div>
       <div class="field"><label>Email <span style="color:var(--pink-text);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field"><label>Instagram</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="opt-sub" style="margin-top:-6px;">Add at least one — phone or Instagram.</div>
     </div>` : ''}
 
-    ${co && state.category!=='consult' ? `
+    ${co && state.category!=='consult' ? (state.bookingType !== 'solo' || state.bookTypeOpen ? `
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Booking type</span></div>
       <div class="field" style="margin:0; text-align:center;">
@@ -2997,16 +3065,22 @@ function renderBook(){
         </div>
         ` : ''}
       </div>
-    </div>` : ''}
+    </div>` : `<div class="back-link" data-action="open-booktype" role="button" tabindex="0" style="display:block; margin:14px 4px 0;">Booking with a partner or bestie? ›</div>`) : ''}
 
     ${co && state.category!=='consult' ? `
     <div class="card">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
-      <div class="field"><label>Name <span style="color:var(--pink-text);">*required</span></label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
-      <div class="field"><label>Phone number <span style="color:var(--pink-text);">*required</span></label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
+      ${savedMeNote()}
+      <div class="field"><label>Name <span style="color:var(--pink-text);">*required</span></label><input type="text" id="f-name" autocomplete="name" value="${state.name}" placeholder="your name"/></div>
+      <div class="field"><label>Phone number <span style="color:var(--pink-text);">*required</span></label><input type="tel" id="f-phone" autocomplete="tel" value="${state.phone}" placeholder="so I can confirm your appt"/></div>
       <div class="field"><label>Email <span style="color:var(--pink-text);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
 
+      ${contentQuestionApplies() ? `<div class="field"><label>Are you okay with me taking photos or videos of your hair for my page?</label>
+        <p class="opt-sub" style="margin:4px 0 10px;">I love sharing my work on @ehiffect. It's totally fine to say no; it won't change anything about your appointment.</p>
+        <div class="m-chips">${CONTENT_ANSWERS.map(o=>`<button class="m-chip ${state.contentOk===o?'on':''}" data-action="pick-content" data-key="${escapeHTML(o)}">${escapeHTML(o)}</button>`).join('')}</div></div>` : ''}
+
+      ${state.extrasOpen || state.photos.length || state.referenceLink || state.notes ? `
       <div class="field">
         <label>Reference photos (optional, up to 3)</label>
         <div class="photo-row">
@@ -3018,11 +3092,8 @@ function renderBook(){
         <input type="text" id="f-reference-link" value="${state.referenceLink}" placeholder="link to the style you want" style="margin-top:5px;"/>
       </div>
 
-      ${contentQuestionApplies() ? `<div class="field"><label>Are you okay with me taking photos or videos of your hair for my page?</label>
-        <p class="opt-sub" style="margin:4px 0 10px;">I love sharing my work on @ehiffect. It's totally fine to say no; it won't change anything about your appointment.</p>
-        <div class="m-chips">${CONTENT_ANSWERS.map(o=>`<button class="m-chip ${state.contentOk===o?'on':''}" data-action="pick-content" data-key="${escapeHTML(o)}">${escapeHTML(o)}</button>`).join('')}</div></div>` : ''}
-
       <div class="field"><label>Anything else?</label><textarea id="f-notes" placeholder="details, requests, etc.">${state.notes}</textarea></div>
+      ` : `<div class="back-link" data-action="open-extras" role="button" tabindex="0" style="display:block; margin:4px 0 14px;">+ Add photos or notes (optional)</div>`}
     </div>` : ''}
 
     ${co && state.category!=='bundles' && state.category!=='treatments' && state.category!=='consult' ? `
@@ -3081,8 +3152,8 @@ function renderBook(){
 
       <div class="deposit-note">
         ${state.category==='consult'
-          ? `Your consultation isn't confirmed until a <b>${money(CONFIG.depositAmount)} fee</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time. If you end up booking a service, this goes toward your deposit — no separate deposit needed.`
-          : `Your appointment isn't confirmed until your <b>${money(CONFIG.depositAmount)} deposit</b> is sent to <b class="cashtag">${CONFIG.cashtag}</b> on Cash App. Once I see it, I'll text you to lock in your time.<span style="display:block; margin-top:10px;">Your deposit comes off your total at your appointment. A paid consultation counts toward it.</span>`}
+          ? `Once I confirm your consultation, you'll get an email with a link to pay the <b>${money(CONFIG.depositAmount)} fee</b> (card, Cash App or Zelle). It counts toward your deposit if you book a service after.`
+          : `Once I approve your request, you'll get an email with a link to pay your <b>${money(CONFIG.depositAmount)} deposit</b> (card, Cash App or Zelle). Your appointment is locked in once it's paid, and it comes off your total.`}
       </div>
 
       <div class="agree-row">
@@ -3090,9 +3161,8 @@ function renderBook(){
         <label for="agree-policy">I understand and agree to the policies above.</label>
       </div>
 
-      ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
-      <button class="submit-btn" data-action="submit">${state.category==='consult' ? 'Request My Consultation' : 'Request My Appointment'}</button>
-    </div>` : ''}
+    </div>
+    ${pinBarHTML(state.category==='consult' ? 'Request My Consultation' : 'Request My Appointment')}` : ''}
 
     <div class="footer-note">up to two offers per booking, confirmed at approval</div>
   </div>`;
@@ -3103,6 +3173,7 @@ const CONTENT_ANSWERS = ["Yes, photos & videos are fine", "Yes, but keep my face
 function contentQuestionApplies(){ return !!state.category && state.category !== 'bundles' && state.category !== 'consult'; }
 
 function renderBundles(){
+  if(state.bookStep === 'checkout') fillSavedMe();
   const co = state.bookStep === 'checkout';
   return `
   <div class="wrap">
@@ -3164,8 +3235,8 @@ function renderBundles(){
 
     <div class="card" id="checkout">
       <div class="step-label"><span class="step-num">•</span><span class="step-title">Your details</span></div>
-      <div class="field"><label>Name</label><input type="text" id="f-name" value="${state.name}" placeholder="your name"/></div>
-      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
+      <div class="field"><label>Name</label><input type="text" id="f-name" autocomplete="name" value="${state.name}" placeholder="your name"/></div>
+      <div class="field"><label>Phone number</label><input type="tel" id="f-phone" autocomplete="tel" value="${state.phone}" placeholder="so I can confirm pricing"/></div>
       <div class="field"><label>Email <span style="color:var(--pink-text);">*required</span></label><input type="email" id="f-email" value="${state.email}" placeholder="you@email.com" autocomplete="email"/><div class="opt-sub" style="margin-top:5px;">Your confirmation, reschedule or cancellation updates, and deposit info are all sent here.</div></div>
       <div class="field"><label>Instagram (optional)</label><input type="text" id="f-ig" value="${state.ig}" placeholder="@yourhandle"/></div>
       <div class="field">
@@ -3189,8 +3260,7 @@ function renderBundles(){
         <label for="agree-policy">I understand my final price will be confirmed after review, and I'll pick up on the date above.</label>
       </div>
 
-      ${state.error ? `<div class="error-text">${state.error}</div>` : ''}
-      <button class="submit-btn" data-action="submit">Request My Hair</button>
+    ${pinBarHTML('Request My Hair')}
     </div>` : ''}
 
   </div>`;
@@ -3597,6 +3667,9 @@ function attachHandlers(){
           state.payErr = (d && d.error) || "Couldn't open the card checkout. Please try again, or use Cash App.";
         }catch(err){ state.payErr = "Couldn't open the card checkout. Check your connection and try again."; }
       }
+      else if(action==='open-extras'){ state.extrasOpen = true; }
+      else if(action==='open-booktype'){ state.bookTypeOpen = true; }
+      else if(action==='forget-me'){ try{ localStorage.removeItem(ME_KEY); }catch(err){} state.name = ''; state.phone = ''; state.email = ''; state.ig = ''; state.meFilled = false; }
       else if(action==='copy-address'){
         try{ await navigator.clipboard.writeText(state.manage && state.manage.address ? state.manage.address.text : ''); }catch(err){}
         state.addrCopied = true;
@@ -3890,7 +3963,7 @@ function attachHandlers(){
         };
         const originalBtnText = el.textContent;
         el.disabled = true; el.textContent = "Sending...";
-        try{ await saveBooking(booking); state.wasSubmitted = true; state.view = 'confirm'; window.scrollTo(0,0); }
+        try{ await saveBooking(booking); saveMe(); state.wasSubmitted = true; state.view = 'confirm'; window.scrollTo(0,0); }
         catch(err){ state.error = "Something went wrong — try again in a moment."; el.disabled=false; el.textContent=originalBtnText; }
       }
       else if(action==='book-again'){
