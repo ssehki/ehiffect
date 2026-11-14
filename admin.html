@@ -1293,9 +1293,18 @@ document.addEventListener("click", async e => {
   }
   if(a === "reply"){
     const t = (document.getElementById("reply") || {}).value || ""; if(!t.trim()){ toast("Write a message first."); return; }
-    S.busy = "Sending…"; renderLayer();
-    try{ const r = await api("reply", { key:k, text:t }); S.busy = ""; if(r && r.ok){ S.replyDraft = ""; toast("Message sent"); await load(true); } else { renderLayer(); toast("Message didn't send — try again."); } }
-    catch(err){ S.busy = ""; renderLayer(); }
+    // Shows in the chat straight away; the email to her goes out in the background.
+    const bk = S.data.bookings.find(x => x.key === k);
+    const bub = { from:"me", text:t.trim(), at:"sending…" };
+    const wasNeeds = bk ? bk.needsReply : false;
+    if(bk){ bk.thread = (bk.thread || []).concat([bub]); bk.needsReply = false; }
+    S.replyDraft = ""; render();
+    const fail = () => { if(bk){ bk.thread = bk.thread.filter(m => m !== bub); bk.needsReply = wasNeeds; } S.replyDraft = t; render(); toast("Message didn't send — try again."); };
+    try{
+      const r = await api("reply", { key:k, text:t });
+      if(r && r.ok){ bub.at = new Date().toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" }); cacheSave(); render(); }
+      else fail();
+    }catch(err){ fail(); }
     return;
   }
   if(a === "save"){
