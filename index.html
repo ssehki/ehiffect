@@ -190,7 +190,7 @@
   .cal-dow{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px; }
   .cal-dow span{ text-align:center; font-size:9.5px; color:var(--muted); letter-spacing:0.05em; text-transform:uppercase; }
   .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:38px; gap:4px; }
-  .cal-day{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:13px; border:1px solid var(--pink); border-radius:3px; cursor:pointer; background:var(--pink); color:#241318; font-weight:600; }
+  .cal-day{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:13px; border:1px solid rgba(227,138,174,0.7); border-radius:3px; cursor:pointer; background:transparent; color:var(--cream); font-weight:600; }
   .cal-day.empty{ border-color:transparent; background:transparent; cursor:default; }
   .cal-day.past{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.4; cursor:default; font-weight:400; }
   .cal-day.blocked{ background:var(--panel-2); border-color:var(--line); color:var(--muted); opacity:0.6; cursor:not-allowed; font-weight:400; text-decoration:line-through; }
@@ -202,7 +202,7 @@
   .squeeze-fee{ color:var(--pink-text); font-weight:600; margin-left:4px; }
   .squeeze-sub{ display:block; font-size:11.5px; color:var(--muted); margin-top:3px; }
   .squeeze-note{ display:block; font-size:10.5px; color:var(--muted); text-transform:none; letter-spacing:0; margin-top:2px; }
-  .cal-day.selected{ background:var(--cream); border-color:var(--cream); color:var(--bg); font-weight:700; }
+  .cal-day.selected{ background:var(--pink); border-color:var(--pink); color:#241318; font-weight:700; }
   .cal-day:not(.past):not(.blocked):not(.empty):not(.selected):hover{ filter:brightness(1.12); }
   .cal-legend{ display:flex; gap:14px; margin-top:10px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
   .cal-legend span{ display:inline-flex; align-items:center; gap:5px; }
@@ -590,6 +590,21 @@
   .takedown-note b{ color:var(--pink-text); }
   .takedown-note ul{ margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:12.5px; }
   .takedown-note li + li{ margin-top:4px; }
+  /* checkout: quiet aftercare-kit line and deals link */
+  .kit-line{ margin:14px 0 18px; padding:14px 18px; border:1px solid var(--line); border-radius:2px; background:var(--panel); }
+  .kit-line summary{ list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:13px; color:var(--cream); }
+  .kit-line summary::-webkit-details-marker{ display:none; }
+  .kit-line summary em{ font-style:normal; font-size:12px; color:var(--pink-text); text-align:right; }
+  .kit-line-body{ margin-top:12px; }
+  .deals-quiet{ margin:14px 4px 0; }
+  .deals-quiet .drop summary{ font-family:'Work Sans', sans-serif; font-size:12.5px; font-weight:400; color:var(--pink-text); }
+  .deals-quiet .drop summary::after{ content:none; }
+  .deals-quiet .drop .drop-body{ background:var(--panel); border:1px solid var(--line); padding:14px; border-radius:2px; }
+  /* confirmation: thank-you line and next steps */
+  .confirm .confirm-thanks{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:20px; color:var(--cream); margin:0 auto 16px; }
+  .confirm-steps{ text-align:left; max-width:320px; margin:0 auto 18px; padding-left:22px; font-size:13.5px; line-height:1.7; color:var(--muted); }
+  .confirm-steps li::marker{ color:var(--gold); font-family:'Cormorant Garamond', serif; }
+
   /* checkout: pinned total + request button, quick date picks, "this is missing" highlight */
   .pinbar{ position:fixed; left:0; right:0; bottom:0; z-index:40; background:rgba(23,18,20,.97); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom)); }
   .pinbar-in{ max-width:440px; margin:0 auto; display:flex; align-items:center; gap:12px; }
@@ -1136,7 +1151,7 @@ function minutesForService(name){
 // A day's hours as minutes, with the 8:45 AM floor but the real end time (so an appointment can run to the end of your window).
 function dayWindows(dateStr){
   const day = new Date(dateStr + 'T12:00:00').getDay(), floor = timeToMinutes(EARLIEST_BOOKABLE_TIME);
-  return (WEEKDAY_WINDOWS[day] || [FLEXIBLE_DAY_RANGE]).map(w => ({ start: Math.max(timeToMinutes(w.start), floor), end: timeToMinutes(w.end) })).filter(w => w.start < w.end);
+  return (WEEKDAY_WINDOWS[day] || [FLEXIBLE_DAY_RANGE]).map(w => ({ start: Math.ceil(Math.max(timeToMinutes(w.start), floor) / 15) * 15, end: timeToMinutes(w.end) })).filter(w => w.start < w.end);
 }
 // Does an appointment starting at timeStr fit that window of your hours? Daytime windows (before your afternoon / class)
 // must finish in time; evening windows (ending EVENING_RUNS_LATE or later) can run late, so any start in them works.
@@ -1162,7 +1177,7 @@ function effectiveWindows(day){
   const raw = WEEKDAY_WINDOWS[day] || [FLEXIBLE_DAY_RANGE];
   const cap = timeToMinutes(LATEST_BOOKABLE_TIME), floor = timeToMinutes(EARLIEST_BOOKABLE_TIME);
   return raw
-    .map(w => ({ start: minutesToTime(Math.max(timeToMinutes(w.start), floor)), end: minutesToTime(Math.min(timeToMinutes(w.end), cap)) }))
+    .map(w => ({ start: minutesToTime(Math.ceil(Math.max(timeToMinutes(w.start), floor) / 15) * 15), end: minutesToTime(Math.min(timeToMinutes(w.end), cap)) }))   // starts on :00 / :15 / :30 / :45
     .filter(w => timeToMinutes(w.start) < timeToMinutes(w.end));
 }
 
@@ -2087,9 +2102,9 @@ function addressBoxHTML(m){
       <p class="pay-note">Just for today. This disappears after your appointment day.</p>
     </div>`;
   }
-  const msg = a.state === 'soon' ? `📍 My address shows here on the day of your appointment, from ${a.opensAt} AM.`
-    : a.state === 'deposit' ? '📍 My address shows here once your deposit is in.'
-    : a.state === 'past' ? '📍 This appointment has passed, so the address is no longer available.' : '';
+  const msg = a.state === 'soon' ? `My address shows here on the day of your appointment, from ${a.opensAt} AM.`
+    : a.state === 'deposit' ? 'My address shows here once your deposit is in.'
+    : a.state === 'past' ? 'This appointment has passed, so the address is no longer available.' : '';
   return msg ? `<div class="m-info" style="margin-top:14px;">${msg}</div>` : '';
 }
 
@@ -2551,14 +2566,14 @@ function renderManage(){
     </div>
     ${addressBoxHTML(m)}
     ${payBoxes}
-    ${showCheckin && !m.checkIn ? `<button class="m-checkin-cta" data-action="m-tab" data-key="checkin"><b>📋 Fill out your hair check-in</b><span>Photos + a few quick questions so I can prep for you</span></button>` : ''}
-    ${showCheckin && carriedFrom ? `<button class="m-checkin-cta m-checkin-soft" data-action="m-tab" data-key="checkin"><b>📋 Has your hair changed since last time?</b><span>Your hair check-in from ${escapeHTML(carriedFrom)} is on file. Only update it if something's different.</span></button>` : ''}
-    ${!closed && !m.isBundle && within && m.status === 'approved' ? `<div class="m-info" style="margin-top:14px;">📅 It's less than 24 hours until your appointment, so changes go through me. Tap <b>Message</b> and I'll sort it out.</div>` : ''}
+    ${showCheckin && !m.checkIn ? `<button class="m-checkin-cta" data-action="m-tab" data-key="checkin"><b>Fill out your hair check-in</b><span>Photos + a few quick questions so I can prep for you</span></button>` : ''}
+    ${showCheckin && carriedFrom ? `<button class="m-checkin-cta m-checkin-soft" data-action="m-tab" data-key="checkin"><b>Has your hair changed since last time?</b><span>Your hair check-in from ${escapeHTML(carriedFrom)} is on file. Only update it if something's different.</span></button>` : ''}
+    ${!closed && !m.isBundle && within && m.status === 'approved' ? `<div class="m-info" style="margin-top:14px;">It's less than 24 hours until your appointment, so changes go through me. Tap <b>Message</b> and I'll sort it out.</div>` : ''}
     <div class="m-actions">
-      ${showCheckin && m.checkIn && !carriedFrom ? btn('checkin','📋 Hair check-in ✓') : ''}
-      ${!closed && !m.isBundle && !(within && m.status === 'approved') ? btn('reschedule','📅 Reschedule') : ''}
-      ${!closed && !m.isBundle && !m.isConsult ? btn('late','⏰ Running late') : ''}
-      ${btn('message','💬 Message' + (m.thread.length ? ' (' + m.thread.length + ')' : ''))}
+      ${showCheckin && m.checkIn && !carriedFrom ? btn('checkin','Hair check-in ✓') : ''}
+      ${!closed && !m.isBundle && !(within && m.status === 'approved') ? btn('reschedule','Reschedule') : ''}
+      ${!closed && !m.isBundle && !m.isConsult ? btn('late','Running late') : ''}
+      ${btn('message','Message' + (m.thread.length ? ' (' + m.thread.length + ')' : ''))}
       ${!closed ? btn('cancel','Cancel', 'm-act-quiet') : ''}
     </div>
     ${panel ? `<div class="card m-panel">${state.mErrText ? `<div class="error-text" style="margin:0 0 10px;">${state.mErrText}</div>` : ''}${panel}</div>` : ''}
@@ -2761,8 +2776,8 @@ function renderCalendar(){
       <div class="cal-dow">${DOW_LETTERS.map(l=>`<span>${l}</span>`).join('')}</div>
       <div class="cal-grid">${cells.join('')}</div>
       <div class="cal-legend">
-        <span><i style="background:var(--pink);"></i>available</span>
-        <span><i style="background:var(--cream);"></i>selected</span>
+        <span><i style="background:transparent; border:1px solid rgba(227,138,174,0.7);"></i>available</span>
+        <span><i style="background:var(--pink);"></i>selected</span>
         <span><i style="background:var(--panel-2); border:1px solid var(--line);"></i>not available</span>
         ${squeezeApplies() ? `<span><i style="background:transparent; border:1px dashed var(--pink);"></i>priority</span>` : ''}
       </div>
@@ -2797,7 +2812,7 @@ function renderBook(){
     <div class="hero">
       <h1 class="title" style="margin-top:0;">${co ? 'Checkout' : 'Reserve Your Appointment'}</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
-      <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your service · confirmed within 24 hours · your deposit secures your time</p>
+      ${co ? '' : `<p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your service · confirmed within 24 hours · your deposit secures your time</p>`}
       ${regularsBannerHTML()}
     </div>
 
@@ -2973,10 +2988,10 @@ function renderBook(){
     <div class="card"><div class="total-bar" style="border-top:none; padding-top:0;"><span class="label">estimated total${isSqueezeBooking() ? ` <span class="squeeze-note">incl. ${money(SQUEEZE_IN_FEE)} priority fee</span>` : ''}</span><span class="amount">${money(calcTotal())}</span></div></div>` : ''}
 
     ${co && kitsApply() ? `
-    <div class="card">
-      ${aftercareIntroHTML()}
-      ${kitStatusText() ? `<div class="avail-note" style="margin-top:10px;">${kitStatusText()}</div>` : ''}
-    </div>` : ''}
+    <details class="kit-line" data-keep="kitLineOpen" ${state.kitLineOpen ? 'open' : ''}>
+      <summary><span>Aftercare kit</span>${kitStatusText() ? `<em>${kitStatusText()}</em>` : '<em>see what\'s included</em>'}</summary>
+      <div class="kit-line-body">${aftercareIntroHTML()}</div>
+    </details>` : ''}
 
     ${co && state.category!=='bundles' ? `
     <div class="card">
@@ -3100,9 +3115,9 @@ function renderBook(){
     </div>` : ''}
 
     ${co && state.category!=='bundles' && state.category!=='treatments' && state.category!=='consult' ? `
-    <div class="card">
+    <div class="deals-quiet">
       <details class="drop" data-keep="dealsOpen" ${state.dealsOpen?'open':''}>
-      <summary><span class="step-num">•</span>Using a deal?${state.dealsSelected.length ? `<span class="drop-count">${state.dealsSelected.length} selected</span>` : ''}</summary>
+      <summary>Using a deal? ›${state.dealsSelected.length ? `<span class="drop-count">${state.dealsSelected.length} selected</span>` : ''}</summary>
       <div class="drop-body">
       <div class="opt-sub" style="margin-bottom:10px;">Select up to ${MAX_DEALS} — I'll confirm eligibility when I approve your request.</div>
       <div class="opt-group">
@@ -3184,7 +3199,7 @@ function renderBundles(){
     <div class="hero">
       <h1 class="title" style="margin-top:0;">${co ? 'Checkout' : 'The Hair Shop'}</h1>
       <p class="tagline">uncomplicated &amp; at your service</p>
-      <p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your hair · I confirm your price · collect when ready</p>
+      ${co ? '' : `<p class="tagline" style="font-style:normal; font-size:11.5px; letter-spacing:0.03em; margin-top:10px; color:var(--pink-text);">select your hair · I confirm your price · collect when ready</p>`}
     </div>
 
     ${co ? checkoutSummaryHTML() : `<div class="card">
@@ -3276,7 +3291,15 @@ function renderConfirm(){
   const whenLine = state.category==='bundles'
     ? (state.date ? `Pickup: ${state.date}` : '')
     : [state.date, state.time].filter(Boolean).join(' at ');
+  const firstName = String(state.name || '').trim().split(' ')[0];
+  const nextSteps = state.category === 'bundles'
+    ? ['I review your order and text you your final price', 'I place your order', 'You collect your hair on your pickup date']
+    : state.category === 'consult'
+    ? ['I confirm your time by email (within 24 hours)', 'You pay the consultation fee from the email link', 'I call you at your time']
+    : ['I review your request (within 24 hours)', 'You pay your deposit from the email link', 'Your time is locked in. See you soon'];
   return `<div class="wrap"><div class="confirm">${checkSVG}<h2>Your request has been received</h2>
+  <p class="confirm-thanks">Thank you${firstName ? ', ' + escapeHTML(firstName) : ''}. I can't wait to see you.</p>
+  <ol class="confirm-steps">${nextSteps.map(t => `<li>${t}</li>`).join('')}</ol>
   <div class="policy-box" style="text-align:left;">
     ${whenLine ? `<div><b>When:</b> ${whenLine}</div>` : ''}
     ${svcLabel ? `<div style="margin-top:4px;"><b>Service:</b> ${svcLabel}</div>` : ''}
