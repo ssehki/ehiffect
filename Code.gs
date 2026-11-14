@@ -1469,7 +1469,7 @@ function doPost(e){
    hair check-in (photos + questions), and message you. Anything that needs your OK shows up on
    the "Client Updates" tab, and you get an email each time.                                     */
 
-const SITE_URL = "https://ssehki.github.io/ehiffect/";
+const SITE_URL = "https://ehiffect.hair/";
 
 function newToken_(){ return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").slice(0, 40); }
 function manageUrl(b, tab){ return b && b.manageToken ? SITE_URL + "#manage=" + b.manageToken + (tab ? "&tab=" + tab : "") : ""; }
