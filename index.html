@@ -3026,6 +3026,7 @@ function renderManage(){
   const balDue = !m.isBundle && !m.isConsult && m.status === 'approved' && m.depositPaid && pay.balance > 0 && !pay.balancePaid;
   const payBoxes = (depDue ? `<div class="pay-box m-pay-box">
       <div class="pay-title">Pay your ${payMoney(m.deposit)} ${depLabel} to lock in your spot</div>
+      ${m.isModel && m.depositDue ? `<p class="pay-sub" style="color:var(--pink-text); font-weight:600;">Due by ${new Date(m.depositDue).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}, or your spot goes to the waitlist.</p>` : ''}
       <p class="pay-sub">${m.isConsult ? 'It goes toward your deposit if you reserve a service afterward.' : 'It comes off your total at your appointment.'}</p>
       ${payOptionsHTML(m.deposit, 'm-pay', 'deposit', { cardAmount: pay.depositCard })}</div>` : '')
     + (balDue ? `<div class="pay-box m-pay-box">
@@ -3112,6 +3113,11 @@ function renderManage(){
       ${m.lateNote && !closed ? `<div class="m-info" style="margin-top:10px;"><b>Running late note sent:</b> ${escapeHTML(m.lateNote.split('\n')[0])}</div>` : ''}
     </div>
     ${addressBoxHTML(m)}
+    ${m.isModel && m.status === 'approved' && !closed && (m.confirmedAt || tab === 'confirm' || (m.hoursUntil !== null && m.hoursUntil < 36)) ? (m.confirmedAt
+      ? `<div class="m-info" style="margin-top:12px;"><b>✓ You confirmed you're coming.</b> See you soon!</div>`
+      : `<div class="pay-box m-pay-box"><div class="pay-title">Are you still coming?</div>
+          <p class="pay-sub">Tap to confirm. If something came up, message me so I can give your spot to the waitlist.</p>
+          <button class="cta-btn" data-action="m-confirm" ${state.mBusy ? 'disabled' : ''} style="margin:0;">I'm coming ✓</button></div>`) : ''}
     ${payBoxes}
     ${showCheckin && !m.checkIn ? `<button class="m-checkin-cta" data-action="m-tab" data-key="checkin"><b>Fill out your hair check-in</b><span>Photos + a few quick questions so I can prep for you</span></button>` : ''}
     ${showCheckin && carriedFrom ? `<button class="m-checkin-cta m-checkin-soft" data-action="m-tab" data-key="checkin"><b>Has your hair changed since last time?</b><span>Your hair check-in from ${escapeHTML(carriedFrom)} is on file. Only update it if something's different.</span></button>` : ''}
@@ -4220,6 +4226,7 @@ function attachHandlers(){
         if(state.mTab==='reschedule'){ state.date = ''; state.time = ''; state.calendarMonth = null; }
       }
       else if(action==='m-pick'){ state.mForm[el.getAttribute('data-field')] = key; }
+      else if(action==='m-confirm'){ await manageSubmit('confirm', {}, "Thank you! You're confirmed. See you soon 💗", el); }
       else if(action==='m-remove-photo'){ state.mPhotos.splice(parseInt(key),1); }
       else if(action==='m-withdraw'){ await manageSubmit('withdrawRequest', {}, "Got it — you're keeping your original time."); }
       else if(action==='m-send-reschedule'){
@@ -4916,7 +4923,7 @@ async function loadLiveConfig(){
 })();
 
 function checkRoute(){
-  const mm = window.location.hash.match(/^#manage=([A-Za-z0-9]{1,64})(?:&tab=(checkin))?/);
+  const mm = window.location.hash.match(/^#manage=([A-Za-z0-9]{1,64})(?:&tab=(checkin|confirm))?/);
   if(mm){
     if(state.manageToken !== mm[1] || !state.manage){ state.view = 'manage'; state.manageToken = mm[1]; state.mTab = mm[2] || ''; state.mNotice = ''; loadManage(); }
     return;

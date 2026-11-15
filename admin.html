@@ -198,6 +198,21 @@
   .login .in{ text-align:center; letter-spacing:.15em; font-size:18px; }
   .err{ color:var(--bad); font-size:13px; margin-top:10px; }
   :focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  /* model call view */
+  .mc-sum{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:0 0 12px; }
+  .mc-sum div{ padding:10px 6px; border:1px solid var(--line, rgba(0,0,0,.1)); border-radius:8px; text-align:center; }
+  .mc-sum b{ display:block; font-size:20px; }
+  .mc-sum span{ font-size:11px; opacity:.7; }
+  .mc-group{ margin:0 0 18px; }
+  .mc-style-h{ font-size:17px; margin:0 0 8px; }
+  .mc-card{ padding:12px; margin:0 0 10px; border:1px solid var(--line, rgba(0,0,0,.1)); border-radius:10px; }
+  .mc-card-top{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; cursor:pointer; }
+  .mc-tags{ margin:6px 0 8px; display:flex; flex-wrap:wrap; gap:4px; }
+  .mc-photos img{ width:84px; height:84px; object-fit:cover; }
+  .mc-ci{ margin:8px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px; }
+  .mc-ci dt{ font-size:11px; opacity:.65; }
+  .mc-ci dd{ margin:0; }
+  .mc-acts{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 </style>
 </head>
 <body>
@@ -433,11 +448,65 @@ function needsCount(){ if(!S.data) return 0; const L = lists(); return L.request
 /* ============== screens ============== */
 // The nav bar across the top: The Ehiffect (home) and every section. Stays put while you scroll.
 const NAV = [["inbox","⌂","Home"],["schedule","◷","Schedule"],["clients","♡","Clients"],["hair","✂︎","Hair"],["more","$","Money"],["feedback","★","Feedback"]];
+function hasModels(){ return ((S.data && S.data.bookings) || []).some(b => b.isModel); }
+function navItems(){ return hasModels() ? [NAV[0], ["models","✦","Models"]].concat(NAV.slice(1)) : NAV; }
+
+/* ---------- Model call: every application, grouped by style, with hair photos and quick approve ---------- */
+function modelDue(b){
+  if(!b.isModel || b.status !== "approved") return "";
+  if(b.depositPaid) return '<span class="tag good">$ deposit paid</span>';
+  if(!b.depositDue) return '<span class="tag bad">no deposit yet</span>';
+  const h = (Date.parse(b.depositDue) - Date.now()) / 3600000;
+  return h <= 0 ? '<span class="tag bad">⏰ deposit overdue · release the spot?</span>'
+    : `<span class="tag warn">⏰ deposit due in ${h < 1 ? Math.max(1, Math.round(h * 60)) + " min" : Math.round(h) + " h"}</span>`;
+}
+function modelConfirmTag(b){
+  if(!b.isModel || b.status !== "approved") return "";
+  return b.confirmedAt ? '<span class="tag good">✓ confirmed coming</span>' : b.confirmEmailed ? '<span class="tag warn">asked to confirm · no answer yet</span>' : "";
+}
+function modelCard(b){
+  const ci = b.checkIn || {};
+  const keys = Object.keys(ci).filter(k => ci[k] && k !== "Agreed to");
+  return `<div class="mc-card">
+    <div class="mc-card-top" data-a="open" data-k="${esc(b.key)}">
+      <b>${esc(b.name)}</b><span class="hint">${esc(when(b))}</span>
+    </div>
+    <div class="mc-tags"><span class="tag ${b.status === 'approved' ? 'good' : b.status === 'pending' ? 'warn' : ''}">${esc(statusLabel(b.status))}</span>${modelDue(b)}${modelConfirmTag(b)}</div>
+    ${b.checkInPhotos && b.checkInPhotos.length ? `<div class="photos mc-photos">${b.checkInPhotos.map(p => `<img src="${esc(photoThumb(p))}" alt="Hair photo" data-a="photo" data-src="${esc(p)}"/>`).join("")}</div>` : '<p class="hint">No photos</p>'}
+    ${keys.length ? `<dl class="mc-ci">${keys.map(k => `<div><dt>${esc(k)}</dt><dd>${esc(ci[k])}</dd></div>`).join("")}</dl>` : ''}
+    <div class="mc-acts">
+      ${b.status === 'pending' ? `<button class="btn ok" data-a="status" data-s="approved" data-k="${esc(b.key)}">Approve</button><button class="btn no" data-a="status" data-s="denied" data-k="${esc(b.key)}">Deny</button>` : ''}
+      ${b.status === 'approved' && !b.depositPaid ? `<button class="btn" data-a="deposit" data-k="${esc(b.key)}">Deposit received</button><button class="btn no" data-a="status" data-s="cancelled" data-k="${esc(b.key)}">Release spot</button>` : ''}
+      <button class="btn" data-a="open" data-k="${esc(b.key)}">Open</button>
+    </div>
+  </div>`;
+}
+function modelsScreen(){
+  const all = ((S.data && S.data.bookings) || []).filter(b => b.isModel);
+  const live = all.filter(b => b.status === "pending" || b.status === "approved");
+  const styles = [...new Set(all.map(b => b.modelStyle || "Model call"))];
+  const order = { pending:0, approved:1 };
+  const count = (f) => live.filter(f).length;
+  return header("Model call", live.length + (live.length === 1 ? " active application" : " active applications")) + `<div>
+    <div class="mc-sum">
+      <div><b>${count(b => b.status === "pending")}</b><span>to review</span></div>
+      <div><b>${count(b => b.status === "approved")}</b><span>approved</span></div>
+      <div><b>${count(b => b.status === "approved" && b.depositPaid)}</b><span>deposits paid</span></div>
+      <div><b>${count(b => b.confirmedAt)}</b><span>confirmed</span></div>
+    </div>
+    <p class="hint" style="margin:0 0 14px;">Tap a photo to see it big. Waitlist requests come in as website questions titled "MODEL CALL WAITLIST".</p>
+    ${styles.map(st => {
+      const list = live.filter(b => (b.modelStyle || "Model call") === st).sort((a, c) => (order[a.status] - order[c.status]) || String(a.submittedAt || "").localeCompare(String(c.submittedAt || "")));
+      return `<section class="mc-group"><h2 class="mc-style-h">${esc(st)} <span class="hint">${list.length ? list.length + (list.length === 1 ? " applicant" : " applicants") : "open"}</span></h2>
+        ${list.length ? list.map(modelCard).join("") : '<p class="hint">Nobody right now. If someone drops out, message the first person on the waitlist.</p>'}</section>`;
+    }).join("")}
+  </div>`;
+}
 function topNav(n, fbN){
   return `<header class="topnav"><div class="topnav-in">
     <button class="brand" data-a="tab" data-k="inbox" aria-label="The Ehiffect, go to Home">The Ehiffect</button>
     <nav class="navlinks" aria-label="Sections">
-      ${NAV.map(([k, ic, l]) => `<button class="navlink ${S.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}" aria-current="${S.tab === k ? 'page' : 'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k === 'inbox' && n ? `<span class="badge">${n}</span>` : ''}${k === 'feedback' && fbN ? `<span class="badge">${fbN}</span>` : ''}</button>`).join("")}
+      ${navItems().map(([k, ic, l]) => `<button class="navlink ${S.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}" aria-current="${S.tab === k ? 'page' : 'false'}"><span class="ic" aria-hidden="true">${ic}</span>${l}${k === 'inbox' && n ? `<span class="badge">${n}</span>` : ''}${k === 'feedback' && fbN ? `<span class="badge">${fbN}</span>` : ''}</button>`).join("")}
       <a class="navlink" href="${SITE_URL}" target="_blank" rel="noopener">Site ↗</a>
     </nav>
   </div></header>`;
@@ -446,7 +515,7 @@ function render(){
   const app = document.getElementById("app");
   if(!S.key || (!S.data && !S.loading)){ app.innerHTML = loginScreen(); renderLayer(); const i = document.getElementById("pass"); if(i) i.focus(); return; }
   if(S.loading && !S.data){ app.innerHTML = `<div class="login"><h1>The Ehiffect</h1><p>Loading your bookings…</p></div>`; renderLayer(); return; }
-  const screen = { inbox, schedule, clients, hair, more, feedback: feedbackScreen }[S.tab] || inbox;
+  const screen = { inbox, schedule, clients, hair, more, feedback: feedbackScreen, models: modelsScreen }[S.tab] || inbox;
   const n = needsCount(), fbN = S.tab === "feedback" ? 0 : fbNewCount();
   const outdated = needsNewScript() ? `<div class="box alert" style="margin:0 0 14px;"><h4>Your Sheet's script needs updating</h4>
       <div style="font-size:13.5px; line-height:1.55;">New features (deleting bookings, editing prices &amp; deals, weekly hours) need the newest <b>Code.gs</b>. In your Google Sheet:

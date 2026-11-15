@@ -605,6 +605,27 @@ function sendDayOfEmails(){
     });
   });
 }
+// Every evening: models with an approved appointment tomorrow get the "tap to confirm" email (once).
+const CONFIRM_EMAIL_HOUR = 17;
+function sendConfirmAsks(){
+  withLock(() => {
+    const sheet = getSheet(), cm = getColumns(sheet).map;
+    const tomorrow = new Date(); tomorrow.setHours(0, 0, 0, 0); tomorrow.setDate(tomorrow.getDate() + 1);
+    readBookings().forEach(b => {
+      const day = parseDay(b);
+      if(!day || day.getTime() !== tomorrow.getTime() || b.status !== "approved" || !isModel_(b) || !b.email) return;
+      if(String(b.confirmedAt || "").trim() || isTrue(b.confirmEmailed)) return;
+      ensureToken(b);
+      try{ if(sendTemplate(b, "confirmAsk")) setCell(sheet, cm, "confirmEmailed", b.row, true); }catch(err){ console.error("confirm email row " + b.row + ": " + err); }
+    });
+  });
+}
+function ensureConfirmTrigger_(){
+  try{
+    if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "sendConfirmAsks"))
+      ScriptApp.newTrigger("sendConfirmAsks").timeBased().everyDays(1).atHour(CONFIRM_EMAIL_HOUR).create();
+  }catch(e){}
+}
 function ensureDayOfTrigger_(){
   try{
     if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "sendDayOfEmails"))
@@ -677,7 +698,8 @@ const HEADERS = [
   "depositPaid", "depositRefunded", "checks", "approvalEmailed", "shipped", "serviced", "servicedOn", "amountPaid", "grandTotal", "lastEmail", "emailLog", "rebookEmailed", "calendarEvent", "hairOrdered", "hairOrderedOn",
   "manageToken", "reqDate", "reqTime", "reqReason", "reqAt", "reqWithin24", "lateNote", "checkIn", "checkInPhotos", "checkInAt",
   "thread", "threadNeedsReply", "depositEmailed", "statusEmailed", "cancelInfo", "tip", "hairCost", "source", "contentOk", "regular", "regularRate",
-  "squareDeposit", "squareBalance", "balancePaid", "paidOnline", "dayOfEmailed", "rescheduleCount"
+  "squareDeposit", "squareBalance", "balancePaid", "paidOnline", "dayOfEmailed", "rescheduleCount",
+  "approvedAt", "confirmedAt", "confirmEmailed"
 ];
 
 // Other header names that mean the same thing (ignores case, spaces, punctuation).
@@ -811,6 +833,7 @@ function applyApproval(sheet, cols, row){
   const visits = approvedCount(all, me.phone, row) + 1;
   setCell(sheet, cols, "visitCount", row, visits);
   setCell(sheet, cols, "loyaltyFlag", row, visits % LOYALTY_SURPRISE_EVERY === 0);
+  if(cols.approvedAt !== undefined && !String(me.approvedAt || "").trim()){ me.approvedAt = new Date().toISOString(); setCell(sheet, cols, "approvedAt", row, me.approvedAt); }
   return me;
 }
 
@@ -827,6 +850,12 @@ const MODEL_MINUTES = 210;
 function isModel_(b){ return /^MODEL CALL/i.test(String(b && b.serviceLabel || "")); }
 function modelStyle_(b){ return String(b.serviceLabel || "").replace(/^MODEL CALL\s*[—-]\s*/i, "").split(" (")[0].trim(); }
 function depositFor_(b){ return isModel_(b) ? MODEL_DEPOSIT : getSettings().depositAmount; }
+const MODEL_DEPOSIT_HOURS = 24;   // model-call deposits are due within this many hours of approval
+// When a model's deposit is due (ISO), or "" if not a model / already paid / not approved yet.
+function modelDepositDue_(b){
+  if(!isModel_(b) || isPaid(b) || b.status !== "approved") return "";
+  const t = Date.parse(String(b.approvedAt || "")); return isNaN(t) ? "" : new Date(t + MODEL_DEPOSIT_HOURS * 3600000).toISOString();
+}
 function isoOf_(us){ const m = String(us || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + "-" + m[1] + "-" + m[2] : ""; }
 function minsOf_(t){ const m = String(t || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i); if(!m) return null;
   let h = Number(m[1]) % 12; if(m[3] && m[3].toUpperCase() === "PM") h += 12; if(!m[3]) h = Number(m[1]); return h * 60 + Number(m[2]); }
@@ -1675,6 +1704,9 @@ const EMAIL_DEFAULTS = {
   deposit: { label: "Deposit received", when: "When you mark a deposit as received",
     subject: "Deposit received, you're all set! 💗", button: "Manage my appointment",
     body: "I received your {deposit} deposit. Your spot on {when} is locked in!\n\n{totalLines}\n\n{payLine}\n\n{checkinLine}" },
+  confirmAsk: { label: "Confirm you're coming (model call)", when: "The evening before a model-call appointment",
+    subject: "Tomorrow! Tap to confirm you're coming 💗", button: "I'm coming ✓",
+    body: "Hi {first}! Your model call appointment is tomorrow, {when}.\n\nPlease tap the button below to confirm you're coming. If something came up, message me from the same page so I can give your spot to the waitlist.\n\nRemember: hair washed and blow-dried, and bring your hair." },
   dayOf: { label: "See you today (address)", when: "The morning of an approved appointment once the deposit is in, if you've set your studio address",
     subject: "See you today! 💗", button: "Get my address",
     body: "Today's the day, {first}! See you {when}.\n\nTap the button below for my address. It's on your appointment page today only, with buttons to copy it or open it in Maps.\n\nPlease come with your hair already washed and fully dried." },
@@ -1755,7 +1787,8 @@ function templateVars(b, extra){
     total: (b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed",
     estimate: hasGrandOverride(b) ? "$" + Number(b.grandTotal) : ((b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? "$" + Number(b.total) : "to be confirmed"),
     deposit: "$" + dep, cashtag: CASHTAG, site: SITE_URL,
-    depositLine: isPaid(b) ? "Your deposit is already in. Your spot is locked in." : depositLine(dep),
+    depositLine: isPaid(b) ? "Your deposit is already in. Your spot is locked in." : depositLine(dep)
+      + (isModel_(b) ? " Please pay it within " + MODEL_DEPOSIT_HOURS + " hours to keep your spot. If it isn't paid by then, your spot goes to the next person on the waitlist." : ""),
     depositNote: owed ? "Your $" + dep + " deposit will be sent back to you." : "",
     checkinLine: readCheckIn(b) ? "" : "If you haven't yet, please fill out your hair check-in so I can prep for you.",
     within24Line: "I'll confirm within 24 hours.",
@@ -1788,7 +1821,7 @@ function sendTemplate(b, kind, extra, override){
   const button = override && override.button !== undefined ? override.button : r.button;
   const paras = String(body).split(/\n\s*\n/).map(p => p.replace(/\s+$/g, "").replace(/^\s+/g, "")).filter(p => p);
   if(!paras.length || !String(subject).trim()) return false;
-  const tab = kind === "checkin" || ((kind === "received" || kind === "receivedRegular" || kind === "approved") && !readCheckIn(b)) ? "checkin" : "";   // open straight on the form
+  const tab = kind === "confirmAsk" ? "confirm" : kind === "checkin" || ((kind === "received" || kind === "receivedRegular" || kind === "approved") && !readCheckIn(b)) ? "checkin" : "";   // open straight on the form
   if(kind === "rebook"){                                                                       // aftercare guide button + rebooking button
     const t = getTemplates().rebook || {};
     return sendClientEmail(b, subject, paras, { buttons: [
@@ -1847,6 +1880,7 @@ function manageShape(b, extra){
   return Object.assign({
     ok: true, name: firstName(b), service: cleanService(b) + (isSqueeze(b) ? " (priority appointment)" : ""), date: asDate(b.date), time: asTime(b.time), status: b.status,
     total: b.total, depositPaid: isPaid(b), deposit: depositFor_(b), cashtag: CASHTAG, isModel: isModel_(b),
+    confirmedAt: String(b.confirmedAt || ""), depositDue: modelDepositDue_(b),
     isBundle: isBundle(b), isConsult: isConsult(b), hoursUntil: h === null ? null : Math.round(h * 10) / 10,
     request: hasRequest(b) ? { date: asDate(b.reqDate), time: asTime(b.reqTime), reason: String(b.reqReason || ""), at: asText(b.reqAt) } : null,
     lateNote: String(b.lateNote || ""), checkIn: ci, checkInAt: asText(b.checkInAt),
@@ -1943,6 +1977,12 @@ function handleManage(body){
       sendTemplate(b, "clientCancelled", { when: when, depositNote: depositNote });
       refreshSoon();
       return manageShape(b, { done: "cancelled" });
+    }
+
+    if(type === "confirm"){
+      if(!String(b.confirmedAt || "").trim()) set("confirmedAt", nowStamp());
+      refreshSoon();
+      return manageShape(b, { done: "confirmed" });
     }
 
     if(type === "late"){
@@ -2165,7 +2205,9 @@ function adminBooking(b, settings){
     isSqueeze: isSqueeze(b), service: cleanService(b), contentOk: String(b.contentOk || ""),
     regular: String(b.regular || ""), regularRate: String(b.regularRate || ""),
     balancePaid: isTrue(b.balancePaid), paidOnline: String(b.paidOnline || ""),
-    rescheduleCount: Number(b.rescheduleCount) || 0
+    rescheduleCount: Number(b.rescheduleCount) || 0,
+    modelStyle: isModel_(b) ? modelStyle_(b) : "", approvedAt: String(b.approvedAt || ""), confirmedAt: String(b.confirmedAt || ""),
+    confirmEmailed: isTrue(b.confirmEmailed), depositDue: modelDepositDue_(b)
   });
 }
 
@@ -2544,6 +2586,7 @@ function ensureTriggersOnce_(){
   try{ ensurePrepTrigger(); }catch(e){}
   try{ ensureReportTrigger(); }catch(e){}
   try{ if(studioAddress_()) ensureDayOfTrigger_(); }catch(e){}
+  try{ ensureConfirmTrigger_(); }catch(e){}
   try{
     if(!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === "keepWarm"))
       ScriptApp.newTrigger("keepWarm").timeBased().everyMinutes(5).create();
