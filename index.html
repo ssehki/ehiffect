@@ -615,10 +615,28 @@
   /* model call page */
   .mc-hero{ text-align:center; padding:6px 0 18px; }
   .mc-title{ display:block; width:100%; max-width:420px; margin:0 auto 6px; filter:drop-shadow(0 6px 22px rgba(227,138,174,.25)); }
-  .mc-where{ margin:0 0 22px; font-size:10.5px; letter-spacing:.3em; text-transform:uppercase; color:var(--gold); }
+  /* light pink up top, deep pink for your recommendation */
+  .mc-hero{ background:#FBE4EA; margin:-36px -20px 18px; padding:30px 20px 22px !important; }
+  .mc-how{ background:#FDEFF3; border-color:rgba(200,90,140,.35); }
+  .mc-rec{ background:#9E3D69 !important; border:none !important; color:#FFF3F7; }
+  .mc-rec .mc-rec-h{ color:#F7C6DA; }
+  .mc-rec-name{ margin:0 0 10px; font-family:'Cormorant Garamond', serif; font-size:24px; line-height:1.15; color:#FFFFFF; }
+  .mc-rec .mc-rec-rows div{ border-bottom-color:rgba(255,255,255,.22); }
+  .mc-rec .mc-rec-rows dt{ color:#F7C6DA; }
+  .mc-rec .mc-rec-rows dd{ color:#FFFFFF; }
+  .mc-rec .mc-rec-link{ background:#FFFFFF; color:#9E3D69; }
+  .mc-rec .mc-rec-note{ color:#F7D6E4; }
+  .mc-how{ border-color:var(--pink); }
+  .mc-how-h{ margin:0 0 12px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); }
+  .mc-how-list{ margin:0; padding-left:20px; }
+  .mc-how-list li{ margin:0 0 10px; font-size:13.5px; line-height:1.55; color:var(--muted); }
+  .mc-how-list li::marker{ color:var(--pink-text); font-family:'Cormorant Garamond', serif; font-weight:600; }
+  .mc-how-list b{ color:var(--cream); font-weight:600; }
+  .mc-how-foot{ margin:6px 0 0; padding-top:12px; border-top:1px solid var(--line); text-align:center; font-size:12px; color:var(--muted); }
+  .mc-where{ margin:0; font-size:10.5px; letter-spacing:.3em; text-transform:uppercase; color:var(--gold); }
   .mc-rule-list{ list-style:none; margin:0 auto; padding:0; max-width:380px; text-align:left; }
   .mc-rule-list li{ position:relative; padding:5px 0 5px 16px; font-size:13.5px; line-height:1.45; color:var(--cream); }
-  .mc-dates{ margin:24px 0 4px; font-family:'Cormorant Garamond', serif; font-size:26px; color:var(--cream); }
+  .mc-dates{ margin:6px 0 4px; font-family:'Cormorant Garamond', serif; font-size:26px; color:var(--cream); }
   .mc-apply{ margin:0; font-size:11.5px; font-weight:600; letter-spacing:.3em; text-transform:uppercase; color:var(--pink-text); }
   .mc-rules{ margin:0 0 18px; padding:18px 18px 16px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
   .mc-rules-h{ margin:0 0 12px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); }
@@ -1836,7 +1854,7 @@ function resetSelection(){
 
 function render(){
   const app = document.getElementById("app");
-  const isLight = ["landing", "aftercare", "services", "regulars"].includes(state.view);   // these pages are light; the booking flow is dark
+  const isLight = ["landing", "aftercare", "services", "regulars", "model"].includes(state.view);   // these pages are light; the booking flow is dark
   const pageBg = isLight ? "#F8F3EF" : "#171214";
   document.documentElement.style.background = pageBg;
   document.body.style.background = pageBg;
@@ -2712,13 +2730,13 @@ const MODEL_CALL = {
     { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg",
       rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"flipover", name:"Flipover sew-in", price:120, img:"photos/model-flipover.jpg",
-      rec:{ count:"3–4 bundles", texture:"Burmese curly", lengths:"18–22 in or longer", shop:[["Burmese Curly Bundles", "https://a.co/d/0a8mvY80"]] } },
+      rec:{ count:"3–4 bundles", texture:"Burmese curly", len:[["Length", "18 to 22 inches"], ["Longer", "22 inches and up"]], shop:[["Burmese Curly Bundles", "https://a.co/d/0a8mvY80"]] } },
     { key:"bob", name:"Bob sew-in", price:100, img:"photos/model-bob.jpg",
-      rec:{ count:"2–3 bundles", texture:"Straight", lengths:"14 in", shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
+      rec:{ count:"2–3 bundles", texture:"Straight", len:[["Length", "14 inches"]], shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"layers", name:"Straight sew-in with layers", price:130, img:"photos/model-straight-layers.jpg",
-      rec:{ texture:"Straight", lengths:"long, 20 in or longer", shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
+      rec:{ texture:"Straight", len:[["Length", "20 inches or longer"]], shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"peacock", name:"Peacock curls sew-in", price:125, img:"photos/model-peacock-curls.jpg",
-      rec:{ count:"4 bundles", texture:"Body wave", lengths:"18-20-22 or 22-24-26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
+      rec:{ count:"4 bundles", texture:"Body wave", len:[["Lengths", "18, 20 and 22 inches"], ["Longer", "22, 24 and 26 inches"]], shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
     { key:"sidepart", name:"Side-middle part sew-in", price:115, img:"photos/model-side-middle-part.jpg",
       rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
   ],
@@ -2760,22 +2778,24 @@ async function loadModelBusy(){
 }
 function renderModel(){
   const mc = mcState(), closed = liveToday() > MODEL_CALL.until;
-  const shell = inner => `<div class="wrap mc-wrap">
+  const shell = inner => `<div class="wrap theme-light mc-wrap">
     <div class="mc-hero">
       <img class="mc-title" src="photos/model-call-title-clear.png" alt="Model Call"/>
-      <p class="mc-where">bloomington · by The Ehiffect</p>
-      ${mc.done || closed ? "" : `<ul class="mc-rule-list">
-        <li>Must be comfortable with photo/video content</li>
-        <li>$${MODEL_CALL.deposit} non-refundable deposit required to secure appointment</li>
-        <li>Must arrive with hair washed and blow-dried</li>
-        <li>Models provide their own hair (recommendations provided)</li>
-        <li>Hair must be approved before appointment</li>
-        <li>Limited to ${MODEL_CALL.styles.length} selected models</li>
-        <li>Model rates are only valid during the model call</li>
-      </ul>`}
+      <p class="mc-where">Bloomington</p>
       <p class="mc-dates">${MODEL_CALL.dates}</p>
-      ${mc.done || closed ? "" : '<p class="mc-apply">Apply below</p>'}
-    </div>${inner}
+    </div>
+    ${mc.done || closed ? "" : `<div class="card mc-how">
+      <p class="mc-how-h">How it works</p>
+      <ol class="mc-how-list">
+        <li><b>This is an application.</b> Applying doesn't book you. Check your email: I'll let you know if you're approved.</li>
+        <li><b>Your $${MODEL_CALL.deposit} deposit secures your spot.</b> Once you're approved, pay it from the link in your email. It's non-refundable, and your spot isn't held until it's paid.</li>
+        <li><b>You buy your own hair.</b> My recommendation shows when you pick a style. I approve your hair before your appointment.</li>
+        <li><b>You're okay with photos and videos</b> of your hair for my page.</li>
+        <li><b>Come with your hair washed and blow-dried.</b></li>
+      </ol>
+      <p class="mc-how-foot">${MODEL_CALL.styles.length} models only, one per style · model prices are only for this model call</p>
+    </div>`}
+    ${inner}
     <div class="back-link" data-action="go-landing" role="button" tabindex="0" style="display:block; text-align:center; margin-top:22px;">‹ Back to The Ehiffect</div></div>`;
   if(closed) return shell(`<div class="card"><p class="opt-sub" style="margin:0; text-align:center;">This model call has closed. Follow @ehiffect on Instagram for the next one.</p></div>`);
   if(mc.done) return shell(`<div class="card mc-done">
@@ -2816,11 +2836,12 @@ function renderModel(){
       ${loading ? '<p class="opt-sub">Checking which styles are still open…</p>' : ""}
       <div class="mc-styles">${styles}</div>
       ${style && style.rec ? `<div class="mc-rec">
-        <p class="mc-rec-h">My recommendation · ${escapeHTML(style.name)}</p>
+        <p class="mc-rec-h">My recommendation</p>
+        <p class="mc-rec-name">${escapeHTML(style.name)}</p>
         <dl class="mc-rec-rows">
           ${style.rec.count ? `<div><dt>Bundles</dt><dd>${escapeHTML(style.rec.count)}</dd></div>` : ""}
           ${style.rec.texture ? `<div><dt>Texture</dt><dd>${escapeHTML(style.rec.texture)}</dd></div>` : ""}
-          ${style.rec.lengths ? `<div><dt>Length</dt><dd>${escapeHTML(style.rec.lengths)}</dd></div>` : ""}
+          ${(style.rec.len || []).map(([k, v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}
         </dl>
         ${(style.rec.shop || []).map(([label, url]) => `<a class="mc-rec-link" href="${url}" target="_blank" rel="noopener">${(style.rec.shop || []).length > 1 ? escapeHTML(label.replace(/ Bundles$/, "")) + ": l" : "L"}ink to my recommendation ›</a>`).join("")}
         <p class="mc-rec-note">Not sure? Send me the hair before you buy. It has to be approved before your appointment.</p>
@@ -2870,7 +2891,7 @@ async function modelAction(action, key, el){
     mc.style = mc.style === key ? "" : key; mc.wait = ""; mc.err = "";
     const st = MODEL_CALL.styles.find(x => x.key === mc.style);
     if(!mc.f.hair || mc.hairAuto){   // fill "the hair you'll buy" with your recommendation, unless they already typed their own
-      mc.f.hair = st && st.rec ? [st.rec.count, st.rec.texture, st.rec.lengths].filter(Boolean).join(", ") + ((st.rec.shop || [])[0] ? " (" + st.rec.shop[0][0] + ")" : "") : "";
+      mc.f.hair = st && st.rec ? [st.rec.count, st.rec.texture, ((st.rec.len || [])[0] || [])[1]].filter(Boolean).join(", ") + ((st.rec.shop || [])[0] ? " (" + st.rec.shop[0][0] + ")" : "") : "";
       mc.hairAuto = !!mc.f.hair;
     }
   }
