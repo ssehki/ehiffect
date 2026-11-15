@@ -612,6 +612,40 @@
   .home-pin.show{ transform:translate(-50%, 0); }
   @media (prefers-reduced-motion: reduce){ .home-hero-scroll{ animation:none; } .home-hero-bg{ transform:none; } .home-pin{ transition:none; } }
 
+  /* model call page */
+  .mc-rules ul{ margin:0; padding-left:18px; font-size:13px; line-height:1.7; color:var(--muted); }
+  .mc-styles{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .mc-style{ position:relative; display:flex; flex-direction:column; }
+  .mc-pick{ flex:1; }
+  .mc-wrap .step-num{ margin-right:10px; }
+  .mc-pick{ position:relative; display:flex; flex-direction:column; justify-content:flex-start; width:100%; padding:0; border:1px solid var(--line); border-radius:3px; background:var(--panel); color:var(--cream); text-align:left; cursor:pointer; overflow:hidden; font-family:'Work Sans', sans-serif; }
+  .mc-pick img{ display:block; width:100%; aspect-ratio:1/1; object-fit:cover; }
+  .mc-name{ display:block; padding:9px 10px 0; min-height:calc(2.3em + 9px); box-sizing:border-box; font-family:'Cormorant Garamond', serif; font-size:16px; line-height:1.15; }
+  .mc-price{ display:block; padding:2px 10px 10px; font-size:13px; color:var(--pink-text); }
+  .mc-flag{ position:absolute; top:8px; left:8px; padding:4px 8px; border-radius:999px; background:rgba(23,18,20,.82); color:#F4EAE5; font-size:10.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; }
+  .mc-flag.on{ background:var(--pink); color:#241318; }
+  .mc-style.on .mc-pick{ border-color:var(--pink); box-shadow:0 0 0 1px var(--pink); }
+  .mc-style.taken .mc-pick{ cursor:default; }
+  .mc-style.taken img{ filter:grayscale(1); opacity:.4; }
+  .mc-style.taken .mc-name, .mc-style.taken .mc-price{ opacity:.45; text-decoration:line-through; }
+  .mc-wait-btn{ position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); white-space:nowrap; z-index:1; padding:9px 14px; background:rgba(23,18,20,.85) !important; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:12px; cursor:pointer; }
+  .mc-wait{ margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:2px; font-size:13px; color:var(--cream); }
+  .mc-slots{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .mc-slot{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:12px; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; cursor:pointer; text-align:left; }
+  .mc-slot span{ font-size:11.5px; color:var(--muted); }
+  .mc-slot b{ font-size:15px; font-weight:500; }
+  .mc-slot em{ font-style:normal; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .mc-slot.on{ border-color:var(--pink); background:var(--pink); color:#241318; }
+  .mc-slot.on span{ color:#3a2128; }
+  .mc-slot:disabled{ opacity:.4; cursor:default; }
+  .mc-slot:disabled b{ text-decoration:line-through; }
+  .mc-acks{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .mc-ack{ display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.5; color:var(--cream); cursor:pointer; }
+  .mc-ack input{ margin-top:3px; accent-color:var(--pink); width:18px; height:18px; flex:0 0 auto; }
+  .mc-done{ text-align:center; }
+  .mc-done-title{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:22px; color:var(--cream); margin:0 0 14px; }
+  .home-model{ display:block; text-align:center; margin-top:14px; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--pink-text); text-decoration:none; }
+
   /* checkout: the Luxury Care Kit card */
   .kit-card{ margin:16px 0 20px; border:1px solid var(--line); border-radius:3px; background:var(--panel); overflow:hidden; transition:border-color .3s ease; }
   .kit-card.chosen{ border-color:var(--pink); }
@@ -1647,7 +1681,7 @@ let state = {
 /* ============== steps, top menu and the real back button ============== */
 // Booking and Bundles are two steps: pick your service, then Checkout (date, details, send).
 // Every screen change is saved in the browser's history, so Back (and the phone's back swipe) goes one step back.
-const HIST_VIEWS = ['landing','book','bundles','questions','aftercare','gallery','feedback','manage','confirm'];
+const HIST_VIEWS = ['landing','book','bundles','questions','aftercare','gallery','feedback','manage','confirm','model'];
 let histSig = '', histIdx = 0;
 function histSnap(){
   const inFlow = state.view === 'book' || state.view === 'bundles';
@@ -1797,6 +1831,7 @@ function render(){
   else if(state.view === "manage") app.innerHTML = renderManage();
   else if(state.view === "services") app.innerHTML = renderServices();
   else if(state.view === "regulars") app.innerHTML = renderRegulars();
+  else if(state.view === "model") app.innerHTML = renderModel();
   // Style Finder modal: keep the scroll position inside it unless they moved to a new step
   const prevQmScroll = (document.querySelector('.qm-body')||{}).scrollTop || 0;
   if(state.quizOpen) app.insertAdjacentHTML('beforeend', renderQuiz());
@@ -2444,6 +2479,7 @@ function renderLanding(){
       <span class="home-consult-sub">Not sure yet? Begin with a quick call.</span>
     </button>
     <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your visit ›</div>
+    ${liveToday() <= MODEL_CALL.until ? `<a class="home-model" href="#model">Model call · ${MODEL_CALL.dates} · apply ›</a>` : ''}
 
     ${MISSING_PHOTOS.has(KIT_PHOTOS.open) ? '' : `<section class="home-kit" aria-label="The Luxury Care Kit" style="display:none;">
       ${photoIf(KIT_PHOTOS.open, 'Inside the Luxury Care Kit: satin bonnet, oil and a thank-you card', 'home-kit-img').replace('onload="this.style.display=\'\'"', 'onload="this.style.display=\'\'; this.closest(\'.home-kit\').style.display=\'\'"')}
@@ -2634,6 +2670,207 @@ async function manageCall(type, extra){
   const res = await fetch(CONFIG.apiUrl + "?action=manage&payload=" + encodeURIComponent(JSON.stringify(payload)));
   return res.json();
 }
+
+/* ============== MODEL CALL (ehiffect.hair/#model) ==============
+   One model per style, one model per time slot. Taken styles/times grey out for everyone (checked live
+   against your bookings). Applications land in your admin as "MODEL CALL — style", with the hair check-in
+   and photos attached. Approve as usual; the deposit for model calls is $30 and non-refundable.
+   For the next model call: change the dates, styles, prices, photos and slots below. */
+const MODEL_CALL = {
+  until: "2026-11-22",                         // the page closes after this day
+  from: "2026-11-16",
+  dates: "November 16–22",
+  deposit: 30,
+  minutes: 210,
+  styles: [
+    { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg" },
+    { key:"flipover", name:"Flipover sew-in", price:120, img:"photos/model-flipover.jpg" },
+    { key:"bob", name:"Bob sew-in", price:100, img:"photos/model-bob.jpg" },
+    { key:"layers", name:"Straight sew-in with layers", price:130, img:"photos/model-straight-layers.jpg" },
+    { key:"peacock", name:"Peacock curls sew-in", price:125, img:"photos/model-peacock-curls.jpg" },
+    { key:"sidepart", name:"Side-middle part sew-in", price:115, img:"photos/model-side-middle-part.jpg" },
+  ],
+  slots: [
+    { d:"2026-11-16", t:"09:30", label:"9:30 or 10 AM" },
+    { d:"2026-11-16", t:"19:15" },
+    { d:"2026-11-17", t:"18:30" },
+    { d:"2026-11-18", t:"09:30" },
+    { d:"2026-11-18", t:"19:15" },
+    { d:"2026-11-21", t:"10:00" },
+  ],
+};
+const MC_ACKS = [
+  ["content", "I'm comfortable with photos and videos of my hair for The Ehiffect's page."],
+  ["deposit", "I understand there's a $30 non-refundable deposit to secure my spot once I'm approved."],
+  ["washed", "I'll arrive with my hair washed and blow-dried."],
+  ["ownHair", "I'm buying my own hair, and it has to be approved before my appointment."],
+];
+const mcState = () => state.mc || (state.mc = { style:"", slot:"", f:{}, photos:[], ack:{}, err:"", busy:false, done:false, wait:"", waitDone:"", busyList:null });
+const mcSlotKey = s => s.d + " " + s.t;
+const mcTime = t => { const [h, m] = t.split(":").map(Number); return ((h % 12) || 12) + (m ? ":" + String(m).padStart(2, "0") : "") + (h >= 12 ? " PM" : " AM"); };
+const mcDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" });
+const mcMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+function mcStyleTaken(st){ const b = mcState().busyList; return !!b && b.some(x => x.style && x.style.toLowerCase() === st.name.toLowerCase()); }
+function mcSlotTaken(sl){ const b = mcState().busyList; return !!b && b.some(x => x.d === sl.d && x.m !== null && Math.abs(x.m - mcMin(sl.t)) < MODEL_CALL.minutes); }
+async function loadModelBusy(){
+  try{
+    const res = await fetch(`${CONFIG.apiUrl}?action=modelBusy&from=${MODEL_CALL.from}&to=${MODEL_CALL.until}`);
+    const j = await res.json();
+    if(j && j.ok){
+      const mc = mcState(); mc.busyList = j.busy || [];
+      if(mc.style && mcStyleTaken(MODEL_CALL.styles.find(x => x.key === mc.style) || {name:""})) mc.style = "";
+      if(mc.slot && mcSlotTaken(MODEL_CALL.slots.find(x => mcSlotKey(x) === mc.slot) || {d:"", t:"00:00"})) mc.slot = "";
+      if(state.view === "model") render();
+      return;
+    }
+  }catch(e){}
+  const mc = mcState(); if(mc.busyList === null){ mc.busyList = []; if(state.view === "model") render(); }   // couldn't check: let them pick (the server double-checks on send)
+}
+function renderModel(){
+  const mc = mcState(), closed = liveToday() > MODEL_CALL.until;
+  const shell = inner => `<div class="wrap mc-wrap">
+    <div class="hero" style="margin-bottom:18px;">
+      <p class="eyebrow" style="margin-bottom:6px;">The Ehiffect · Bloomington</p>
+      <h1 class="title" style="margin:0 0 8px;">Model Call</h1>
+      <p class="tagline">${MODEL_CALL.dates} · limited to ${MODEL_CALL.styles.length} models</p>
+    </div>${inner}
+    <div class="back-link" data-action="go-landing" role="button" tabindex="0" style="display:block; text-align:center; margin-top:22px;">‹ Back to The Ehiffect</div></div>`;
+  if(closed) return shell(`<div class="card"><p class="opt-sub" style="margin:0; text-align:center;">This model call has closed. Follow @ehiffect on Instagram for the next one.</p></div>`);
+  if(mc.done) return shell(`<div class="card mc-done">
+      <p class="mc-done-title">Application sent. Thank you, ${escapeHTML(String(mc.f.name || "").split(" ")[0])}.</p>
+      <ol class="confirm-steps"><li>I review your hair and your photos (within 24 hours)</li><li>If you're approved, you'll get an email with your $${MODEL_CALL.deposit} deposit link</li><li>Your private appointment page shows your style, your time, and my address on the day</li></ol>
+      <p class="opt-sub" style="text-align:center; margin:0;">Check your email (and spam) for your confirmation.</p></div>`);
+  const loading = mc.busyList === null;
+  const style = MODEL_CALL.styles.find(x => x.key === mc.style);
+  const styles = MODEL_CALL.styles.map(st => {
+    const taken = mcStyleTaken(st), on = mc.style === st.key;
+    return `<div class="mc-style ${taken ? "taken" : ""} ${on ? "on" : ""}">
+      <button type="button" class="mc-pick" data-action="mc-style" data-key="${st.key}" ${taken || loading ? "disabled" : ""} aria-pressed="${on}">
+        <img src="${st.img}" alt="${escapeHTML(st.name)}" loading="lazy"/>
+        <span class="mc-name">${escapeHTML(st.name)}</span><span class="mc-price">$${st.price}</span>
+        ${taken ? '<span class="mc-flag">Taken</span>' : on ? '<span class="mc-flag on">✓ Yours</span>' : ""}
+      </button>
+      ${taken ? `<button type="button" class="mc-wait-btn" data-action="mc-wait" data-key="${st.key}">Join waitlist</button>` : ""}
+    </div>`; }).join("");
+  const waitSt = MODEL_CALL.styles.find(x => x.key === mc.wait);
+  const waitForm = !waitSt ? "" : mc.waitDone === mc.wait
+    ? `<div class="mc-wait"><b>You're on the waitlist for ${escapeHTML(waitSt.name)}.</b> If it opens up, I'll reach out.</div>`
+    : `<div class="mc-wait"><b>Waitlist: ${escapeHTML(waitSt.name)}</b>
+        <p class="opt-sub" style="margin:4px 0 10px;">If this style opens up, I'll reach out to the waitlist in order.</p>
+        <div class="field"><input id="mcw-name" placeholder="Your name" autocomplete="name"/></div>
+        <div class="field"><input id="mcw-contact" placeholder="Phone or Instagram @" /></div>
+        <button type="button" class="cta-btn secondary" data-action="mc-wait-send" style="margin:0;">Add me to the waitlist</button></div>`;
+  const slots = MODEL_CALL.slots.map(sl => {
+    const k = mcSlotKey(sl), taken = mcSlotTaken(sl), on = mc.slot === k;
+    return `<button type="button" class="mc-slot ${on ? "on" : ""}" data-action="mc-slot" data-key="${k}" ${taken || loading ? "disabled" : ""} aria-pressed="${on}">
+      <span>${mcDay(sl.d)}</span><b>${sl.label || mcTime(sl.t)}</b>${taken ? "<em>Taken</em>" : ""}</button>`; }).join("");
+  const f = mc.f, inp = (k, ph, extra = "") => `<input data-mcfield="${k}" value="${escapeHTML(f[k] || "")}" placeholder="${ph}" ${extra}/>`;
+  const sel = (k, opts) => `<select data-mcfield="${k}"><option value="">choose one</option>${opts.map(o => `<option ${f[k] === o ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+  return shell(`
+    <div class="card mc-rules">
+      <ul>
+        <li>One model per style, and each time can only be booked once</li>
+        <li>Comfortable with photo and video content</li>
+        <li>$${MODEL_CALL.deposit} non-refundable deposit to secure your spot (after I approve you)</li>
+        <li>Arrive with your hair washed and blow-dried</li>
+        <li>You buy your own hair (I'll give recommendations), approved before your appointment</li>
+        <li>Model rates are only valid during this model call</li>
+      </ul>
+    </div>
+
+    <div class="card" id="mc-step-style">
+      <div class="step-title"><span class="step-num">1</span>Pick your style</div>
+      ${loading ? '<p class="opt-sub">Checking which styles are still open…</p>' : ""}
+      <div class="mc-styles">${styles}</div>
+      ${waitForm}
+    </div>
+
+    <div class="card" id="mc-step-slot">
+      <div class="step-title"><span class="step-num">2</span>Pick your time</div>
+      <p class="opt-sub" style="margin:0 0 10px;">About 3½ hours in the chair.</p>
+      <div class="mc-slots">${slots}</div>
+    </div>
+
+    <div class="card" id="mc-step-hair">
+      <div class="step-title"><span class="step-num">3</span>Your hair check-in</div>
+      <p class="opt-sub" style="margin:0 0 10px;">So I can make sure your style matches your hair. Add 2 to 4 photos: your natural hair, and your edges (front and sides).</p>
+      <div class="photo-row" id="mc-photos">
+        ${mc.photos.map((ph, i) => `<div class="photo-thumb"><img src="${ph}" alt="Your photo ${i + 1}"/><div class="rm" data-action="mc-rm-photo" data-key="${i}">×</div></div>`).join("")}
+        ${mc.photos.length < 4 ? `<div class="photo-add" id="mc-photo-add" role="button" tabindex="0" aria-label="Add a photo">+</div>` : ""}
+      </div>
+      <input type="file" id="mc-photo-input" accept="image/*" multiple style="display:none;"/>
+      <div class="field"><label>Natural hair color</label>${inp("color", "e.g. natural black, dyed brown")}</div>
+      <div class="field"><label>Natural hair length</label>${sel("length", ["Short (above the ears)", "Chin to shoulder", "Shoulder to armpit", "Past armpit"])}</div>
+      <div class="field"><label>Hair type</label>${sel("texture", ["Natural, tightly coiled (4B–4C)", "Natural, coily (4A)", "Natural, curly (3A–3C)", "Relaxed / straightened", "Not sure"])}</div>
+      <div class="field"><label>Your edges</label>${sel("edges", ["Full and healthy", "Thin in a few spots", "Thin all around", "Not sure"])}</div>
+      <div class="field"><label>The hair you'll buy (brand, texture, length, how many bundles)</label>${inp("hair", "e.g. 3 bundles body wave, 20-22-24 in")}</div>
+      <div class="field"><label>Anything else I should know? (optional)</label><textarea data-mcfield="notes" placeholder="optional">${escapeHTML(f.notes || "")}</textarea></div>
+    </div>
+
+    <div class="card" id="mc-step-you">
+      <div class="step-title"><span class="step-num">4</span>About you</div>
+      <div class="field"><label>Full name</label>${inp("name", "First and last name", 'autocomplete="name"')}</div>
+      <div class="field"><label>Phone</label>${inp("phone", "(555) 555-5555", 'type="tel" autocomplete="tel"')}</div>
+      <div class="field"><label>Email (your confirmation goes here)</label>${inp("email", "you@email.com", 'type="email" autocomplete="email"')}</div>
+      <div class="field"><label>Instagram (optional)</label>${inp("ig", "@yourname")}</div>
+      <div class="mc-acks">${MC_ACKS.map(([k, t]) => `<label class="mc-ack"><input type="checkbox" data-action="mc-ack" data-key="${k}" ${mc.ack[k] ? "checked" : ""}/><span>${t}</span></label>`).join("")}</div>
+    </div>
+
+    ${mc.err ? `<div class="pinbar-err" role="alert" style="margin:0 4px 12px;">${mc.err}</div>` : ""}
+    <button class="submit-btn" data-action="mc-submit" ${mc.busy ? "disabled" : ""}>${mc.busy ? "Sending…" : style ? "Apply for " + escapeHTML(style.name) : "Apply for the model call"}</button>
+    <p class="opt-sub" style="text-align:center; margin-top:10px;">Nothing to pay yet. You'll only pay the deposit if I approve you.</p>`);
+}
+// Clicks on the model-call page. Returns false when the page shouldn't re-render.
+async function modelAction(action, key, el){
+  const mc = mcState();
+  if(action === "mc-style"){ mc.style = mc.style === key ? "" : key; mc.wait = ""; mc.err = ""; }
+  else if(action === "mc-slot"){ mc.slot = mc.slot === key ? "" : key; mc.err = ""; }
+  else if(action === "mc-ack"){ mc.ack[key] = !!el.checked; }
+  else if(action === "mc-rm-photo"){ mc.photos.splice(Number(key), 1); }
+  else if(action === "mc-wait"){ mc.wait = mc.wait === key ? "" : key; }
+  else if(action === "mc-wait-send"){
+    const st = MODEL_CALL.styles.find(x => x.key === mc.wait); if(!st) return;
+    const name = (document.getElementById("mcw-name") || {}).value || "", contact = (document.getElementById("mcw-contact") || {}).value || "";
+    if(!name.trim() || contact.trim().length < 3){ toastMsg("Add your name and your phone or Instagram."); return false; }
+    const isPhone = contact.replace(/\D/g, "").length >= 10;
+    const payload = { name: name.trim(), phone: isPhone ? contact.trim() : "", email: "", appointment: "Model call waitlist",
+      message: "MODEL CALL WAITLIST: " + st.name + (isPhone ? "" : " · Instagram: " + contact.trim()) };
+    if(!isPhone) payload.phone = "0000000000";
+    try{ await fetch(CONFIG.apiUrl + "?action=inquiry&payload=" + encodeURIComponent(JSON.stringify(payload))); }catch(e){}
+    mc.waitDone = mc.wait;
+  }
+  else if(action === "mc-submit"){
+    const st = MODEL_CALL.styles.find(x => x.key === mc.style), sl = MODEL_CALL.slots.find(x => mcSlotKey(x) === mc.slot), f = mc.f;
+    const miss = (msg, id) => { mc.err = msg; render(); const t = document.getElementById(id); if(t) t.scrollIntoView({ behavior:"smooth", block:"center" }); return false; };
+    if(!st) return miss("Pick the style you'd like.", "mc-step-style");
+    if(!sl) return miss("Pick a time that works for you.", "mc-step-slot");
+    if(mc.photos.length < 2) return miss("Add at least 2 photos: your natural hair and your edges.", "mc-step-hair");
+    if(!f.color || !f.length || !f.texture || !f.edges || !(f.hair || "").trim()) return miss("Fill in your hair details (color, length, type, edges, and the hair you'll buy).", "mc-step-hair");
+    if(!(f.name || "").trim() || (f.phone || "").replace(/\D/g, "").length < 10 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email || "")) return miss("Add your name, phone number and email.", "mc-step-you");
+    if(MC_ACKS.some(([k]) => !mc.ack[k])) return miss("Please tick all four boxes to apply.", "mc-step-you");
+    mc.busy = true; mc.err = ""; render();
+    let photoIds = [];
+    try{ photoIds = await uploadPhotos(mc.photos); }catch(e){}
+    const body = {
+      name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), ig: (f.ig || "").trim(),
+      date: sl.d, time: sl.t, serviceLabel: "MODEL CALL — " + st.name + " ($" + st.price + ")", total: st.price,
+      notes: "Model call application." + (sl.label ? " Asked for " + mcDay(sl.d) + ", " + sl.label + "." : "") + (photoIds.length < mc.photos.length ? " (some photos failed to upload — ask her to DM them)" : "") + ((f.notes || "").trim() ? " " + f.notes.trim() : ""),
+      photoIds: photoIds, bookingType: "solo",
+      checkIn: { "Natural hair color": f.color, "Natural hair length": f.length, "Hair type": f.texture, "Edges": f.edges,
+        "Hair she'll buy": f.hair.trim(), "Anything else": (f.notes || "").trim() || "—", "Agreed to": "photos/videos, $30 non-refundable deposit, washed & blow-dried, buying her own hair (to be approved)" },
+    };
+    let res = null;
+    try{ const r = await fetch(CONFIG.apiUrl + "?action=create&payload=" + encodeURIComponent(JSON.stringify(body))); res = await r.json(); }
+    catch(e){ try{ await submitViaGet("create", body); res = { ok: true }; }catch(e2){ res = null; } }
+    mc.busy = false;
+    if(res && res.ok){ mc.done = true; window.scrollTo(0, 0); }
+    else if(res && res.error === "taken-style"){ mc.err = "Someone just took " + st.name + ". Pick another style or join its waitlist."; mc.style = ""; loadModelBusy(); }
+    else if(res && res.error === "taken-slot"){ mc.err = "That time was just taken. Pick another time."; mc.slot = ""; loadModelBusy(); }
+    else mc.err = "That didn't send. Check your connection and try again, or DM @ehiffect on Instagram.";
+  }
+}
+function toastMsg(t){ const mc = mcState(); mc.err = t; render(); }
+
 // The last copy of this appointment is kept on the client's own phone, so coming back shows it instantly while it refreshes.
 const mCacheKey = () => 'ehiffectAppt:' + String(state.manageToken || '');
 async function loadManage(){
@@ -3755,6 +3992,7 @@ function attachHandlers(){
         else if(key === 'consult'){ state.view = 'book'; state.category = 'consult'; }
         else { state.view = 'book'; state.category = null; state.fabPop = true; }
       }
+      else if(action.indexOf('mc-') === 0){ if((await modelAction(action, key, el)) === false) return; }
       else if(action==='go-landing'){ state.view = 'landing'; state.landingMenu = false; state.error = ''; window.scrollTo(0,0); }
       else if(action==='go-back'){ if(goBack()) return; }
       else if(action==='nav-booking' || action==='nav-bundles'){
@@ -4315,6 +4553,17 @@ function attachHandlers(){
     });
   }
 
+  // model-call page: typed answers and photos
+  document.querySelectorAll('[data-mcfield]').forEach(el2 => el2.addEventListener(el2.tagName === 'SELECT' ? 'change' : 'input', e => { mcState().f[el2.getAttribute('data-mcfield')] = e.target.value; }));
+  const mcAdd = document.getElementById('mc-photo-add'), mcInput = document.getElementById('mc-photo-input');
+  if(mcAdd && mcInput){
+    mcAdd.addEventListener('click', () => mcInput.click());
+    mcInput.addEventListener('change', async e => {
+      const mc = mcState(), files = Array.from(e.target.files).slice(0, 4 - mc.photos.length);
+      for(const f of files){ try{ mc.photos.push(await fileToCompressedDataURL(f)); }catch(err){} }
+      mcInput.value = ''; render();
+    });
+  }
   document.querySelectorAll('[data-mfield]').forEach(el2 => el2.addEventListener('input', e => { state.mForm[el2.getAttribute('data-mfield')] = e.target.value; }));
   const mAdd = document.getElementById('m-photo-add'), mInput = document.getElementById('m-photo-input');
   if(mAdd && mInput){
@@ -4572,6 +4821,7 @@ function checkRoute(){
   else if(window.location.hash === '#work'){ state.view = 'gallery'; }
   else if(window.location.hash === '#regulars'){ state.view = REGULARS ? 'services' : REGULARS_ON ? 'regulars' : 'landing'; }
   else if(window.location.hash === '#services'){ state.view = 'services'; }
+  else if(/^#model(call)?$/i.test(window.location.hash)){ state.view = 'model'; loadModelBusy(); }
   else if(/^#feedback(=[a-z]+)?$/.test(window.location.hash)){
     const k = window.location.hash.replace(/^#feedback=?/, '');
     state.view = 'feedback'; if(k && FEEDBACK_SERVICES.some(s => s[0] === k)) state.fbService = k;

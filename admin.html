@@ -356,7 +356,7 @@ function smsHref(b, text){ const ph = String(b.phone || "").replace(/[^\d+]/g, "
 function mailHref(b, subject, text){ return b.email ? "mailto:" + encodeURIComponent(b.email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(text) : ""; }
 function nudges(b){
   if(b.status !== "approved" && b.status !== "pending") return [];
-  const day = when(b), out = [], dep = (S.data.settings && S.data.settings.depositAmount) || 20, cash = S.data.cashtag || "";
+  const day = when(b), out = [], dep = b.deposit || (S.data.settings && S.data.settings.depositAmount) || 20, cash = S.data.cashtag || "";
   if(b.status === "approved" && !b.depositPaid && !b.isConsult) out.push({ label: "deposit", subject: "Your Ehiffect deposit 💗",
     text: `Hey ${first(b.name)}! Just a reminder to send your $${dep} deposit to ${cash} on Cash App to lock in your appointment on ${day}. It comes off your total. Thank you! 💗 — Ehi` });
   if(!b.checkIn && b.manageUrl && !b.isBundle && !b.isConsult) out.push({ label: "check-in", subject: "Your hair check-in for The Ehiffect 💗",
@@ -507,7 +507,7 @@ function inbox(){
         <div class="row-title">${esc(b.name)} ${todo(b) ? '<span class="tag warn">to prep</span>' : ''}${b.status === 'pending' ? ' <span class="tag bad">not approved yet</span>' : ''}${b.isSqueeze ? ' <span class="tag warn">⚡ squeeze-in</span>' : ''}${loyaltyTag(b)}${regTag(b)}${payTag(b)}</div>
         <div class="row-sub">${esc((b.time || "no time") + " · " + svcName(b))}</div>
         ${b.needsHair ? `<div class="row-note">✂ ${esc(b.hairDetails)}</div>` : ''}
-        <div>${regularTag(b)} ${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/^No|face/i.test(b.contentOk || '') ? contentTag(b) : ''}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
+        <div>${b.isModel ? '<span class="tag">📸 model call</span>' : ''}${regularTag(b)} ${b.status === 'approved' && !b.depositPaid ? '<span class="tag bad">no deposit yet</span>' : ''}${b.checkIn ? '<span class="tag good">check-in ✓</span>' : (b.status === 'approved' ? '<span class="tag">no check-in yet</span>' : '')}${/^No|face/i.test(b.contentOk || '') ? contentTag(b) : ''}${/LESS THAN 24 HRS/.test(b.serviceLabel) ? '<span class="tag bad">⏰ last-minute</span>' : ''}</div>
         ${clashNote(b)}
       </div>
       <div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">
@@ -1255,7 +1255,8 @@ document.addEventListener("click", async e => {
     if(!inp.value.trim() || isNaN(n) || n < 0){ toast("Type the amount first."); return; }
     const usd = v => "$" + (Math.round(v * 100) % 100 ? v.toFixed(2) : Math.round(v));
     if(S.compose && S.compose.kind === "deposit"){                    // confirmed total: breakdown in the email + saved on the booking
-      const dep = Number((S.data.settings && S.data.settings.depositAmount) || 20);
+      const cb = (S.data.bookings || []).find(x => x.key === S.compose.key);
+      const dep = Number((cb && cb.deposit) || (S.data.settings && S.data.settings.depositAmount) || 20);
       const block = "Your total: " + usd(n) + "\nDeposit received: −$" + dep + "\nLeft to pay: " + usd(Math.max(0, n - dep));
       const paras = bod.value.replace(/\n*Your total: [^\n]*\nDeposit received: [^\n]*\nLeft to pay: [^\n]*/g, "")
         .replace(/\n*Estimated total: [^\n]*/g, "").replace(/\s+$/, "").split(/\n\s*\n/);

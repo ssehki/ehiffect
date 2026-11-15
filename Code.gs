@@ -454,13 +454,13 @@ function balanceDue_(b){
   if(isBundle(b) || isConsult(b)) return 0;
   const total = hasGrandOverride(b) ? Number(b.grandTotal) : Number(b.total);
   if(!(total > 0)) return 0;
-  return Math.max(0, Math.round((total - (isPaid(b) ? getSettings().depositAmount : 0)) * 100) / 100);
+  return Math.max(0, Math.round((total - (isPaid(b) ? depositFor_(b) : 0)) * 100) / 100);
 }
 // Makes (or reuses) the Square checkout link for this booking's deposit or remaining balance. Saves it on the booking.
 // kind: "deposit" or "balance". Call inside withLock.
 function payLink_(b, kind){
   const sq = square_(); if(!sq) return "";
-  const amount = kind === "deposit" ? getSettings().depositAmount : balanceDue_(b);
+  const amount = kind === "deposit" ? depositFor_(b) : balanceDue_(b);
   if(!(amount > 0)) return "";
   const fee = cardFee_(amount), cents = Math.round((amount + fee) * 100);
   const col = kind === "deposit" ? "squareDeposit" : "squareBalance";
@@ -820,6 +820,22 @@ function applyApproval(sheet, cols, row){
    ================================================================ */
 
 function isBundle(b){ return /^bundle/i.test(String(b.serviceLabel)); }
+// ---------- Model calls ----------
+// A model-call booking's service starts with "MODEL CALL — " then the style name. Its deposit is MODEL_DEPOSIT (non-refundable).
+const MODEL_DEPOSIT = 30;
+const MODEL_MINUTES = 210;
+function isModel_(b){ return /^MODEL CALL/i.test(String(b && b.serviceLabel || "")); }
+function modelStyle_(b){ return String(b.serviceLabel || "").replace(/^MODEL CALL\s*[—-]\s*/i, "").split(" (")[0].trim(); }
+function depositFor_(b){ return isModel_(b) ? MODEL_DEPOSIT : getSettings().depositAmount; }
+function isoOf_(us){ const m = String(us || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + "-" + m[1] + "-" + m[2] : ""; }
+function minsOf_(t){ const m = String(t || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i); if(!m) return null;
+  let h = Number(m[1]) % 12; if(m[3] && m[3].toUpperCase() === "PM") h += 12; if(!m[3]) h = Number(m[1]); return h * 60 + Number(m[2]); }
+// Who holds what between two dates: times only (no names), plus the style for model-call bookings.
+function modelBusy_(from, to, all){
+  return (all || readBookings()).filter(b => isActive(b) && !isBundle(b) && !isConsult(b)).map(b => {
+    const d = isoOf_(asDate(b.date)); return { d: d, m: minsOf_(asTime(b.time)), style: isModel_(b) ? modelStyle_(b) : "" };
+  }).filter(x => x.d && (!from || x.d >= from) && (!to || x.d <= to));
+}
 
 function isConsult(b){ return /^consultation/i.test(String(b.serviceLabel)); }
 
@@ -958,7 +974,7 @@ function whenText(b){
 }
 
 function messageFor(b, depositAmount){
-  depositAmount = depositAmount || getSettings().depositAmount;
+  depositAmount = isModel_(b) ? MODEL_DEPOSIT : (depositAmount || getSettings().depositAmount);
   const hi = "Hi " + firstName(b) + "! ";
   if(isBundle(b) && b.status !== "denied")
     return hi + "Thanks for your bundle request! I'm confirming pricing and shipping timing and will text you your final price and pickup date shortly.";
@@ -1130,9 +1146,17 @@ function handleCreate(body){
 
     if(isRecentDuplicate(all, body.phone)) return { ok: true, key: "" };
 
+    const modelCall = /^MODEL CALL/i.test(String(body.serviceLabel || ""));
+    if(modelCall){
+      const style = modelStyle_({ serviceLabel: body.serviceLabel }), d = String(body.date || "").slice(0, 10), m = minsOf_(body.time);
+      const busy = modelBusy_(d, d, all);
+      if(modelBusy_("", "", all).some(x => x.style && x.style.toLowerCase() === style.toLowerCase())) return { ok: false, error: "taken-style" };
+      if(m !== null && busy.some(x => x.m !== null && Math.abs(x.m - m) < MODEL_MINUTES)) return { ok: false, error: "taken-slot" };
+    }
+
     // Returning client: copy their most recent hair check-in onto this booking, so they're only asked to update it
     // if their hair has changed. (Matched by phone number, like visit counts. Not for bundle orders or consultations.)
-    const carried = (/bundle|consult/i.test(String(body.serviceLabel || ""))) ? null : lastCheckIn_(all, body.phone);
+    const carried = (/bundle|consult|^MODEL CALL/i.test(String(body.serviceLabel || ""))) ? null : lastCheckIn_(all, body.phone);
     if(carried){
       body.notes = "↺ Returning client: hair check-in carried over from " + carried.when + ". She'll update it only if her hair has changed."
         + (body.notes ? " " + body.notes : "");
@@ -1174,7 +1198,12 @@ function handleCreate(body){
       regular: regularMark,
       regularRate: regularRate
     };
-    if(carried){
+    if(modelCall && body.checkIn && typeof body.checkIn === "object"){
+      const answers = {};
+      Object.keys(body.checkIn).slice(0, 20).forEach(k => { answers[clip(k, 60)] = clip(body.checkIn[k], 600); });
+      values.checkIn = JSON.stringify(answers); values.checkInAt = formatTimestamp(Date.now()); values.checkInPhotos = photoUrls.join("|");
+    }
+    else if(carried){
       const answers = Object.assign({}, carried.answers);
       answers[CARRIED_KEY] = carried.when;
       values.checkIn = JSON.stringify(answers); values.checkInAt = carried.at; values.checkInPhotos = carried.photos;
@@ -1325,7 +1354,7 @@ function toWebsiteShape(b, settings){
     loyaltyFlag: b.loyaltyFlag || false, dealKeys: b.dealKeys || "", dealAlert: b.dealAlert || "",
     depositPaid: isPaid(b), depositRefunded: isRefunded(b), checks: b.checks || "", kit: kitTier(b), isBundle: isBundle(b),
     waiting: b.status === "pending" ? wait.text : "", overdue: b.status === "pending" && wait.overdue,
-    text: messageFor(b, settings.depositAmount), textLabel: messageLabel(b),
+    text: messageFor(b, settings.depositAmount), textLabel: messageLabel(b), deposit: depositFor_(b), isModel: isModel_(b),
     email: b.email || "", manageUrl: manageUrl(b),
     request: hasRequest(b) ? { date: asDate(b.reqDate), time: asTime(b.reqTime), reason: String(b.reqReason || ""), within24: isTrue(b.reqWithin24) } : null,
     lateNote: String(b.lateNote || ""), checkIn: readCheckIn(b), checkInPhotos: b.checkInPhotos ? String(b.checkInPhotos).split("|") : [],
@@ -1360,6 +1389,10 @@ function doGet(e){
   // grey them out for new bookers. A day closes the moment someone books it (pending or
   // approved) and reopens as soon as that booking is denied, cancelled, rescheduled, or no-show.
   // Bundle orders (pickup, not a chair slot) and consultations (a phone call) never block a day.
+  if(action === "modelBusy"){
+    const from = String(e.parameter.from || "").slice(0, 10), to = String(e.parameter.to || "").slice(0, 10);
+    return json({ ok: true, busy: modelBusy_(from, to) });
+  }
   if(action === "takenDates"){
     const dates = readBookings()
       .filter(b => isActive(b) && !isBundle(b) && !isConsult(b))
@@ -1711,7 +1744,7 @@ function squeezeFee_(){
   return 35;
 }
 function templateVars(b, extra){
-  const dep = getSettings().depositAmount, owed = isPaid(b) && !isRefunded(b);
+  const dep = depositFor_(b), owed = isPaid(b) && !isRefunded(b);
   // the confirmed total: your final total if you set one, otherwise the booking total (null when unknown)
   const fin = hasGrandOverride(b) ? Number(b.grandTotal) : ((b.total !== "" && b.total !== undefined && !isNaN(Number(b.total))) ? Number(b.total) : null);
   const usd = n => "$" + (Math.round(n * 100) % 100 ? n.toFixed(2) : Math.round(n));
@@ -1780,7 +1813,7 @@ function emailRequestReceived(b){
 }
 
 function emailApproved(b, override){
-  const dep = getSettings().depositAmount;
+  const dep = depositFor_(b);
   if(!override && isBundle(b)) return sendClientEmail(b, "Your Ehiffect bundle order is confirmed!", [
     "Good news, I'm confirming your bundle order!", "Order: " + b.serviceLabel,
     "I'll email you shortly to confirm your final price and pickup date."], { link: false });
@@ -1812,13 +1845,13 @@ function manageShape(b, extra){
   const h = hoursUntil(b), ci = readCheckIn(b);
   return Object.assign({
     ok: true, name: firstName(b), service: cleanService(b) + (isSqueeze(b) ? " (priority appointment)" : ""), date: asDate(b.date), time: asTime(b.time), status: b.status,
-    total: b.total, depositPaid: isPaid(b), deposit: getSettings().depositAmount, cashtag: CASHTAG,
+    total: b.total, depositPaid: isPaid(b), deposit: depositFor_(b), cashtag: CASHTAG, isModel: isModel_(b),
     isBundle: isBundle(b), isConsult: isConsult(b), hoursUntil: h === null ? null : Math.round(h * 10) / 10,
     request: hasRequest(b) ? { date: asDate(b.reqDate), time: asTime(b.reqTime), reason: String(b.reqReason || ""), at: asText(b.reqAt) } : null,
     lateNote: String(b.lateNote || ""), checkIn: ci, checkInAt: asText(b.checkInAt),
     checkInPhotos: b.checkInPhotos ? String(b.checkInPhotos).split("|") : [], thread: readThread(b),
     address: addressShape_(b),   // your address only on the appointment day (see "Your address, shown only on the day")
-    pay: (() => { const dep = getSettings().depositAmount, bal = balanceDue_(b);
+    pay: (() => { const dep = depositFor_(b), bal = balanceDue_(b);
       return { card: !!square_(), deposit: dep, depositCard: dep + cardFee_(dep), balance: bal, balanceCard: bal > 0 ? Math.round((bal + cardFee_(bal)) * 100) / 100 : 0,
                balancePaid: isTrue(b.balancePaid) }; })()
   }, extra || {});
@@ -1892,13 +1925,15 @@ function handleManage(body){
     }
 
     if(type === "cancel"){
-      const reason = clip(body.reason, 600), dep = getSettings().depositAmount, wasPending = b.status === "pending";
+      const reason = clip(body.reason, 600), dep = depositFor_(b), wasPending = b.status === "pending";
       const when = whenText(b);
       set("status", "cancelled"); set("statusEmailed", "cancelled");
       set("cancelInfo", "Client cancelled " + nowStamp() + (within ? " · WITHIN 24 HRS" : "") + (reason ? " · " + reason : ""));
       if(hasRequest(b)) clearReq();
       let depositNote = "";
-      if(!wasPending && isPaid(b)) depositNote = within
+      if(!wasPending && isPaid(b)) depositNote = isModel_(b)
+        ? "Your $" + dep + " model-call deposit is non-refundable. If this was an emergency, I'll review your note and reach out."
+        : within
         ? "Since this was less than 24 hours before your appointment, your $" + dep + " deposit is non-refundable per my policy. If this was an emergency, I'll review your note and reach out."
         : "Since you cancelled more than 24 hours ahead, your $" + dep + " deposit will be refunded.";
       notifyMe("❌ " + b.name + " cancelled" + (within ? " (within 24 hrs)" : ""),
