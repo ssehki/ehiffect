@@ -2634,12 +2634,21 @@ async function manageCall(type, extra){
   const res = await fetch(CONFIG.apiUrl + "?action=manage&payload=" + encodeURIComponent(JSON.stringify(payload)));
   return res.json();
 }
+// The last copy of this appointment is kept on the client's own phone, so coming back shows it instantly while it refreshes.
+const mCacheKey = () => 'ehiffectAppt:' + String(state.manageToken || '');
 async function loadManage(){
-  state.mLoading = true; state.mErr = ""; render();
+  let cached = null;
+  try{ cached = JSON.parse(localStorage.getItem(mCacheKey()) || 'null'); }catch(e){}
+  if(cached && cached.ok && !state.manage){ state.manage = cached; state.mLoading = false; }
+  else state.mLoading = true;
+  state.mErr = ""; render();
   try{
     const d = await manageCall("get");
-    if(d && d.ok){ state.manage = d; } else { state.manage = null; state.mErr = (d && d.error === "notfound") ? "notfound" : "load"; }
-  }catch(err){ state.manage = null; state.mErr = "load"; }
+    if(d && d.ok){
+      state.manage = d;
+      try{ localStorage.setItem(mCacheKey(), JSON.stringify(Object.assign({}, d, { address: null, thread: [], checkIn: null, checkInPhotos: [] }))); }catch(e){}
+    } else { state.manage = null; state.mErr = (d && d.error === "notfound") ? "notfound" : "load"; try{ localStorage.removeItem(mCacheKey()); }catch(e){} }
+  }catch(err){ if(!cached) { state.manage = null; state.mErr = "load"; } }
   state.mLoading = false;
   refreshTakenDates();
   render();

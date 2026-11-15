@@ -1827,19 +1827,24 @@ function manageShape(b, extra){
 /* ---------- actions from the "Manage my appointment" page ---------- */
 
 function handleManage(body){
+  // Just opening the page only reads, so it doesn't wait in line behind your Sheet's background refresh.
+  if(String(body.type || "") === "get"){
+    const b0 = findByToken(body.token);
+    if(!b0) return { ok: false, error: "notfound" };
+    if(!((b0.squareDeposit && !isPaid(b0)) || (b0.squareBalance && !isTrue(b0.balancePaid)))) return manageShape(b0);
+    // just back from a Square checkout: record a card payment straight away (this part does need the lock)
+    return withLock(() => {
+      const b = findByToken(body.token) || b0, sheet = getSheet(), cm = getColumns(sheet).map;
+      try{ if(syncSquarePaid_(b, sheet, cm)) refreshSoon(); }catch(err){ console.error("square check: " + err); }
+      return manageShape(b);
+    });
+  }
   return withLock(() => {
     const b = findByToken(body.token);
     if(!b) return { ok: false, error: "notfound" };
     const sheet = getSheet(), cm = getColumns(sheet).map;
     const set = (f, v) => { setCell(sheet, cm, f, b.row, v); b[f] = v; };
     const type = String(body.type || "");
-    if(type === "get"){
-      // just back from a Square checkout (or checking in later): record a card payment straight away
-      if((b.squareDeposit && !isPaid(b)) || (b.squareBalance && !isTrue(b.balancePaid))){
-        try{ if(syncSquarePaid_(b, sheet, cm)) refreshSoon(); }catch(err){ console.error("square check: " + err); }
-      }
-      return manageShape(b);
-    }
 
     const closed = ["denied", "cancelled", "no-show", "rescheduled"].indexOf(b.status) !== -1;
     if(closed && type !== "message") return manageShape(b, { ok: false, error: "This appointment is " + b.status + ", so it can't be changed here. Send me a message instead." });
