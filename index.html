@@ -614,10 +614,28 @@
 
   /* model call page */
   .mc-hero{ text-align:center; padding:6px 0 18px; }
+  /* Model Call: full-width bands, light pink and dark pink, no white */
+  .wrap.mc-wrap{ background:#F7DCE4; overflow:visible; --panel:#F7DCE4; --line:rgba(142,58,96,.2); --cream:#2B1B20; --muted:#6E4F5B; --pink:#C2457E; --pink-text:#A8336B; --gold:#A8336B; --pink-soft:rgba(194,69,126,.1); }
+  .mc-wrap .mc-hero, .mc-wrap .card{ position:relative; margin:0 -20px; padding:30px 20px; border:none; border-radius:0; box-shadow:0 0 0 100vmax var(--band); clip-path:inset(0 -100vmax); background:var(--band); }
+  .mc-wrap .mc-hero{ --band:#F2C9D7; margin-top:-36px; padding-top:34px; }
+  .mc-wrap .card{ --band:#F7DCE4; }
+  .mc-wrap .card + .card{ border-top:1px solid rgba(142,58,96,.14); }
+  .mc-wrap .mc-pick, .mc-wrap .photo-add, .mc-wrap .mc-wait{ background:#F2C9D7; border-color:rgba(142,58,96,.2); }
+  .mc-wrap .card input, .mc-wrap .card select, .mc-wrap .card textarea{ background:#F2C9D7; border-color:rgba(142,58,96,.25); color:#2B1B20; }
+  .mc-wrap .card input::placeholder, .mc-wrap .card textarea::placeholder{ color:#8C6A77; }
+  .mc-wrap .card.mc-dark{ --band:#8E3A60; --cream:#FFF4F8; --muted:#F4CFDF; --line:rgba(255,255,255,.25); --pink:#F7C6DA; --pink-text:#FFD3E5; --gold:#F7C6DA; --pink-soft:rgba(255,255,255,.12); color:#FFF4F8; border-top:none; }
+  .mc-wrap .card.mc-dark input, .mc-wrap .card.mc-dark select, .mc-wrap .card.mc-dark textarea{ background:#7A2F51; border-color:rgba(255,255,255,.28); color:#FFFFFF; }
+  .mc-wrap .card.mc-dark input::placeholder{ color:rgba(255,235,243,.6); }
+  .mc-wrap .card.mc-dark .mc-slot{ border-color:rgba(255,255,255,.3); color:#FFF4F8; }
+  .mc-wrap .card.mc-dark .mc-slot span{ color:#F4CFDF; }
+  .mc-wrap .card.mc-dark .mc-slot.on{ background:#F7DCE4; border-color:#F7DCE4; color:#8E3A60; }
+  .mc-wrap .card.mc-dark .mc-slot.on span{ color:#8E3A60; }
+  .mc-wrap .card.mc-dark .mc-ack{ color:#FFF4F8; }
+  .mc-wrap .card.mc-dark .mc-ack input{ accent-color:#F7C6DA; }
+  .mc-wrap .submit-btn{ margin-top:24px; background:#8E3A60; border-color:#8E3A60; color:#FFF4F8; }
+
   .mc-title{ display:block; width:100%; max-width:420px; margin:0 auto 6px; filter:drop-shadow(0 6px 22px rgba(227,138,174,.25)); }
   /* light pink up top, deep pink for your recommendation */
-  .mc-hero{ background:#FBE4EA; margin:-36px -20px 18px; padding:30px 20px 22px !important; }
-  .mc-how{ background:#FFFFFF; border-color:var(--line); }
   .mc-rec{ background:#9E3D69 !important; border:none !important; color:#FFF3F7; }
   .mc-rec .mc-rec-h{ color:#F7C6DA; }
   .mc-rec-name{ margin:0 0 10px; font-family:'Cormorant Garamond', serif; font-size:24px; line-height:1.15; color:#FFFFFF; }
@@ -626,12 +644,6 @@
   .mc-rec .mc-rec-rows dd{ color:#FFFFFF; }
   .mc-rec .mc-rec-link{ background:#FFFFFF; color:#9E3D69; }
   .mc-rec .mc-rec-note{ color:#F7D6E4; }
-  .mc-how{ border-color:var(--pink); }
-  /* dark sections (time, about you) like the booking pages */
-  .mc-dark{ background:#1C1618 !important; border-color:#1C1618 !important; color:var(--cream); }
-  .mc-dark .step-title{ color:var(--cream); }
-  .mc-dark .opt-sub, .mc-dark label{ color:var(--muted); }
-  .mc-dark input, .mc-dark select, .mc-dark textarea{ background:#241D20; color:var(--cream); border-color:rgba(255,255,255,.14); }
   .mc-how-h{ margin:0 0 12px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); }
   .mc-how-list{ margin:0; padding-left:20px; }
   .mc-how-list li{ margin:0 0 10px; font-size:13.5px; line-height:1.55; color:var(--muted); }
@@ -1860,7 +1872,7 @@ function resetSelection(){
 function render(){
   const app = document.getElementById("app");
   const isLight = ["landing", "aftercare", "services", "regulars", "model"].includes(state.view);   // these pages are light; the booking flow is dark
-  const pageBg = isLight ? "#F8F3EF" : "#171214";
+  const pageBg = state.view === "model" ? "#F7DCE4" : isLight ? "#F8F3EF" : "#171214";   // model call: blush pink, no white
   document.documentElement.style.background = pageBg;
   document.body.style.background = pageBg;
   if(state.view === "landing") app.innerHTML = renderLanding();
