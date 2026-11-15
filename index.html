@@ -617,7 +617,7 @@
   .mc-title{ display:block; width:100%; max-width:420px; margin:0 auto 6px; filter:drop-shadow(0 6px 22px rgba(227,138,174,.25)); }
   /* light pink up top, deep pink for your recommendation */
   .mc-hero{ background:#FBE4EA; margin:-36px -20px 18px; padding:30px 20px 22px !important; }
-  .mc-how{ background:#FDEFF3; border-color:rgba(200,90,140,.35); }
+  .mc-how{ background:#FFFFFF; border-color:var(--line); }
   .mc-rec{ background:#9E3D69 !important; border:none !important; color:#FFF3F7; }
   .mc-rec .mc-rec-h{ color:#F7C6DA; }
   .mc-rec-name{ margin:0 0 10px; font-family:'Cormorant Garamond', serif; font-size:24px; line-height:1.15; color:#FFFFFF; }
@@ -627,6 +627,11 @@
   .mc-rec .mc-rec-link{ background:#FFFFFF; color:#9E3D69; }
   .mc-rec .mc-rec-note{ color:#F7D6E4; }
   .mc-how{ border-color:var(--pink); }
+  /* dark sections (time, about you) like the booking pages */
+  .mc-dark{ background:#1C1618 !important; border-color:#1C1618 !important; color:var(--cream); }
+  .mc-dark .step-title{ color:var(--cream); }
+  .mc-dark .opt-sub, .mc-dark label{ color:var(--muted); }
+  .mc-dark input, .mc-dark select, .mc-dark textarea{ background:#241D20; color:var(--cream); border-color:rgba(255,255,255,.14); }
   .mc-how-h{ margin:0 0 12px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); }
   .mc-how-list{ margin:0; padding-left:20px; }
   .mc-how-list li{ margin:0 0 10px; font-size:13.5px; line-height:1.55; color:var(--muted); }
@@ -2789,11 +2794,11 @@ function renderModel(){
     ${mc.done || closed ? "" : `<div class="card mc-how">
       <p class="mc-how-h">How it works</p>
       <ol class="mc-how-list">
-        <li><b>This is an application.</b> Applying doesn't book you. Check your email: I'll let you know if you're approved.</li>
-        <li><b>Your $${MODEL_CALL.deposit} deposit secures your spot.</b> Once you're approved, pay it from the link in your email. It's non-refundable, and your spot isn't held until it's paid.</li>
-        <li><b>You buy your own hair.</b> My recommendation shows when you pick a style. I approve your hair before your appointment.</li>
-        <li><b>You're okay with photos and videos</b> of your hair for my page.</li>
-        <li><b>Come with your hair washed and blow-dried.</b></li>
+        <li><b>Apply below.</b> You'll hear back by email.</li>
+        <li><b>Pay your $${MODEL_CALL.deposit} deposit</b> once approved. It locks in your spot (non-refundable).</li>
+        <li><b>Buy your hair.</b> My picks show when you choose a style.</li>
+        <li><b>Be okay with photos + videos.</b></li>
+        <li><b>Arrive with hair washed + blow-dried.</b></li>
       </ol>
       <p class="mc-how-foot">Limited spots: one model per style${MODEL_CALL.styles.some(x => mcSpots(x) > 1) ? " (" + MODEL_CALL.styles.filter(x => mcSpots(x) > 1).map(x => mcSpots(x) + " for " + x.name.replace(/ sew-in$/i, "")).join(", ") + ")" : ""} · model prices are only for this model call</p>
     </div>`}
@@ -2851,7 +2856,7 @@ function renderModel(){
       ${waitForm}
     </div>
 
-    <div class="card" id="mc-step-slot">
+    <div class="card theme-dark mc-dark" id="mc-step-slot">
       <div class="step-title"><span class="step-num">2</span>Pick your time</div>
       <p class="opt-sub" style="margin:0 0 10px;">About 3½ hours in the chair.</p>
       <div class="mc-slots">${slots}</div>
@@ -2873,7 +2878,7 @@ function renderModel(){
       <div class="field"><label>Anything else I should know? (optional)</label><textarea data-mcfield="notes" placeholder="optional">${escapeHTML(f.notes || "")}</textarea></div>
     </div>
 
-    <div class="card" id="mc-step-you">
+    <div class="card theme-dark mc-dark" id="mc-step-you">
       <div class="step-title"><span class="step-num">4</span>About you</div>
       <div class="field"><label>Full name</label>${inp("name", "First and last name", 'autocomplete="name"')}</div>
       <div class="field"><label>Phone</label>${inp("phone", "(555) 555-5555", 'type="tel" autocomplete="tel"')}</div>
