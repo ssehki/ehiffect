@@ -612,18 +612,14 @@
   .home-pin.show{ transform:translate(-50%, 0); }
   @media (prefers-reduced-motion: reduce){ .home-hero-scroll{ animation:none; } .home-hero-bg{ transform:none; } .home-pin{ transition:none; } }
 
-  /* model call page: matches your flyer */
-  .mc-wrap{ --bg:#FCE6E9; --panel:#FFF6F8; --line:rgba(176,72,122,.2); --cream:#2B1B20; --muted:#7D636A; --pink:#E3649D; --pink-soft:rgba(227,100,157,.1); --pink-text:#C83F7E; --gold:#B0477A; background:#FCE6E9; color:#2B1B20; }
-  .mc-wrap .card{ background:#FFF6F8; border-color:rgba(176,72,122,.18); box-shadow:0 6px 24px rgba(176,72,122,.06); }
-  .mc-wrap input, .mc-wrap select, .mc-wrap textarea{ background:#fff; color:#2B1B20; border-color:rgba(176,72,122,.25); }
-  .mc-wrap .submit-btn{ background:#E3649D; color:#fff; border-color:#E3649D; }
-  .mc-wrap .back-link{ color:#C83F7E; }
+  /* model call page */
   .mc-hero{ text-align:center; padding:6px 0 18px; }
-  .mc-title{ display:block; width:100%; max-width:440px; margin:0 auto 18px; }
+  .mc-title{ display:block; width:100%; max-width:420px; margin:0 auto 6px; filter:drop-shadow(0 6px 22px rgba(227,138,174,.25)); }
+  .mc-where{ margin:0 0 22px; font-size:10.5px; letter-spacing:.3em; text-transform:uppercase; color:var(--gold); }
   .mc-rule-list{ list-style:none; margin:0 auto; padding:0; max-width:380px; text-align:left; }
-  .mc-rule-list li{ position:relative; padding:4px 0 4px 14px; font-size:13.5px; line-height:1.45; color:#2B1B20; }
-  .mc-dates{ margin:22px 0 4px; font-size:20px; letter-spacing:.02em; color:#2B1B20; }
-  .mc-apply{ margin:0; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:#E3649D; }
+  .mc-rule-list li{ position:relative; padding:5px 0 5px 16px; font-size:13.5px; line-height:1.45; color:var(--cream); }
+  .mc-dates{ margin:24px 0 4px; font-family:'Cormorant Garamond', serif; font-size:26px; color:var(--cream); }
+  .mc-apply{ margin:0; font-size:11.5px; font-weight:600; letter-spacing:.3em; text-transform:uppercase; color:var(--pink-text); }
   .mc-rules{ margin:0 0 18px; padding:18px 18px 16px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
   .mc-rules-h{ margin:0 0 12px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); }
   .mc-rule-list{ list-style:none; margin:0 auto; padding:0; max-width:360px; }
@@ -645,10 +641,13 @@
   .mc-style.taken img{ filter:grayscale(1); opacity:.4; }
   .mc-style.taken .mc-name, .mc-style.taken .mc-price{ opacity:.45; text-decoration:line-through; }
   .mc-wait-btn{ position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); white-space:nowrap; z-index:1; padding:9px 14px; background:rgba(23,18,20,.85) !important; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:12px; cursor:pointer; }
-  .mc-rec{ margin-top:14px; padding:16px; border:1px solid var(--pink); border-radius:2px; background:var(--pink-soft); }
+  .mc-rec{ margin-top:14px; padding:16px; border:1px solid var(--line); border-radius:2px; background:var(--panel); }
   .mc-rec-h{ margin:0 0 6px; font-size:10.5px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); }
-  .mc-rec-line{ margin:0 0 10px; font-family:'Cormorant Garamond', serif; font-size:19px; line-height:1.3; color:var(--cream); }
-  .mc-rec-link{ display:inline-block; margin:0 8px 8px 0; padding:9px 14px; border-radius:2px; background:var(--pink); color:#241318; font-size:12px; font-weight:600; letter-spacing:.08em; text-decoration:none; }
+  .mc-rec-rows{ margin:0 0 14px; }
+  .mc-rec-rows div{ display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .mc-rec-rows dt{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .mc-rec-rows dd{ margin:0; font-size:14px; text-align:right; color:var(--cream); }
+  .mc-rec-link{ display:block; margin:0 0 8px; padding:12px 14px; text-align:center; border-radius:2px; background:var(--pink); color:#241318; font-size:12px; font-weight:600; letter-spacing:.08em; text-decoration:none; }
   .mc-rec-note{ margin:4px 0 0; font-size:11.5px; line-height:1.5; color:var(--muted); }
   .mc-wait{ margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:2px; font-size:13px; color:var(--cream); }
   .mc-slots{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -1838,7 +1837,7 @@ function resetSelection(){
 function render(){
   const app = document.getElementById("app");
   const isLight = ["landing", "aftercare", "services", "regulars"].includes(state.view);   // these pages are light; the booking flow is dark
-  const pageBg = state.view === "model" ? "#FCE6E9" : isLight ? "#F8F3EF" : "#171214";      // the model call matches your flyer
+  const pageBg = isLight ? "#F8F3EF" : "#171214";
   document.documentElement.style.background = pageBg;
   document.body.style.background = pageBg;
   if(state.view === "landing") app.innerHTML = renderLanding();
@@ -2719,7 +2718,7 @@ const MODEL_CALL = {
     { key:"layers", name:"Straight sew-in with layers", price:130, img:"photos/model-straight-layers.jpg",
       rec:{ texture:"Straight", lengths:"long, 20 in or longer", shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"peacock", name:"Peacock curls sew-in", price:125, img:"photos/model-peacock-curls.jpg",
-      rec:{ count:"4 bundles", texture:"Body wave", lengths:"18, 20, 22 in or 22, 24, 26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
+      rec:{ count:"4 bundles", texture:"Body wave", lengths:"18-20-22 or 22-24-26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
     { key:"sidepart", name:"Side-middle part sew-in", price:115, img:"photos/model-side-middle-part.jpg",
       rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
   ],
@@ -2763,7 +2762,8 @@ function renderModel(){
   const mc = mcState(), closed = liveToday() > MODEL_CALL.until;
   const shell = inner => `<div class="wrap mc-wrap">
     <div class="mc-hero">
-      <img class="mc-title" src="photos/model-call-title.png" alt="Model Call · Bloomington"/>
+      <img class="mc-title" src="photos/model-call-title-clear.png" alt="Model Call"/>
+      <p class="mc-where">bloomington · by The Ehiffect</p>
       ${mc.done || closed ? "" : `<ul class="mc-rule-list">
         <li>Must be comfortable with photo/video content</li>
         <li>$${MODEL_CALL.deposit} non-refundable deposit required to secure appointment</li>
@@ -2816,10 +2816,14 @@ function renderModel(){
       ${loading ? '<p class="opt-sub">Checking which styles are still open…</p>' : ""}
       <div class="mc-styles">${styles}</div>
       ${style && style.rec ? `<div class="mc-rec">
-        <p class="mc-rec-h">What to buy for ${escapeHTML(style.name)}</p>
-        <p class="mc-rec-line">${[style.rec.count, style.rec.texture, style.rec.lengths].filter(Boolean).map(escapeHTML).join(" · ")}</p>
-        ${(style.rec.shop || []).map(([label, url]) => `<a class="mc-rec-link" href="${url}" target="_blank" rel="noopener">${escapeHTML(label)} ›</a>`).join("")}
-        <p class="mc-rec-note">Send me your hair before you buy if you're unsure. It has to be approved before your appointment.</p>
+        <p class="mc-rec-h">My recommendation · ${escapeHTML(style.name)}</p>
+        <dl class="mc-rec-rows">
+          ${style.rec.count ? `<div><dt>Bundles</dt><dd>${escapeHTML(style.rec.count)}</dd></div>` : ""}
+          ${style.rec.texture ? `<div><dt>Texture</dt><dd>${escapeHTML(style.rec.texture)}</dd></div>` : ""}
+          ${style.rec.lengths ? `<div><dt>Length</dt><dd>${escapeHTML(style.rec.lengths)}</dd></div>` : ""}
+        </dl>
+        ${(style.rec.shop || []).map(([label, url]) => `<a class="mc-rec-link" href="${url}" target="_blank" rel="noopener">${(style.rec.shop || []).length > 1 ? escapeHTML(label.replace(/ Bundles$/, "")) + ": l" : "L"}ink to my recommendation ›</a>`).join("")}
+        <p class="mc-rec-note">Not sure? Send me the hair before you buy. It has to be approved before your appointment.</p>
       </div>` : ""}
       ${waitForm}
     </div>
