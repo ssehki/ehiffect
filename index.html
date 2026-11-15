@@ -612,12 +612,23 @@
   .home-pin.show{ transform:translate(-50%, 0); }
   @media (prefers-reduced-motion: reduce){ .home-hero-scroll{ animation:none; } .home-hero-bg{ transform:none; } .home-pin{ transition:none; } }
 
-  /* model call page */
+  /* model call page: matches your flyer */
+  .mc-wrap{ --bg:#FCE6E9; --panel:#FFF6F8; --line:rgba(176,72,122,.2); --cream:#2B1B20; --muted:#7D636A; --pink:#E3649D; --pink-soft:rgba(227,100,157,.1); --pink-text:#C83F7E; --gold:#B0477A; background:#FCE6E9; color:#2B1B20; }
+  .mc-wrap .card{ background:#FFF6F8; border-color:rgba(176,72,122,.18); box-shadow:0 6px 24px rgba(176,72,122,.06); }
+  .mc-wrap input, .mc-wrap select, .mc-wrap textarea{ background:#fff; color:#2B1B20; border-color:rgba(176,72,122,.25); }
+  .mc-wrap .submit-btn{ background:#E3649D; color:#fff; border-color:#E3649D; }
+  .mc-wrap .back-link{ color:#C83F7E; }
+  .mc-hero{ text-align:center; padding:6px 0 18px; }
+  .mc-title{ display:block; width:100%; max-width:440px; margin:0 auto 18px; }
+  .mc-rule-list{ list-style:none; margin:0 auto; padding:0; max-width:380px; text-align:left; }
+  .mc-rule-list li{ position:relative; padding:4px 0 4px 14px; font-size:13.5px; line-height:1.45; color:#2B1B20; }
+  .mc-dates{ margin:22px 0 4px; font-size:20px; letter-spacing:.02em; color:#2B1B20; }
+  .mc-apply{ margin:0; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:#E3649D; }
   .mc-rules{ margin:0 0 18px; padding:18px 18px 16px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
   .mc-rules-h{ margin:0 0 12px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); }
-  .mc-rule-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
-  .mc-rule-grid span{ position:relative; padding-left:14px; font-size:12.5px; line-height:1.4; color:var(--cream); }
-  .mc-rule-grid span::before{ content:""; position:absolute; left:0; top:.5em; width:5px; height:5px; border-radius:50%; background:var(--pink); }
+  .mc-rule-list{ list-style:none; margin:0 auto; padding:0; max-width:360px; }
+  .mc-rule-list li{ position:relative; padding:7px 0 7px 16px; font-size:13px; line-height:1.45; color:var(--cream); }
+  .mc-rule-list li::before{ content:""; position:absolute; left:0; top:14px; width:5px; height:5px; border-radius:50%; background:var(--pink); }
   .mc-wrap .step-title{ display:flex; align-items:baseline; margin:0 0 14px; }
   .mc-styles{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .mc-style{ position:relative; display:flex; flex-direction:column; }
@@ -1827,8 +1838,9 @@ function resetSelection(){
 function render(){
   const app = document.getElementById("app");
   const isLight = ["landing", "aftercare", "services", "regulars"].includes(state.view);   // these pages are light; the booking flow is dark
-  document.documentElement.style.background = isLight ? "#F8F3EF" : "#171214";
-  document.body.style.background = isLight ? "#F8F3EF" : "#171214";
+  const pageBg = state.view === "model" ? "#FCE6E9" : isLight ? "#F8F3EF" : "#171214";      // the model call matches your flyer
+  document.documentElement.style.background = pageBg;
+  document.body.style.background = pageBg;
   if(state.view === "landing") app.innerHTML = renderLanding();
   else if(state.view === "book") app.innerHTML = renderBook();
   else if(state.view === "bundles") app.innerHTML = renderBundles();
@@ -2698,15 +2710,18 @@ const MODEL_CALL = {
   deposit: 30,
   minutes: 210,
   styles: [
-    { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg" },
+    { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg",
+      rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"flipover", name:"Flipover sew-in", price:120, img:"photos/model-flipover.jpg",
       rec:{ count:"3–4 bundles", texture:"Burmese curly", lengths:"18–22 in or longer", shop:[["Burmese Curly Bundles", "https://a.co/d/0a8mvY80"]] } },
     { key:"bob", name:"Bob sew-in", price:100, img:"photos/model-bob.jpg",
       rec:{ count:"2–3 bundles", texture:"Straight", lengths:"14 in", shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
-    { key:"layers", name:"Straight sew-in with layers", price:130, img:"photos/model-straight-layers.jpg" },
+    { key:"layers", name:"Straight sew-in with layers", price:130, img:"photos/model-straight-layers.jpg",
+      rec:{ texture:"Straight", lengths:"long, 20 in or longer", shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"peacock", name:"Peacock curls sew-in", price:125, img:"photos/model-peacock-curls.jpg",
       rec:{ count:"4 bundles", texture:"Body wave", lengths:"18, 20, 22 in or 22, 24, 26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
-    { key:"sidepart", name:"Side-middle part sew-in", price:115, img:"photos/model-side-middle-part.jpg" },
+    { key:"sidepart", name:"Side-middle part sew-in", price:115, img:"photos/model-side-middle-part.jpg",
+      rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
   ],
   slots: [
     { d:"2026-11-16", t:"09:30", label:"9:30 or 10 AM" },
@@ -2747,10 +2762,19 @@ async function loadModelBusy(){
 function renderModel(){
   const mc = mcState(), closed = liveToday() > MODEL_CALL.until;
   const shell = inner => `<div class="wrap mc-wrap">
-    <div class="hero" style="margin-bottom:18px;">
-      <p class="eyebrow" style="margin-bottom:6px;">The Ehiffect · Bloomington</p>
-      <h1 class="title" style="margin:0 0 8px;">Model Call</h1>
-      <p class="tagline">${MODEL_CALL.dates} · limited to ${MODEL_CALL.styles.length} models</p>
+    <div class="mc-hero">
+      <img class="mc-title" src="photos/model-call-title.png" alt="Model Call · Bloomington"/>
+      ${mc.done || closed ? "" : `<ul class="mc-rule-list">
+        <li>Must be comfortable with photo/video content</li>
+        <li>$${MODEL_CALL.deposit} non-refundable deposit required to secure appointment</li>
+        <li>Must arrive with hair washed and blow-dried</li>
+        <li>Models provide their own hair (recommendations provided)</li>
+        <li>Hair must be approved before appointment</li>
+        <li>Limited to ${MODEL_CALL.styles.length} selected models</li>
+        <li>Model rates are only valid during the model call</li>
+      </ul>`}
+      <p class="mc-dates">${MODEL_CALL.dates}</p>
+      ${mc.done || closed ? "" : '<p class="mc-apply">Apply below</p>'}
     </div>${inner}
     <div class="back-link" data-action="go-landing" role="button" tabindex="0" style="display:block; text-align:center; margin-top:22px;">‹ Back to The Ehiffect</div></div>`;
   if(closed) return shell(`<div class="card"><p class="opt-sub" style="margin:0; text-align:center;">This model call has closed. Follow @ehiffect on Instagram for the next one.</p></div>`);
@@ -2785,17 +2809,7 @@ function renderModel(){
   const f = mc.f, inp = (k, ph, extra = "") => `<input data-mcfield="${k}" value="${escapeHTML(f[k] || "")}" placeholder="${ph}" ${extra}/>`;
   const sel = (k, opts) => `<select data-mcfield="${k}"><option value="">choose one</option>${opts.map(o => `<option ${f[k] === o ? "selected" : ""}>${o}</option>`).join("")}</select>`;
   return shell(`
-    <div class="mc-rules">
-      <p class="mc-rules-h">Before you apply</p>
-      <div class="mc-rule-grid">
-        <span>Photo + video</span>
-        <span>$${MODEL_CALL.deposit} deposit, final</span>
-        <span>Washed + blow-dried</span>
-        <span>You bring the hair</span>
-        <span>1 model per style</span>
-        <span>Model rates: this week</span>
-      </div>
-    </div>
+
 
     <div class="card" id="mc-step-style">
       <div class="step-title"><span class="step-num">1</span>Pick your style</div>
