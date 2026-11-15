@@ -613,11 +613,6 @@
   @media (prefers-reduced-motion: reduce){ .home-hero-scroll{ animation:none; } .home-hero-bg{ transform:none; } .home-pin{ transition:none; } }
 
   /* model call page: matches your flyer */
-  .mc-wrap{ --bg:#FCE6E9; --panel:#FFF6F8; --line:rgba(176,72,122,.2); --cream:#2B1B20; --muted:#7D636A; --pink:#E3649D; --pink-soft:rgba(227,100,157,.1); --pink-text:#C83F7E; --gold:#B0477A; background:#FCE6E9; color:#2B1B20; }
-  .mc-wrap .card{ background:#FFF6F8; border-color:rgba(176,72,122,.18); box-shadow:0 6px 24px rgba(176,72,122,.06); }
-  .mc-wrap input, .mc-wrap select, .mc-wrap textarea{ background:#fff; color:#2B1B20; border-color:rgba(176,72,122,.25); }
-  .mc-wrap .submit-btn{ background:#E3649D; color:#fff; border-color:#E3649D; }
-  .mc-wrap .back-link{ color:#C83F7E; }
   .mc-hero{ text-align:center; padding:6px 0 18px; }
   .mc-title{ display:block; width:100%; max-width:440px; margin:0 auto 18px; }
   .mc-rule-list{ list-style:none; margin:0 auto; padding:0; max-width:380px; text-align:left; }
@@ -680,15 +675,15 @@
   .home-model{ text-decoration:none; border-color:var(--pink); box-sizing:border-box; }
   .home-model .home-consult-title{ color:var(--pink-text); }
 
-  /* model call header, cleaned up */
-  .mc-wrap .mc-hero{ padding:4px 0 22px; }
-  .mc-wrap .mc-title{ max-width:400px; margin:0 auto 2px; }
-  .mc-pin{ margin:0 0 20px; font-size:12px; letter-spacing:.06em; color:#7D636A; }
-  .mc-wrap .mc-rule-list{ max-width:400px; margin:0 auto; padding:16px 18px 14px; border-radius:6px; background:#F8D7E1; text-align:left; }
-  .mc-wrap .mc-rule-list li{ padding:4px 0 4px 16px; font-size:13px; line-height:1.45; color:#2B1B20; }
-  .mc-wrap .mc-rule-list li::before{ top:11px; background:#E3649D; }
-  .mc-wrap .mc-dates{ margin:22px 0 2px; font-family:'Cormorant Garamond', serif; font-size:28px; letter-spacing:0; color:#2B1B20; }
-  .mc-wrap .mc-apply{ margin:0; font-size:11.5px; font-weight:600; letter-spacing:.3em; color:#E3649D; }
+  /* model call header: your flyer, as a full-width pink band */
+  .mc-wrap .mc-hero{ position:relative; margin:-36px -20px 24px; padding:34px 20px 30px; background:#FCE6E9; box-shadow:0 0 0 100vmax #FCE6E9; clip-path:inset(0 -100vmax); color:#2B1B20; }
+  .mc-wrap .mc-title{ display:block; width:100%; max-width:400px; margin:0 auto 22px; }
+  .mc-wrap .mc-rule-list{ max-width:360px; margin:0 auto; padding:0; text-align:left; background:none; }
+  .mc-wrap .mc-rule-list li{ padding:3px 0 3px 14px; font-size:13px; line-height:1.45; color:#2B1B20; }
+  .mc-wrap .mc-rule-list li::before{ top:10px; width:4px; height:4px; background:#2B1B20; }
+  .mc-wrap .mc-dates{ margin:24px 0 6px; font-family:'Work Sans', sans-serif; font-size:20px; letter-spacing:.01em; color:#2B1B20; }
+  .mc-wrap .mc-apply{ margin:0; font-size:15px; font-weight:400; letter-spacing:.06em; text-transform:uppercase; color:#E3649D; }
+  .mc-wrap .mc-rec-name{ color:var(--pink-text); }
 
   /* checkout: the Luxury Care Kit card */
   .kit-card{ margin:16px 0 20px; border:1px solid var(--line); border-radius:3px; background:var(--panel); overflow:hidden; transition:border-color .3s ease; }
@@ -1860,7 +1855,7 @@ function resetSelection(){
 function render(){
   const app = document.getElementById("app");
   const isLight = ["landing", "aftercare", "services", "regulars"].includes(state.view);   // these pages are light; the booking flow is dark
-  const pageBg = state.view === "model" ? "#FCE6E9" : isLight ? "#F8F3EF" : "#171214";      // the model call matches your flyer
+  const pageBg = isLight ? "#F8F3EF" : "#171214";
   document.documentElement.style.background = pageBg;
   document.body.style.background = pageBg;
   if(state.view === "landing") app.innerHTML = renderLanding();
@@ -2733,17 +2728,17 @@ const MODEL_CALL = {
   minutes: 210,
   styles: [
     { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg", spots:2,   // "spots": how many models can take this style (1 if left out)
-      rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
+      rec:{ texture:"Body wave or straight", len:[["Length", "18–22 in"]], longer:"22–26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"flipover", name:"Flipover sew-in", price:120, img:"photos/model-flipover.jpg",
-      rec:{ count:"3–4 bundles", texture:"Burmese curly", len:[["Length", "18 to 22 inches (longer is okay)"]], shop:[["Burmese Curly Bundles", "https://a.co/d/0a8mvY80"]] } },
+      rec:{ count:"3–4 bundles", texture:"Burmese curly", len:[["Length", "18–22 in"]], longer:"22–26 in", shop:[["Burmese Curly Bundles", "https://a.co/d/0a8mvY80"]] } },
     { key:"bob", name:"Bob sew-in", price:100, img:"photos/model-bob.jpg",
-      rec:{ count:"2–3 bundles", texture:"Straight", len:[["Length", "14 inches"]], shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
+      rec:{ count:"2–3 bundles", texture:"Straight", len:[["Length", "14 in"]], shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"layers", name:"Straight sew-in with layers", price:130, img:"photos/model-straight-layers.jpg",
-      rec:{ texture:"Straight", len:[["Length", "20 inches or longer"]], shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
+      rec:{ texture:"Straight", len:[["Length", "20–26 in"]], shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"peacock", name:"Peacock curls sew-in", price:125, img:"photos/model-peacock-curls.jpg",
-      rec:{ count:"4 bundles", texture:"Body wave", len:[["Length", "18, 20 and 22 inches"]], longer:"22, 24 and 26 inches", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
+      rec:{ count:"4 bundles", texture:"Body wave", len:[["Length", "18–22 in"]], longer:"22–26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
     { key:"sidepart", name:"Side-middle part sew-in", price:115, img:"photos/model-side-middle-part.jpg",
-      rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
+      rec:{ texture:"Body wave or straight", len:[["Length", "18–22 in"]], longer:"22–26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
   ],
   slots: [
     { d:"2026-11-16", t:"09:30", label:"9:30 or 10 AM" },
@@ -2787,8 +2782,7 @@ function renderModel(){
   const mc = mcState(), closed = liveToday() > MODEL_CALL.until;
   const shell = inner => `<div class="wrap mc-wrap">
     <div class="mc-hero">
-      <img class="mc-title" src="photos/model-call-title-clear.png" alt="Model Call"/>
-      <p class="mc-pin">📍 bloomington</p>
+      <img class="mc-title" src="photos/model-call-title.png" alt="Model Call · Bloomington"/>
       ${mc.done || closed ? "" : `<ul class="mc-rule-list">
         <li>Must be comfortable with photo/video content</li>
         <li>$${MODEL_CALL.deposit} non-refundable deposit required to secure appointment</li>
@@ -2796,6 +2790,7 @@ function renderModel(){
         <li>Models provide their own hair (recommendations provided)</li>
         <li>Hair must be approved before appointment</li>
         <li>Limited to ${MODEL_CALL.styles.reduce((n, x) => n + mcSpots(x), 0)} selected models</li>
+        <li>Applications are first come, first served</li>
         <li>Model rates are only valid during the model call</li>
       </ul>`}
       <p class="mc-dates">${MODEL_CALL.dates}</p>
@@ -2848,7 +2843,7 @@ function renderModel(){
           ${style.rec.texture ? `<div><dt>Texture</dt><dd>${escapeHTML(style.rec.texture)}</dd></div>` : ""}
           ${(style.rec.len || []).map(([k, v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}
         </dl>
-        ${style.rec.longer ? `<p class="mc-rec-alt">Want it longer? Get ${escapeHTML(style.rec.longer)} instead.</p>` : ""}
+        ${style.rec.longer ? `<p class="mc-rec-alt">Want it longer? Go ${escapeHTML(style.rec.longer)}.</p>` : ""}
         ${(style.rec.shop || []).map(([label, url]) => `<a class="mc-rec-link" href="${url}" target="_blank" rel="noopener">${(style.rec.shop || []).length > 1 ? escapeHTML(label.replace(/ Bundles$/, "")) + ": l" : "L"}ink to my recommendation ›</a>`).join("")}
         <p class="mc-rec-note">Not sure? Send me the hair before you buy. It has to be approved before your appointment.</p>
       </div>` : ""}
