@@ -634,6 +634,11 @@
   .mc-style.taken img{ filter:grayscale(1); opacity:.4; }
   .mc-style.taken .mc-name, .mc-style.taken .mc-price{ opacity:.45; text-decoration:line-through; }
   .mc-wait-btn{ position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); white-space:nowrap; z-index:1; padding:9px 14px; background:rgba(23,18,20,.85) !important; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--pink-text); font-family:'Work Sans', sans-serif; font-size:12px; cursor:pointer; }
+  .mc-rec{ margin-top:14px; padding:16px; border:1px solid var(--pink); border-radius:2px; background:var(--pink-soft); }
+  .mc-rec-h{ margin:0 0 6px; font-size:10.5px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); }
+  .mc-rec-line{ margin:0 0 10px; font-family:'Cormorant Garamond', serif; font-size:19px; line-height:1.3; color:var(--cream); }
+  .mc-rec-link{ display:inline-block; margin:0 8px 8px 0; padding:9px 14px; border-radius:2px; background:var(--pink); color:#241318; font-size:12px; font-weight:600; letter-spacing:.08em; text-decoration:none; }
+  .mc-rec-note{ margin:4px 0 0; font-size:11.5px; line-height:1.5; color:var(--muted); }
   .mc-wait{ margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:2px; font-size:13px; color:var(--cream); }
   .mc-slots{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .mc-slot{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:12px; border:1px solid var(--line); border-radius:2px; background:transparent; color:var(--cream); font-family:'Work Sans', sans-serif; cursor:pointer; text-align:left; }
@@ -2694,10 +2699,13 @@ const MODEL_CALL = {
   minutes: 210,
   styles: [
     { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg" },
-    { key:"flipover", name:"Flipover sew-in", price:120, img:"photos/model-flipover.jpg" },
-    { key:"bob", name:"Bob sew-in", price:100, img:"photos/model-bob.jpg" },
+    { key:"flipover", name:"Flipover sew-in", price:120, img:"photos/model-flipover.jpg",
+      rec:{ count:"3–4 bundles", texture:"Burmese curly", lengths:"18–22 in or longer", shop:[["Burmese Curly Bundles", "https://a.co/d/0a8mvY80"]] } },
+    { key:"bob", name:"Bob sew-in", price:100, img:"photos/model-bob.jpg",
+      rec:{ count:"2–3 bundles", texture:"Straight", lengths:"14 in", shop:[["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"layers", name:"Straight sew-in with layers", price:130, img:"photos/model-straight-layers.jpg" },
-    { key:"peacock", name:"Peacock curls sew-in", price:125, img:"photos/model-peacock-curls.jpg" },
+    { key:"peacock", name:"Peacock curls sew-in", price:125, img:"photos/model-peacock-curls.jpg",
+      rec:{ count:"4 bundles", texture:"Body wave", lengths:"18, 20, 22 in or 22, 24, 26 in", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"]] } },
     { key:"sidepart", name:"Side-middle part sew-in", price:115, img:"photos/model-side-middle-part.jpg" },
   ],
   slots: [
@@ -2793,6 +2801,12 @@ function renderModel(){
       <div class="step-title"><span class="step-num">1</span>Pick your style</div>
       ${loading ? '<p class="opt-sub">Checking which styles are still open…</p>' : ""}
       <div class="mc-styles">${styles}</div>
+      ${style && style.rec ? `<div class="mc-rec">
+        <p class="mc-rec-h">What to buy for ${escapeHTML(style.name)}</p>
+        <p class="mc-rec-line">${[style.rec.count, style.rec.texture, style.rec.lengths].filter(Boolean).map(escapeHTML).join(" · ")}</p>
+        ${(style.rec.shop || []).map(([label, url]) => `<a class="mc-rec-link" href="${url}" target="_blank" rel="noopener">${escapeHTML(label)} ›</a>`).join("")}
+        <p class="mc-rec-note">Send me your hair before you buy if you're unsure. It has to be approved before your appointment.</p>
+      </div>` : ""}
       ${waitForm}
     </div>
 
@@ -2834,7 +2848,14 @@ function renderModel(){
 // Clicks on the model-call page. Returns false when the page shouldn't re-render.
 async function modelAction(action, key, el){
   const mc = mcState();
-  if(action === "mc-style"){ mc.style = mc.style === key ? "" : key; mc.wait = ""; mc.err = ""; }
+  if(action === "mc-style"){
+    mc.style = mc.style === key ? "" : key; mc.wait = ""; mc.err = "";
+    const st = MODEL_CALL.styles.find(x => x.key === mc.style);
+    if(!mc.f.hair || mc.hairAuto){   // fill "the hair you'll buy" with your recommendation, unless they already typed their own
+      mc.f.hair = st && st.rec ? [st.rec.count, st.rec.texture, st.rec.lengths].filter(Boolean).join(", ") + ((st.rec.shop || [])[0] ? " (" + st.rec.shop[0][0] + ")" : "") : "";
+      mc.hairAuto = !!mc.f.hair;
+    }
+  }
   else if(action === "mc-slot"){ mc.slot = mc.slot === key ? "" : key; mc.err = ""; }
   else if(action === "mc-ack"){ mc.ack[key] = !!el.checked; }
   else if(action === "mc-rm-photo"){ mc.photos.splice(Number(key), 1); }
@@ -4565,7 +4586,7 @@ function attachHandlers(){
   }
 
   // model-call page: typed answers and photos
-  document.querySelectorAll('[data-mcfield]').forEach(el2 => el2.addEventListener(el2.tagName === 'SELECT' ? 'change' : 'input', e => { mcState().f[el2.getAttribute('data-mcfield')] = e.target.value; }));
+  document.querySelectorAll('[data-mcfield]').forEach(el2 => el2.addEventListener(el2.tagName === 'SELECT' ? 'change' : 'input', e => { const k = el2.getAttribute('data-mcfield'); mcState().f[k] = e.target.value; if(k === 'hair') mcState().hairAuto = false; }));
   const mcAdd = document.getElementById('mc-photo-add'), mcInput = document.getElementById('mc-photo-input');
   if(mcAdd && mcInput){
     mcAdd.addEventListener('click', () => mcInput.click());
