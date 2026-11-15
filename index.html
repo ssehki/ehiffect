@@ -802,6 +802,30 @@
   .pay-title{ font-family:'Cormorant Garamond', serif; font-size:21px; font-weight:500; line-height:1.2; color:var(--cream); margin-bottom:4px; }
   .pay-box .pay-sub{ font-size:12.5px; line-height:1.55; color:var(--muted); margin:0 0 12px; max-width:none; }
   .pay-opts{ display:flex; flex-direction:column; gap:8px; }
+  /* pay options: one clean list, like a real checkout */
+  .pay-list{ border:1px solid var(--line); border-radius:12px; overflow:hidden; background:rgba(255,255,255,.02); }
+  .pay-box .pay-list .pay-row{ display:flex; align-items:center; gap:12px; width:100%; margin:0; padding:14px 14px; border:none; border-radius:0; border-top:1px solid var(--line); background:transparent; color:var(--cream); text-align:left; text-decoration:none; font-family:'Work Sans', sans-serif; cursor:pointer; transition:background .2s ease; }
+  .pay-box .pay-list .pay-row:first-child{ border-top:none; }
+  .pay-box .pay-list .pay-row:hover{ background:rgba(227,138,174,.08); }
+  .pay-box .pay-list .pay-row.pay-card{ background:rgba(227,138,174,.1); color:var(--cream); }
+  .pay-box .pay-list .pay-row.pay-card span{ color:inherit; }
+  .pay-box .pay-list .pay-static{ cursor:default; }
+  .pay-ic{ flex:0 0 36px; width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:17px; color:#fff; }
+  .ic-card{ background:#2E2629; color:var(--pink-text); border:1px solid var(--line); }
+  .ic-cash{ background:#00C244; font-family:'Work Sans', sans-serif; }
+  .ic-zelle{ background:#6D1ED4; font-family:'Work Sans', sans-serif; }
+  .ic-cashbill{ background:#3A6B4A; }
+  .pay-list .pay-mid{ flex:1; min-width:0; }
+  .pay-list .pay-mid b{ display:block; font-size:14.5px; font-weight:600; }
+  .pay-list .pay-mid b em{ font-style:normal; margin-left:6px; padding:2px 7px; border-radius:999px; background:var(--pink); color:#241318; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; vertical-align:2px; }
+  .pay-box .pay-list .pay-mid span{ display:block; margin-top:2px; font-size:12px; color:var(--muted); }
+  .pay-list .pay-amt{ text-align:right; flex:0 0 auto; }
+  .pay-list .pay-amt b{ display:block; font-size:15px; font-weight:600; }
+  .pay-box .pay-list .pay-amt span{ display:block; margin-top:2px; font-size:11px; color:var(--muted); }
+  .pay-box .pay-list span.pay-ic{ display:flex; margin:0; font-size:18px; line-height:1; color:#fff; }
+  .pay-box .pay-list span.pay-ic.ic-card{ color:var(--pink-text); }
+  .pay-chev{ flex:0 0 auto; font-size:20px; line-height:1; color:var(--muted); }
+  .pay-secure{ display:flex; align-items:center; gap:6px; margin:10px 2px 0; font-size:11px; line-height:1.45; color:var(--muted); }
   .pay-box .pay-opt{ display:block; width:100%; margin:0; text-align:left; padding:12px 14px; border:1px solid var(--line); background:transparent; color:var(--cream); border-radius:2px; text-decoration:none; font-family:'Work Sans', sans-serif; font-size:13px; cursor:pointer; transition:border-color .3s ease; }
   .pay-box .pay-opt:hover{ border-color:var(--pink); }
   .pay-box .pay-opt:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
@@ -2350,13 +2374,22 @@ const cashAppUrl = amt => 'https://cash.app/' + CONFIG.cashtag + '/' + amt;   //
 function payOptionsHTML(amount, cardAction, cardKey, opts){
   opts = opts || {};
   const cardAmt = opts.cardAmount || withCardFee(amount);
-  return `<div class="pay-opts">
-    ${CARD_PAY ? `<button type="button" class="pay-opt pay-card" data-action="${cardAction}" data-key="${cardKey || ''}"><b>Card, Apple Pay or Google Pay · ${payMoney(cardAmt)}</b><span>includes a ${payMoney(cardAmt - amount)} card fee${opts.afterpay ? ' · Afterpay available' : ''} · confirmed right away</span></button>` : ''}
-    <a class="pay-opt" href="${cashAppUrl(amount)}" target="_blank" rel="noopener"><b>Cash App · ${payMoney(amount)}</b><span>no fee · opens Cash App to ${escapeHTML(CONFIG.cashtag)}</span></a>
-    ${CONFIG.zelle ? `<button type="button" class="pay-opt" data-action="copy-zelle"><b>Zelle · ${payMoney(amount)}</b><span>${state.zelleCopied ? 'Copied ✓ Paste it into Zelle in your bank app' : 'no fee · tap to copy ' + escapeHTML(CONFIG.zelle) + (CONFIG.zelleName ? ' (' + escapeHTML(CONFIG.zelleName) + ')' : '')}</span></button>` : ''}
-    ${opts.cash ? `<div class="pay-opt pay-static"><b>Cash</b><span>pay in person at your appointment</span></div>` : ''}
+  const chev = '<span class="pay-chev" aria-hidden="true">›</span>';
+  const cardIc = '<span class="pay-ic ic-card" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6 15h4"/></svg></span>';
+  return `<div class="pay-list">
+    ${CARD_PAY ? `<button type="button" class="pay-row pay-opt pay-card" data-action="${cardAction}" data-key="${cardKey || ''}">
+      ${cardIc}<span class="pay-mid"><b>Card <em>fastest</em></b><span>Apple Pay · Google Pay${opts.afterpay ? ' · Afterpay' : ''}</span></span>
+      <span class="pay-amt"><b>${payMoney(cardAmt)}</b><span>incl. ${payMoney(cardAmt - amount)} fee</span></span>${chev}</button>` : ''}
+    <a class="pay-row pay-opt" href="${cashAppUrl(amount)}" target="_blank" rel="noopener">
+      <span class="pay-ic ic-cash" aria-hidden="true">$</span><span class="pay-mid"><b>Cash App</b><span>to ${escapeHTML(CONFIG.cashtag)}</span></span>
+      <span class="pay-amt"><b>${payMoney(amount)}</b><span>no fee</span></span>${chev}</a>
+    ${CONFIG.zelle ? `<button type="button" class="pay-row pay-opt" data-action="copy-zelle">
+      <span class="pay-ic ic-zelle" aria-hidden="true">Z</span><span class="pay-mid"><b>Zelle</b><span>${state.zelleCopied ? 'Number copied ✓ paste it in your bank app' : 'tap to copy my number'}</span></span>
+      <span class="pay-amt"><b>${payMoney(amount)}</b><span>no fee</span></span>${chev}</button>` : ''}
+    ${opts.cash ? `<div class="pay-row pay-opt pay-static"><span class="pay-ic ic-cashbill" aria-hidden="true">¢</span><span class="pay-mid"><b>Cash</b><span>in person at your appointment</span></span></div>` : ''}
   </div>
   ${state.payErr ? `<div class="error-text" role="alert">${state.payErr}</div>` : ''}
+  ${CARD_PAY ? `<p class="pay-secure"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> Card payments are processed securely by Square. Your card details never touch this site.</p>` : ''}
   <p class="pay-note">Cash App${CONFIG.zelle ? ' and Zelle' : ''} payments are marked received once I see them.</p>`;
 }
 
