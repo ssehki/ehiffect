@@ -699,6 +699,12 @@
   .mc-tile{ display:flex; flex-direction:column; justify-content:center; gap:3px; min-height:76px; box-sizing:border-box; padding:12px; border-radius:6px; background:#F8D7E1; text-align:left; }
   .mc-tile b{ font-size:13px; font-weight:600; line-height:1.25; color:#2B1B20; }
   .mc-tile span{ font-size:11.5px; line-height:1.35; color:#7D636A; }
+  .mc-tile.star{ background:#F3C3D3; }
+  .mc-tile.star b{ color:#A8336B; }
+  .mc-tile.full{ grid-column:1 / -1; min-height:0; text-align:center; align-items:center; }
+  .mc-tile.wide{ grid-column:1 / -1; min-height:0; background:#E3649D; }
+  .mc-tile.wide b{ font-size:14.5px; color:#FFFFFF; }
+  .mc-tile.wide span{ color:#FFE9F1; font-size:12px; }
 
   /* checkout: the Luxury Care Kit card */
   .kit-card{ margin:16px 0 20px; border:1px solid var(--line); border-radius:3px; background:var(--panel); overflow:hidden; transition:border-color .3s ease; }
@@ -2801,14 +2807,14 @@ function renderModel(){
       <p class="mc-pin">📍 bloomington</p>
       ${mc.done || closed ? "" : `<p class="mc-tiles-h">How this works</p>
       <div class="mc-tiles">
-        <div class="mc-tile"><b>First come, first served</b><span>Only ${MODEL_CALL.styles.reduce((n, x) => n + mcSpots(x), 0)} models</span></div>
-        <div class="mc-tile"><b>Check your email</b><span>That's where I approve you</span></div>
-        <div class="mc-tile"><b>$${MODEL_CALL.deposit} deposit</b><span>Locks your spot · non-refundable</span></div>
+        <div class="mc-tile star wide"><b>★ Your $${MODEL_CALL.deposit} deposit is your spot</b><span>Applying doesn't hold anything. Your spot is only yours once the deposit is paid (non-refundable).</span></div>
+        <div class="mc-tile star"><b>★ First come, first served</b><span>Only ${MODEL_CALL.styles.reduce((n, x) => n + mcSpots(x), 0)} models</span></div>
+        <div class="mc-tile star"><b>★ Check your email</b><span>That's where I approve you</span></div>
         <div class="mc-tile"><b>Bring your own hair</b><span>My picks show below</span></div>
-        <div class="mc-tile"><b>Hair gets approved</b><span>Before your appointment</span></div>
+        <div class="mc-tile star"><b>★ Hair gets approved</b><span>Before your appointment</span></div>
         <div class="mc-tile"><b>Washed + blow-dried</b><span>Come with hair ready</span></div>
         <div class="mc-tile"><b>Photos + videos</b><span>You're okay being filmed</span></div>
-        <div class="mc-tile"><b>Model rates</b><span>This model call only</span></div>
+        <div class="mc-tile full"><b>Model rates are for this model call only</b></div>
       </div>`}
       <p class="mc-dates">${MODEL_CALL.dates}</p>
       ${mc.done || closed ? "" : '<p class="mc-apply">Apply below ↓</p>'}
