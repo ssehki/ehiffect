@@ -670,6 +670,9 @@
 
   .mc-rec-name{ margin:0 0 10px; font-family:'Cormorant Garamond', serif; font-size:22px; line-height:1.15; color:#C83F7E; }
   .mc-rec-rows{ margin:0 0 14px; }
+  .m-rec-wrap{ margin-top:14px; }
+  .m-rec-wrap .mc-rec{ margin-top:0; }
+  .m-rec-wrap .mc-rec-link{ color:#241318; text-align:center; display:block; padding:12px 14px; }
   .mc-rec-alt{ margin:-4px 0 14px; font-size:13px; line-height:1.5; color:var(--cream); }
   .mc-rec-rows div{ display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--line); }
   .mc-rec-rows dt{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
@@ -2845,6 +2848,26 @@ async function loadModelBusy(){
   }catch(e){}
   const mc = mcState(); if(mc.busyList === null){ mc.busyList = []; if(state.view === "model") render(); }   // couldn't check: let them pick (the server double-checks on send)
 }
+// "My recommendation" for a style: on the Model Call page, and again on an approved model's appointment page.
+function mcRecHTML(style){
+  return style && style.rec ? `<div class="mc-rec">
+        <p class="mc-rec-h">My recommendation</p>
+        <p class="mc-rec-name">${escapeHTML(style.name)}</p>
+        <dl class="mc-rec-rows">
+          ${style.rec.count ? `<div><dt>Bundles</dt><dd>${escapeHTML(style.rec.count)}</dd></div>` : ""}
+          ${style.rec.texture ? `<div><dt>Texture</dt><dd>${escapeHTML(style.rec.texture)}</dd></div>` : ""}
+          ${(style.rec.len || []).map(([k, v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}
+        </dl>
+        ${style.rec.longer ? `<p class="mc-rec-alt">Want it longer? Go ${escapeHTML(style.rec.longer)}.</p>` : ""}
+        ${(style.rec.shop || []).map(([label, url]) => `<a class="mc-rec-link" href="${url}" target="_blank" rel="noopener">${(style.rec.shop || []).length > 1 ? escapeHTML(label.replace(/ Bundles$/, "")) + ": l" : "L"}ink to my recommendation ›</a>`).join("")}
+        <p class="mc-rec-note">Not sure? Send me the hair before you buy. It has to be approved before your appointment.</p>
+      </div>` : "";
+}
+// The model-call style from a booking's service name ("MODEL CALL — Bob sew-in ($100)").
+function mcStyleFromService(svc){
+  const n = String(svc || "").replace(/^MODEL CALL\s*[—-]\s*/i, "").split(" (")[0].trim().toLowerCase();
+  return MODEL_CALL.styles.find(x => x.name.toLowerCase() === n) || null;
+}
 function renderModel(){
   const mc = mcState(), closed = liveToday() > MODEL_CALL.until;
   const shell = inner => `<div class="wrap mc-wrap">
@@ -2906,18 +2929,7 @@ function renderModel(){
       <div class="step-title"><span class="step-num">1</span>Pick your style</div>
       ${loading ? '<p class="opt-sub">Checking which styles are still open…</p>' : ""}
       <div class="mc-styles">${styles}</div>
-      ${style && style.rec ? `<div class="mc-rec">
-        <p class="mc-rec-h">My recommendation</p>
-        <p class="mc-rec-name">${escapeHTML(style.name)}</p>
-        <dl class="mc-rec-rows">
-          ${style.rec.count ? `<div><dt>Bundles</dt><dd>${escapeHTML(style.rec.count)}</dd></div>` : ""}
-          ${style.rec.texture ? `<div><dt>Texture</dt><dd>${escapeHTML(style.rec.texture)}</dd></div>` : ""}
-          ${(style.rec.len || []).map(([k, v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}
-        </dl>
-        ${style.rec.longer ? `<p class="mc-rec-alt">Want it longer? Go ${escapeHTML(style.rec.longer)}.</p>` : ""}
-        ${(style.rec.shop || []).map(([label, url]) => `<a class="mc-rec-link" href="${url}" target="_blank" rel="noopener">${(style.rec.shop || []).length > 1 ? escapeHTML(label.replace(/ Bundles$/, "")) + ": l" : "L"}ink to my recommendation ›</a>`).join("")}
-        <p class="mc-rec-note">Not sure? Send me the hair before you buy. It has to be approved before your appointment.</p>
-      </div>` : ""}
+      ${mcRecHTML(style)}
       ${waitForm}
     </div>
 
@@ -3158,6 +3170,7 @@ function renderManage(){
           <p class="pay-sub">Tap to confirm. If something came up, message me so I can give your spot to the waitlist.</p>
           <button class="cta-btn" data-action="m-confirm" ${state.mBusy ? 'disabled' : ''} style="margin:0;">I'm coming ✓</button></div>`) : ''}
     ${payBoxes}
+    ${m.isModel && !closed && mcStyleFromService(m.service) ? `<div class="m-rec-wrap">${mcRecHTML(mcStyleFromService(m.service))}</div>` : ''}
     ${showCheckin && !m.checkIn ? `<button class="m-checkin-cta" data-action="m-tab" data-key="checkin"><b>Fill out your hair check-in</b><span>Photos + a few quick questions so I can prep for you</span></button>` : ''}
     ${showCheckin && carriedFrom ? `<button class="m-checkin-cta m-checkin-soft" data-action="m-tab" data-key="checkin"><b>Has your hair changed since last time?</b><span>Your hair check-in from ${escapeHTML(carriedFrom)} is on file. Only update it if something's different.</span></button>` : ''}
     ${!closed && !m.isBundle && within && m.status === 'approved' ? `<div class="m-info" style="margin-top:14px;">It's less than 24 hours until your appointment, so changes go through me. Tap <b>Message</b> and I'll sort it out.</div>` : ''}
