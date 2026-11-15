@@ -613,7 +613,12 @@
   @media (prefers-reduced-motion: reduce){ .home-hero-scroll{ animation:none; } .home-hero-bg{ transform:none; } .home-pin{ transition:none; } }
 
   /* model call page */
-  .mc-rules ul{ margin:0; padding-left:18px; font-size:13px; line-height:1.7; color:var(--muted); }
+  .mc-rules{ margin:0 0 18px; padding:18px 18px 16px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  .mc-rules-h{ margin:0 0 12px; text-align:center; font-size:10.5px; font-weight:600; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); }
+  .mc-rule-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
+  .mc-rule-grid span{ position:relative; padding-left:14px; font-size:12.5px; line-height:1.4; color:var(--cream); }
+  .mc-rule-grid span::before{ content:""; position:absolute; left:0; top:.5em; width:5px; height:5px; border-radius:50%; background:var(--pink); }
+  .mc-wrap .step-title{ display:flex; align-items:baseline; margin:0 0 14px; }
   .mc-styles{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .mc-style{ position:relative; display:flex; flex-direction:column; }
   .mc-pick{ flex:1; }
@@ -644,7 +649,8 @@
   .mc-ack input{ margin-top:3px; accent-color:var(--pink); width:18px; height:18px; flex:0 0 auto; }
   .mc-done{ text-align:center; }
   .mc-done-title{ font-family:'Cormorant Garamond', serif; font-style:italic; font-size:22px; color:var(--cream); margin:0 0 14px; }
-  .home-model{ display:block; text-align:center; margin-top:14px; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--pink-text); text-decoration:none; }
+  .home-model{ text-decoration:none; border-color:var(--pink); box-sizing:border-box; }
+  .home-model .home-consult-title{ color:var(--pink-text); }
 
   /* checkout: the Luxury Care Kit card */
   .kit-card{ margin:16px 0 20px; border:1px solid var(--line); border-radius:3px; background:var(--panel); overflow:hidden; transition:border-color .3s ease; }
@@ -2474,12 +2480,16 @@ function renderLanding(){
       </div>
     </div>
 
+    ${liveToday() <= MODEL_CALL.until ? `<a class="home-consult home-model" href="#model">
+      <span class="home-consult-title">Model Call</span>
+      <span class="home-consult-sub">${MODEL_CALL.dates} · limited spots · apply ›</span>
+    </a>` : ''}
     <button type="button" class="home-consult" data-action="landing-pick" data-key="consult">
       <span class="home-consult-title">Consultation</span>
       <span class="home-consult-sub">Not sure yet? Begin with a quick call.</span>
     </button>
     <div class="back-link" data-action="go-questions" role="button" tabindex="0" style="display:block; text-align:center; margin-top:6px;">Questions about your visit ›</div>
-    ${liveToday() <= MODEL_CALL.until ? `<a class="home-model" href="#model">Model call · ${MODEL_CALL.dates} · apply ›</a>` : ''}
+
 
     ${MISSING_PHOTOS.has(KIT_PHOTOS.open) ? '' : `<section class="home-kit" aria-label="The Luxury Care Kit" style="display:none;">
       ${photoIf(KIT_PHOTOS.open, 'Inside the Luxury Care Kit: satin bonnet, oil and a thank-you card', 'home-kit-img').replace('onload="this.style.display=\'\'"', 'onload="this.style.display=\'\'; this.closest(\'.home-kit\').style.display=\'\'"')}
@@ -2767,15 +2777,16 @@ function renderModel(){
   const f = mc.f, inp = (k, ph, extra = "") => `<input data-mcfield="${k}" value="${escapeHTML(f[k] || "")}" placeholder="${ph}" ${extra}/>`;
   const sel = (k, opts) => `<select data-mcfield="${k}"><option value="">choose one</option>${opts.map(o => `<option ${f[k] === o ? "selected" : ""}>${o}</option>`).join("")}</select>`;
   return shell(`
-    <div class="card mc-rules">
-      <ul>
-        <li>One model per style, and each time can only be booked once</li>
-        <li>Comfortable with photo and video content</li>
-        <li>$${MODEL_CALL.deposit} non-refundable deposit to secure your spot (after I approve you)</li>
-        <li>Arrive with your hair washed and blow-dried</li>
-        <li>You buy your own hair (I'll give recommendations), approved before your appointment</li>
-        <li>Model rates are only valid during this model call</li>
-      </ul>
+    <div class="mc-rules">
+      <p class="mc-rules-h">Before you apply</p>
+      <div class="mc-rule-grid">
+        <span>Photo + video</span>
+        <span>$${MODEL_CALL.deposit} deposit, final</span>
+        <span>Washed + blow-dried</span>
+        <span>You bring the hair</span>
+        <span>1 model per style</span>
+        <span>Model rates: this week</span>
+      </div>
     </div>
 
     <div class="card" id="mc-step-style">
