@@ -2727,7 +2727,7 @@ const MODEL_CALL = {
   deposit: 30,
   minutes: 210,
   styles: [
-    { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg",
+    { key:"traditional", name:"Traditional sew-in", price:110, img:"photos/model-traditional.jpg", spots:2,   // "spots": how many models can take this style (1 if left out)
       rec:{ texture:"Body wave or straight", shop:[["Body Wave Bundles", "https://www.amazon.com/dp/B0GWM1RZ6Y"], ["Straight Bundles", "https://a.co/d/0dzyyaf7"]] } },
     { key:"flipover", name:"Flipover sew-in", price:120, img:"photos/model-flipover.jpg",
       rec:{ count:"3–4 bundles", texture:"Burmese curly", len:[["Length", "18 to 22 inches"], ["Longer", "22 inches and up"]], shop:[["Burmese Curly Bundles", "https://a.co/d/0a8mvY80"]] } },
@@ -2760,7 +2760,9 @@ const mcSlotKey = s => s.d + " " + s.t;
 const mcTime = t => { const [h, m] = t.split(":").map(Number); return ((h % 12) || 12) + (m ? ":" + String(m).padStart(2, "0") : "") + (h >= 12 ? " PM" : " AM"); };
 const mcDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" });
 const mcMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-function mcStyleTaken(st){ const b = mcState().busyList; return !!b && b.some(x => x.style && x.style.toLowerCase() === st.name.toLowerCase()); }
+const mcSpots = st => st.spots || 1;
+const mcStyleCount = st => { const b = mcState().busyList || []; return b.filter(x => x.style && x.style.toLowerCase() === st.name.toLowerCase()).length; };
+function mcStyleTaken(st){ return !!mcState().busyList && mcStyleCount(st) >= mcSpots(st); }
 function mcSlotTaken(sl){ const b = mcState().busyList; return !!b && b.some(x => x.d === sl.d && x.m !== null && Math.abs(x.m - mcMin(sl.t)) < MODEL_CALL.minutes); }
 async function loadModelBusy(){
   try{
@@ -2793,7 +2795,7 @@ function renderModel(){
         <li><b>You're okay with photos and videos</b> of your hair for my page.</li>
         <li><b>Come with your hair washed and blow-dried.</b></li>
       </ol>
-      <p class="mc-how-foot">${MODEL_CALL.styles.length} models only, one per style · model prices are only for this model call</p>
+      <p class="mc-how-foot">Limited spots: one model per style${MODEL_CALL.styles.some(x => mcSpots(x) > 1) ? " (" + MODEL_CALL.styles.filter(x => mcSpots(x) > 1).map(x => mcSpots(x) + " for " + x.name.replace(/ sew-in$/i, "")).join(", ") + ")" : ""} · model prices are only for this model call</p>
     </div>`}
     ${inner}
     <div class="back-link" data-action="go-landing" role="button" tabindex="0" style="display:block; text-align:center; margin-top:22px;">‹ Back to The Ehiffect</div></div>`;
@@ -2809,7 +2811,7 @@ function renderModel(){
     return `<div class="mc-style ${taken ? "taken" : ""} ${on ? "on" : ""}">
       <button type="button" class="mc-pick" data-action="mc-style" data-key="${st.key}" ${taken || loading ? "disabled" : ""} aria-pressed="${on}">
         <img src="${st.img}" alt="${escapeHTML(st.name)}" loading="lazy"/>
-        <span class="mc-name">${escapeHTML(st.name)}</span><span class="mc-price">$${st.price}</span>
+        <span class="mc-name">${escapeHTML(st.name)}</span><span class="mc-price">$${st.price}${mcSpots(st) > 1 && !taken ? ` · ${mcSpots(st) - mcStyleCount(st)} spot${mcSpots(st) - mcStyleCount(st) === 1 ? '' : 's'} left` : ""}</span>
         ${taken ? '<span class="mc-flag">Taken</span>' : on ? '<span class="mc-flag on">✓ Yours</span>' : ""}
       </button>
       ${taken ? `<button type="button" class="mc-wait-btn" data-action="mc-wait" data-key="${st.key}">Join waitlist</button>` : ""}
@@ -2924,7 +2926,7 @@ async function modelAction(action, key, el){
     try{ photoIds = await uploadPhotos(mc.photos); }catch(e){}
     const body = {
       name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), ig: (f.ig || "").trim(),
-      date: sl.d, time: sl.t, serviceLabel: "MODEL CALL — " + st.name + " ($" + st.price + ")", total: st.price,
+      date: sl.d, time: sl.t, serviceLabel: "MODEL CALL — " + st.name + " ($" + st.price + ")", total: st.price, modelSpots: mcSpots(st),
       notes: "Model call application." + (sl.label ? " Asked for " + mcDay(sl.d) + ", " + sl.label + "." : "") + (photoIds.length < mc.photos.length ? " (some photos failed to upload — ask her to DM them)" : "") + ((f.notes || "").trim() ? " " + f.notes.trim() : ""),
       photoIds: photoIds, bookingType: "solo",
       checkIn: { "Natural hair color": f.color, "Natural hair length": f.length, "Hair type": f.texture, "Edges": f.edges,

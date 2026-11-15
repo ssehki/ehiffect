@@ -1150,7 +1150,8 @@ function handleCreate(body){
     if(modelCall){
       const style = modelStyle_({ serviceLabel: body.serviceLabel }), d = String(body.date || "").slice(0, 10), m = minsOf_(body.time);
       const busy = modelBusy_(d, d, all);
-      if(modelBusy_("", "", all).some(x => x.style && x.style.toLowerCase() === style.toLowerCase())) return { ok: false, error: "taken-style" };
+      const spots = Math.max(1, Math.min(3, Number(body.modelSpots) || 1));   // most styles take 1 model; the site says if one takes more
+      if(modelBusy_("", "", all).filter(x => x.style && x.style.toLowerCase() === style.toLowerCase()).length >= spots) return { ok: false, error: "taken-style" };
       if(m !== null && busy.some(x => x.m !== null && Math.abs(x.m - m) < MODEL_MINUTES)) return { ok: false, error: "taken-slot" };
     }
 
