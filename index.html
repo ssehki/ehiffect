@@ -98,6 +98,20 @@
   .step-title{ font-family:'Cormorant Garamond', serif; font-size:21px; font-weight:500; color:var(--cream); letter-spacing:0.01em; }
 
   .cat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  /* service picker: big tiles, two across, filling the page */
+  .card.pick-card{ padding:22px 16px 18px; }
+  .cat-tiles{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .cat-tile{ position:relative; display:block; width:100%; aspect-ratio:4/5; padding:0; border:none; border-radius:4px; overflow:hidden; cursor:pointer; text-align:left; font-family:'Work Sans', sans-serif; background:#3A2530; }
+  .cat-tile img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:filter .3s ease, transform .5s ease; }
+  .cat-tile.has-photo::after{ content:""; position:absolute; inset:0; background:linear-gradient(to bottom, rgba(23,18,20,0) 45%, rgba(23,18,20,.85) 100%); }
+  .cat-tile.no-photo{ background:linear-gradient(160deg, #4A2C3B 0%, #2B1D24 100%); border:1px solid rgba(227,138,174,.25); }
+  .cat-tile.no-photo.alt{ background:linear-gradient(160deg, #3A2530 0%, #211A1D 100%); }
+  .cat-tile:hover img, .cat-tile:active img{ filter:brightness(.6); transform:scale(1.03); }
+  .cat-tile.no-photo:hover{ border-color:var(--pink); }
+  .cat-tile:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
+  .cat-tile-txt{ position:absolute; left:0; right:0; bottom:0; z-index:1; padding:12px; }
+  .cat-tile-txt b{ display:block; font-family:'Cormorant Garamond', serif; font-size:20px; font-weight:500; line-height:1.1; color:#F4EAE5; }
+  .cat-tile-txt span{ display:block; margin-top:4px; font-size:11.5px; line-height:1.35; color:rgba(244,234,229,.78); }
   .cat{ border:1px solid var(--line); border-radius:2px; padding:14px 10px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; color:var(--cream); }
   .cat:hover{ border-color:var(--pink); }
   .cat.selected{ background:var(--pink); border-color:var(--pink); }
@@ -1785,7 +1799,7 @@ const HIST_VIEWS = ['landing','book','bundles','questions','aftercare','gallery'
 let histSig = '', histIdx = 0;
 function histSnap(){
   const inFlow = state.view === 'book' || state.view === 'bundles';
-  const step = (inFlow && state.bookStep === 'checkout') ? 'checkout' : 'service';
+  const step = (inFlow && state.bookStep === 'checkout') ? 'checkout' : (state.view === 'book' && state.category) ? 'detail' : 'service';
   return { ehi:1, idx:histIdx, view:state.view, step:step, sig: state.view + (inFlow ? ':' + step : '') };
 }
 function initHistory(){
@@ -1812,6 +1826,7 @@ window.addEventListener('popstate', e=>{
   if(v === 'confirm' && !state.wasSubmitted) v = 'landing';
   state.view = v;
   if(v === 'book' && state.category === 'bundles'){ resetSelection(); state.category = null; }
+  if(v === 'book' && h.step === 'service' && state.category){ resetSelection(); state.category = null; }   // back from a service page to all services
   if(v === 'bundles' && state.category !== 'bundles'){ resetSelection(); state.category = 'bundles'; }
   state.bookStep = (h.step === 'checkout' && (v === 'book' || v === 'bundles') && serviceChosen()) ? 'checkout' : 'service';
   const s = histSnap(); histSig = s.sig;
@@ -2315,6 +2330,25 @@ const CATEGORIES = [
   { key:'takedown', name:'Takedowns' },
   { key:'custom', name:'Custom' },
 ];
+
+// Booking: the service tiles. A photo shows when there's one; the rest get a pink tile with the name.
+const CAT_TILES = {
+  si:{ img:"photos/sew-in-kinky-straight.jpg", sub:"Bundles sewn over a braid-down" },
+  qw:{ img:"photos/quick-weave.jpg", pos:"center 28%", sub:"Bonded install, quick + full" },
+  braids:{ img:"photos/sew-in-fulani-braids.jpg", sub:"Box braids, twists + more" },
+  cornrows:{ img:"photos/braid-down.jpg", sub:"Plus braid downs" },
+  crochet:{ sub:"Installed over a braid-down" },
+  treatments:{ sub:"Care for your natural hair" },
+  takedown:{ sub:"Sew-in, braids, crochet" },
+  custom:{ sub:"Tell me what you have in mind" },
+};
+function catTilesHTML(){
+  return `<div class="cat-tiles">${CATEGORIES.map((c, i) => { const t = CAT_TILES[c.key] || {};
+    return `<button type="button" class="cat-tile ${t.img ? 'has-photo' : 'no-photo' + (i % 2 ? ' alt' : '')}" data-action="pick-category" data-key="${c.key}">
+      ${t.img ? `<img src="${t.img}" alt="" loading="lazy" ${t.pos ? `style="object-position:${t.pos}"` : ''}/>` : ''}
+      <span class="cat-tile-txt"><b>${c.name}</b>${t.sub ? `<span>${t.sub}</span>` : ''}</span>
+    </button>`; }).join('')}</div>`;
+}
 
 // Homepage "recent work" photos. Real client photos only; put the files in the photos/ folder next to index.html.
 // The first one shows large. Any file that isn't there yet is simply left out.
@@ -3422,18 +3456,19 @@ function renderBook(){
       ${regularsBannerHTML()}
     </div>
 
-    ${co ? checkoutSummaryHTML() : `<div class="card">
-      <span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>
+    ${co ? checkoutSummaryHTML() : `<div class="card ${state.category ? '' : 'pick-card'}">
+      ${state.category
+        ? `<span class="back-link" data-action="pick-category" data-key="" role="button" tabindex="0">&lsaquo; all services</span>`
+        : `<span class="back-link" data-action="go-back" role="button" tabindex="0">&lsaquo; back</span>`}
       ${state.category==='consult' ? `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Consultation</span></div>
       <div class="back-link" data-action="pick-category" data-key="" role="button" tabindex="0" style="margin:-4px 0 10px;">See all services instead ›</div>
       <p class="aftercare-text" style="margin:0;">Not sure a style will work for your hair, or just have questions before committing? A consultation is time set aside just to talk through it — whether it's a specific concern about your hair, making sure a service is possible, or anything else you'd like to ask. I'll confirm the consultation once it's booked.</p>
       ` : `
+      ${state.category ? `<div class="step-label"><span class="step-num">1</span><span class="step-title">${(CATEGORIES.find(c => c.key === state.category) || { name:'Your service' }).name}</span></div>` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Select your service</span></div>
-      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 12px;">Unsure? Begin with a consultation ›</div>
-      <div class="cat-grid">
-        ${CATEGORIES.map(c=>`<div class="cat  ${state.category===c.key?'selected':''}" data-action="pick-category" data-key="${c.key}"><div class="cat-name">${c.name}</div></div>`).join('')}
-      </div>`}
+      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 14px;">Unsure? Begin with a consultation ›</div>
+      ${catTilesHTML()}`}`}
 
 
       ${(state.category==='qw'||state.category==='si') ? `
@@ -4406,7 +4441,7 @@ function attachHandlers(){
         window.scrollTo(0,0);
       }
       else if(action==='go-questions'){ state.view = 'questions'; state.landingMenu = false; }
-      else if(action==='pick-category'){ state.category = key; resetSelection(); }
+      else if(action==='pick-category'){ state.category = key; resetSelection(); window.scrollTo(0, 0); }   // a picked service opens as its own page
       else if(action==='toggle-deal'){
         const idx = state.dealsSelected.indexOf(key);
         if(idx >= 0){ state.dealsSelected.splice(idx,1); }
