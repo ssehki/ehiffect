@@ -2584,7 +2584,7 @@ function renderLanding(){
       </div>
     </div>
 
-    ${liveToday() <= MODEL_CALL.until ? `<a class="home-consult home-model" href="#model">
+    ${MODEL_CALL.open && liveToday() <= MODEL_CALL.until ? `<a class="home-consult home-model" href="#model">
       <span class="home-consult-title">Model Call</span>
       <span class="home-consult-sub">${MODEL_CALL.dates} · limited spots · apply ›</span>
     </a>` : ''}
@@ -2791,7 +2791,8 @@ async function manageCall(type, extra){
    and photos attached. Approve as usual; the deposit for model calls is $30 and non-refundable.
    For the next model call: change the dates, styles, prices, photos and slots below. */
 const MODEL_CALL = {
-  until: "2026-11-22",                         // the page closes after this day
+  open: false,                                 // false = closed: the homepage box is hidden and the page says it's over (set true for the next one)
+  until: "2026-11-22",                         // the page also closes by itself after this day
   from: "2026-11-16",
   dates: "November 16–22",
   deposit: 30,
@@ -2869,7 +2870,7 @@ function mcStyleFromService(svc){
   return MODEL_CALL.styles.find(x => x.name.toLowerCase() === n) || null;
 }
 function renderModel(){
-  const mc = mcState(), closed = liveToday() > MODEL_CALL.until;
+  const mc = mcState(), closed = !MODEL_CALL.open || liveToday() > MODEL_CALL.until;
   const shell = inner => `<div class="wrap mc-wrap">
     <div class="mc-hero">
       <img class="mc-title" src="photos/model-call-title-clear.png" alt="Model Call"/>
