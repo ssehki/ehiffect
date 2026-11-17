@@ -741,6 +741,13 @@
   /* service tiles, final: like the original boxes, just bigger */
   .cat-tiles .cat-tile, .cat-tiles .cat-tile.no-photo, .cat-tiles .cat-tile.no-photo.alt{ height:106px; min-height:0; display:flex; align-items:center; justify-content:center; background:transparent; border:1px solid var(--line); border-radius:2px; text-align:center; transition:border-color .2s ease, background .2s ease; }
   .cat-tiles .cat-tile:hover, .cat-tiles .cat-tile:active{ background:transparent; border-color:var(--pink); }
+  /* left-aligned words, and the boxes stretch wider: less padding around them, and a wider page on computers */
+  .cat-tiles .cat-tile, .cat-tiles .cat-tile.no-photo, .cat-tiles .cat-tile.no-photo.alt{ justify-content:flex-start; text-align:left; }
+  .cat-tiles .cat-tile-txt{ padding:14px 16px !important; }
+  .card.pick-card{ padding-left:10px; padding-right:10px; }
+  .card.pick-card > .back-link, .card.pick-card > .step-label{ margin-left:8px; }
+  .cat-tiles{ gap:8px; }
+  @media (min-width:700px){ .wrap:has(.pick-card){ max-width:760px; } }
   .cat-tiles .cat-tile-txt{ position:static; padding:14px 10px !important; }
   .cat-tiles .cat-tile-txt b{ font-family:'Cormorant Garamond', serif; font-size:23px; font-weight:500; line-height:1.1; color:var(--cream); }
   .cat-tiles .cat-tile-txt span{ margin-top:4px; font-size:11.5px; color:var(--muted); }
@@ -3476,7 +3483,7 @@ function renderBook(){
       ` : `
       ${state.category ? `<div class="step-label"><span class="step-num">1</span><span class="step-title">${(CATEGORIES.find(c => c.key === state.category) || { name:'Your service' }).name}</span></div>` : `
       <div class="step-label"><span class="step-num">1</span><span class="step-title">Select your service</span></div>
-      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 14px;">Unsure? Begin with a consultation ›</div>
+      <div class="back-link" data-action="pick-category" data-key="consult" role="button" tabindex="0" style="display:block; text-align:left; margin:2px 0 14px 8px;">Unsure? Begin with a consultation ›</div>
       ${catTilesHTML()}`}`}
 
 
