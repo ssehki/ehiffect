@@ -101,16 +101,18 @@
   /* service picker: big tiles, two across, filling the page */
   .card.pick-card{ padding:22px 16px 18px; }
   .cat-tiles{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .cat-tile{ position:relative; display:block; width:100%; aspect-ratio:4/5; padding:0; border:none; border-radius:4px; overflow:hidden; cursor:pointer; text-align:left; font-family:'Work Sans', sans-serif; background:#3A2530; }
+  .cat-tile{ position:relative; display:block; width:100%; height:clamp(150px, 21vh, 230px); padding:0; border:none; border-radius:4px; overflow:hidden; cursor:pointer; text-align:left; font-family:'Work Sans', sans-serif; background:#3A2530; }
   .cat-tile img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:filter .3s ease, transform .5s ease; }
   .cat-tile.has-photo::after{ content:""; position:absolute; inset:0; background:linear-gradient(to bottom, rgba(23,18,20,0) 45%, rgba(23,18,20,.85) 100%); }
   .cat-tile.no-photo{ background:linear-gradient(160deg, #4A2C3B 0%, #2B1D24 100%); border:1px solid rgba(227,138,174,.25); }
   .cat-tile.no-photo.alt{ background:linear-gradient(160deg, #3A2530 0%, #211A1D 100%); }
   .cat-tile:hover img, .cat-tile:active img{ filter:brightness(.6); transform:scale(1.03); }
-  .cat-tile.no-photo:hover{ border-color:var(--pink); }
+  .cat-tile.no-photo:hover, .cat-tile.no-photo:active{ border-color:var(--pink); background:linear-gradient(160deg, #5A3347 0%, #2B1D24 100%); }
+  .cat-tile-go{ position:absolute; top:10px; right:12px; font-size:20px; line-height:1; color:var(--pink-text); }
   .cat-tile:focus-visible{ outline:2px solid var(--pink); outline-offset:2px; }
   .cat-tile-txt{ position:absolute; left:0; right:0; bottom:0; z-index:1; padding:12px; }
-  .cat-tile-txt b{ display:block; font-family:'Cormorant Garamond', serif; font-size:20px; font-weight:500; line-height:1.1; color:#F4EAE5; }
+  .cat-tile-txt{ padding:16px !important; }
+  .cat-tile-txt b{ display:block; font-family:'Cormorant Garamond', serif; font-size:clamp(22px, 2.6vw, 30px); font-weight:500; line-height:1.1; color:#F4EAE5; }
   .cat-tile-txt span{ display:block; margin-top:4px; font-size:11.5px; line-height:1.35; color:rgba(244,234,229,.78); }
   .cat{ border:1px solid var(--line); border-radius:2px; padding:14px 10px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; color:var(--cream); }
   .cat:hover{ border-color:var(--pink); }
@@ -2344,9 +2346,10 @@ const CAT_TILES = {
 };
 function catTilesHTML(){
   return `<div class="cat-tiles">${CATEGORIES.map((c, i) => { const t = CAT_TILES[c.key] || {};
-    return `<button type="button" class="cat-tile ${t.img ? 'has-photo' : 'no-photo' + (i % 2 ? ' alt' : '')}" data-action="pick-category" data-key="${c.key}">
-      ${t.img ? `<img src="${t.img}" alt="" loading="lazy" ${t.pos ? `style="object-position:${t.pos}"` : ''}/>` : ''}
+    const alt = (Math.floor(i / 2) + i) % 2;   // checkered
+    return `<button type="button" class="cat-tile no-photo${alt ? ' alt' : ''}" data-action="pick-category" data-key="${c.key}">
       <span class="cat-tile-txt"><b>${c.name}</b>${t.sub ? `<span>${t.sub}</span>` : ''}</span>
+      <span class="cat-tile-go" aria-hidden="true">›</span>
     </button>`; }).join('')}</div>`;
 }
 
@@ -2374,8 +2377,8 @@ const LOOKBOOK = {
     { src:"photos/sew-in-fulani-braids.jpg", name:"Fulani Braids", sub:"Paired with a sew-in" },
   ],
   cornrows: [
-    { src:"photos/braid-down.jpg", name:"Braid Down", sub:"For under a wig or half wig" },
     { src:"photos/cornrows-straight-back.jpg", name:"Straight Back", sub:"Cornrows" },
+    { src:"photos/braid-down.jpg", name:"Braid Down", sub:"For under a wig or half wig" },
   ],
 };
 // The Luxury Care Kit (the pink box), wrapped and opened. Put the files in the photos folder with these names; until then nothing shows.
